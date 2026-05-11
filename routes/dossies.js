@@ -3,31 +3,33 @@ const fs      = require('fs');
 const path    = require('path');
 const router  = express.Router();
 
-// No Vercel (serverless) usa /tmp, que e gravavel mas efemero por instancia.
-// Em producao propria, persiste em data/dossies.json normalmente.
-const IS_VERCEL  = !!process.env.VERCEL;
-const DATA_DIR   = IS_VERCEL ? '/tmp' : path.join(__dirname, '..', 'data');
-const DATA_FILE  = path.join(DATA_DIR, 'dossies.json');
+// Usa Vercel KV quando as variaveis de ambiente estiverem presentes (producao).
+// Cai para arquivo JSON em desenvolvimento local.
+const USE_KV    = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+const STORE_KEY = 'sbk_dossies';
+
+// --- armazenamento em arquivo (fallback local) ---
+const DATA_DIR  = process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data');
+const DATA_FILE = path.join(DATA_DIR, 'dossies.json');
 
 function ensureDir() {
-  if (!IS_VERCEL && !fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!process.env.VERCEL && !fs.existsSync(DATA_DIR))
+    fs.mkdirSync(DATA_DIR, { recursive: true });
 }
-
-function read() {
+function readFile() {
   ensureDir();
   try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
   catch { return []; }
 }
-
-function write(list) {
+function writeFile(list) {
   ensureDir();
   fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
 }
 
-function seed() {
-  if (read().length > 0) return;
+// --- dados de demonstracao ---
+function buildSeed() {
   const now = Date.now();
-  write([
+  return [
     {
       id: 'demo1', ts: now - 86400000 * 2,
       name: 'Ana Beatriz Souza', cpf: '123.456.789-00', mat: '00541',
@@ -58,35 +60,71 @@ function seed() {
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao'],
       missing_req: ['Exame Admissional'], total: 4, req: 4,
     },
-  ]);
+  ];
 }
 
-seed();
+// --- helpers de leitura/escrita unificados ---
+async function readDossies() {
+  if (USE_KV) {
+    const { kv } = require('@vercel/kv');
+    const data = await kv.get(STORE_KEY);
+    if (!data) {
+      const seed = buildSeed();
+      await kv.set(STORE_KEY, seed);
+      return seed;
+    }
+    return data;
+  }
+  const list = readFile();
+  if (!list.length) {
+    const seed = buildSeed();
+    writeFile(seed);
+    return seed;
+  }
+  return list;
+}
 
-router.get('/', (_req, res) => {
-  res.json(read());
+async function writeDossies(list) {
+  if (USE_KV) {
+    const { kv } = require('@vercel/kv');
+    await kv.set(STORE_KEY, list);
+    return;
+  }
+  writeFile(list);
+}
+
+// --- rotas ---
+router.get('/', async (_req, res) => {
+  try { res.json(await readDossies()); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/:id', (req, res) => {
-  const entry = read().find(d => d.id === req.params.id);
-  if (!entry) return res.status(404).json({ error: 'Dossie nao encontrado.' });
-  res.json(entry);
+router.get('/:id', async (req, res) => {
+  try {
+    const entry = (await readDossies()).find(d => d.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: 'Dossie nao encontrado.' });
+    res.json(entry);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/', (req, res) => {
-  const entry = req.body;
-  if (!entry || !entry.id) return res.status(400).json({ error: 'Payload invalido.' });
-  const list = read();
-  const idx  = list.findIndex(d => d.id === entry.id);
-  if (idx >= 0) list[idx] = entry;
-  else list.unshift(entry);
-  write(list.slice(0, 500));
-  res.json({ ok: true });
+router.post('/', async (req, res) => {
+  try {
+    const entry = req.body;
+    if (!entry || !entry.id) return res.status(400).json({ error: 'Payload invalido.' });
+    const list = await readDossies();
+    const idx  = list.findIndex(d => d.id === entry.id);
+    if (idx >= 0) list[idx] = entry;
+    else list.unshift(entry);
+    await writeDossies(list.slice(0, 500));
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/:id', (req, res) => {
-  write(read().filter(d => d.id !== req.params.id));
-  res.json({ ok: true });
+router.delete('/:id', async (req, res) => {
+  try {
+    await writeDossies((await readDossies()).filter(d => d.id !== req.params.id));
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 module.exports = router;
