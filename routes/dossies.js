@@ -3,11 +3,14 @@ const fs      = require('fs');
 const path    = require('path');
 const router  = express.Router();
 
-const DATA_DIR  = path.join(__dirname, '..', 'data');
-const DATA_FILE = path.join(DATA_DIR, 'dossies.json');
+// No Vercel (serverless) usa /tmp, que e gravavel mas efemero por instancia.
+// Em producao propria, persiste em data/dossies.json normalmente.
+const IS_VERCEL  = !!process.env.VERCEL;
+const DATA_DIR   = IS_VERCEL ? '/tmp' : path.join(__dirname, '..', 'data');
+const DATA_FILE  = path.join(DATA_DIR, 'dossies.json');
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!IS_VERCEL && !fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
 function read() {

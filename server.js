@@ -15,6 +15,12 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`SBK Portal Documental rodando em http://localhost:${PORT}`);
-});
+// Sobe o servidor apenas quando executado diretamente (local).
+// No Vercel, o modulo e importado como funcao serverless.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`SBK Portal Documental rodando em http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
