@@ -11,6 +11,69 @@
 </head>
 <body>
 
+<!-- ═══════════════════════════════════════════════════════════════════
+     STARTUP OVERLAY
+═══════════════════════════════════════════════════════════════════ -->
+<div class="su-overlay" id="suOverlay">
+  <div class="su-box">
+
+    <div class="su-logo">
+      <div class="logo-sym">
+        <div class="lc lc1"></div>
+        <div class="lc lc2"></div>
+        <div class="lc lc3"></div>
+      </div>
+      <div>
+        <div class="logo-txt">SBK</div>
+        <div class="logo-sub">LEGAL OPERATIONS</div>
+      </div>
+    </div>
+
+    <div class="su-title">Portal Documental</div>
+    <div class="su-sub" id="suSub">Selecione seu perfil de acesso para continuar</div>
+
+    <!-- STEP 1: Profile -->
+    <div class="su-step" id="suStepProfile">
+      <div class="profile-grid">
+        <div class="profile-card" onclick="selectProfile('admin')">
+          <div class="pc-ico">&#9881;</div>
+          <div class="pc-name">Administrador</div>
+          <div class="pc-desc">Gerencia empresas, departamentos e configuracoes globais</div>
+        </div>
+        <div class="profile-card" onclick="selectProfile('company')">
+          <div class="pc-ico">&#127970;</div>
+          <div class="pc-name">Gestao de Empresa</div>
+          <div class="pc-desc">Visualiza todos os departamentos e pesquisa na empresa inteira</div>
+        </div>
+        <div class="profile-card" onclick="selectProfile('department')">
+          <div class="pc-ico">&#128101;</div>
+          <div class="pc-name">Departamental</div>
+          <div class="pc-desc">Gerencia dossies e configura o checklist do departamento</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: Company -->
+    <div class="su-step hidden" id="suStepCompany">
+      <button class="su-back" onclick="suBack('profile')">&#8592; Voltar</button>
+      <div class="su-step-lbl">Selecione a empresa</div>
+      <div class="su-company-grid" id="suCompanyGrid"></div>
+      <button class="su-new-btn" onclick="suPromptNewCompany()">+ Nova empresa</button>
+    </div>
+
+    <!-- STEP 3: Department -->
+    <div class="su-step hidden" id="suStepDept">
+      <button class="su-back" onclick="suBack('company')">&#8592; Voltar</button>
+      <div class="su-step-lbl">Selecione o departamento</div>
+      <div class="su-dept-grid" id="suDeptGrid"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MAIN LAYOUT
+═══════════════════════════════════════════════════════════════════ -->
 <div class="layout">
 
   <!-- HEADER -->
@@ -26,6 +89,12 @@
         <div class="logo-sub">LEGAL OPERATIONS</div>
       </div>
     </div>
+    <div class="ctx-bar hidden" id="ctxBar">
+      <span class="ctx-item" id="ctxCompany"></span>
+      <span class="ctx-sep" id="ctxSep">&#8250;</span>
+      <span class="ctx-item ctx-dept" id="ctxDept"></span>
+      <button class="ctx-switch" onclick="showStartup()">Trocar acesso</button>
+    </div>
     <div class="header-right">
       <button class="inc-btn" id="incHeaderBtn" onclick="showIncView()">
         <span>&#9888;</span> Inconsistencias
@@ -39,14 +108,102 @@
   </header>
 
   <!-- NAV -->
-  <nav class="nav">
+  <nav class="nav" id="mainNav">
     <div class="nt active" onclick="switchTab(this)">&#128101; RH</div>
     <div class="nt" onclick="switchTab(this)">&#129534; Notas Fiscais</div>
     <div class="nt" onclick="switchTab(this)">&#128203; Contratos</div>
     <div class="nt" onclick="switchTab(this)">&#128194; Documentos Variados</div>
   </nav>
 
-  <!-- MAIN VIEW -->
+  <!-- ── ADMIN VIEW ──────────────────────────────────────────────── -->
+  <div id="adminView" class="hidden body">
+
+    <div class="adm-header">
+      <div>
+        <div class="adm-title">&#9881; Administracao</div>
+        <div class="adm-sub">Gerencie empresas e departamentos da plataforma</div>
+      </div>
+      <button class="back-btn" onclick="showStartup()">&#8592; Trocar acesso</button>
+    </div>
+
+    <div class="adm-layout">
+
+      <!-- Companies column -->
+      <div class="adm-col">
+        <div class="adm-col-head">
+          <div class="adm-col-title">Empresas</div>
+          <button class="adm-add-btn" onclick="adminNewCompany()">+ Adicionar</button>
+        </div>
+        <div id="adminCompanyList">
+          <div class="adm-empty">Carregando...</div>
+        </div>
+      </div>
+
+      <!-- Departments column -->
+      <div class="adm-col">
+        <div class="adm-col-head">
+          <div class="adm-col-title">Departamentos</div>
+          <button class="adm-add-btn" id="adminNewDeptBtn" onclick="adminNewDept()" disabled>+ Adicionar</button>
+        </div>
+        <div id="adminDeptList">
+          <div class="adm-empty">Selecione uma empresa</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── COMPANY VIEW ────────────────────────────────────────────── -->
+  <div id="companyView" class="hidden body">
+
+    <div class="cv-header">
+      <div>
+        <div class="cv-title" id="cvTitle">Empresa</div>
+        <div class="cv-sub">Visao geral de todos os departamentos</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="adm-add-btn" onclick="cvNewDept()">+ Novo departamento</button>
+        <button class="back-btn" onclick="showStartup()">&#8592; Trocar acesso</button>
+      </div>
+    </div>
+
+    <!-- Company-wide search -->
+    <div class="search-panel" style="margin-bottom:24px;">
+      <div class="search-header">
+        <div class="search-title">Pesquisar em todos os departamentos</div>
+        <div class="search-hint">Busca global na empresa selecionada</div>
+      </div>
+      <div class="search-row">
+        <div class="fg">
+          <label>Nome</label>
+          <input type="text" id="cvSrchName" placeholder="Ex.: Maria Silva" oninput="cvLiveSearch()">
+        </div>
+        <div class="fg">
+          <label>CPF</label>
+          <input type="text" id="cvSrchCpf" placeholder="000.000.000-00" oninput="mCpfS(this); cvLiveSearch()">
+        </div>
+        <div class="fg">
+          <label>Matricula</label>
+          <input type="text" id="cvSrchMat" placeholder="Ex.: 00123" oninput="cvLiveSearch()">
+        </div>
+        <button class="sbtn" onclick="cvRunSearch()">&#128269; Buscar</button>
+      </div>
+      <div class="sresults-wrap" id="cvSrWrap">
+        <div class="sresults">
+          <div class="sresults-label" id="cvSrLabel">Resultados</div>
+          <div id="cvSrList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Department cards -->
+    <div class="cv-dept-grid" id="cvDeptGrid">
+      <div class="adm-empty">Carregando departamentos...</div>
+    </div>
+
+  </div>
+
+  <!-- ── MAIN VIEW (DEPARTAMENTAL) ──────────────────────────────── -->
   <div id="mainView">
   <main class="body">
 
@@ -118,6 +275,7 @@
           <div class="ptit">Checklist RH</div>
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="pinfo" id="pinfo">0 / 7</div>
+            <button class="edit-req-btn hidden" id="cfgClBtn" onclick="openClEditor()" title="Configurar checklist do departamento">&#9881; Configurar</button>
             <button class="edit-req-btn" id="editReqBtn" onclick="toggleEditMode()" title="Editar obrigatoriedade">&#9998; Editar</button>
           </div>
         </div>
@@ -169,7 +327,7 @@
   </main>
   </div><!-- /#mainView -->
 
-  <!-- INCONSISTENCIES VIEW -->
+  <!-- ── INCONSISTENCIES VIEW ────────────────────────────────────── -->
   <div id="incView" class="body">
 
     <div class="inc-page-header">
@@ -226,7 +384,9 @@
 
 </div><!-- /.layout -->
 
-<!-- IMPORT MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     IMPORT MODAL
+═══════════════════════════════════════════════════════════════════ -->
 <div class="imodal-overlay" id="importOverlay">
   <div class="imodal">
     <div class="imodal-head">
@@ -271,13 +431,50 @@
   </div>
 </div>
 
-<!-- SUCCESS OVERLAY -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     SUCCESS OVERLAY
+═══════════════════════════════════════════════════════════════════ -->
 <div class="success-overlay" id="successOverlay">
   <div class="success-card">
     <div class="success-icon">&#9989;</div>
     <div class="success-title" id="successTitle">Dossie finalizado!</div>
     <div class="success-sub" id="successSub">O dossie foi gerado com sucesso.</div>
     <button class="success-btn" onclick="closeSuccess()">Novo dossie</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     CHECKLIST EDITOR MODAL
+═══════════════════════════════════════════════════════════════════ -->
+<div class="cle-overlay hidden" id="clEditorOverlay">
+  <div class="cle-modal">
+    <div class="cle-head">
+      <div class="cle-title">&#9881; Configurar checklist padrao do departamento</div>
+      <button class="imodal-close" onclick="closeClEditor()">&#10005;</button>
+    </div>
+    <div class="cle-body">
+      <div class="cle-hint">Defina os documentos e a obrigatoriedade padrao para novos dossies deste departamento.</div>
+      <div id="cleList"></div>
+      <button class="cle-add-btn" onclick="cleAddItem()">+ Adicionar item</button>
+    </div>
+    <div class="cle-foot">
+      <button class="ibtn-sec" onclick="closeClEditor()">Cancelar</button>
+      <button class="ibtn-pri" onclick="saveClEditor()">&#10003; Salvar checklist</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     PROMPT MODAL (generic input)
+═══════════════════════════════════════════════════════════════════ -->
+<div class="prompt-overlay hidden" id="promptOverlay">
+  <div class="prompt-modal">
+    <div class="prompt-title" id="promptTitle">Nome</div>
+    <input class="prompt-input" type="text" id="promptInput" placeholder="">
+    <div class="prompt-btns">
+      <button class="ibtn-sec" onclick="closePrompt()">Cancelar</button>
+      <button class="ibtn-pri" id="promptOkBtn" onclick="confirmPrompt()">Confirmar</button>
+    </div>
   </div>
 </div>
 

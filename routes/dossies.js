@@ -25,31 +25,31 @@ function seed() {
   const now = Date.now();
   return [
     {
-      id: 'demo1', ts: now - 86400000 * 2,
+      id: 'demo1', ts: now - 86400000 * 2, companyId: 'comp_demo', departmentId: 'dept_rh',
       name: 'Ana Beatriz Souza', cpf: '123.456.789-00', mat: '00541',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao', 'Exame Admissional'],
       missing_req: [], total: 5, req: 5,
     },
     {
-      id: 'demo2', ts: now - 86400000 * 5,
+      id: 'demo2', ts: now - 86400000 * 5, companyId: 'comp_demo', departmentId: 'dept_rh',
       name: 'Carlos Eduardo Lima', cpf: '987.654.321-00', mat: '00312',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho'],
       missing_req: ['Ficha de Admissao', 'Exame Admissional'], total: 3, req: 3,
     },
     {
-      id: 'demo3', ts: now - 86400000 * 8,
+      id: 'demo3', ts: now - 86400000 * 8, companyId: 'comp_demo', departmentId: 'dept_rh',
       name: 'Fernanda Costa Ribeiro', cpf: '456.789.123-00', mat: '00218',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao', 'Exame Admissional', 'Foto 3x4'],
       missing_req: [], total: 6, req: 5,
     },
     {
-      id: 'demo4', ts: now - 86400000 * 3,
+      id: 'demo4', ts: now - 86400000 * 3, companyId: 'comp_demo', departmentId: 'dept_rh',
       name: 'Ricardo Almeida Neto', cpf: '321.654.987-00', mat: '00710',
       docs: ['CPF', 'Contrato de Trabalho', 'Ficha de Admissao'],
       missing_req: ['CNH / RG / Documento de Identidade', 'Exame Admissional'], total: 3, req: 3,
     },
     {
-      id: 'demo5', ts: now - 86400000 * 1,
+      id: 'demo5', ts: now - 86400000 * 1, companyId: 'comp_demo', departmentId: 'dept_rh',
       name: 'Juliana Martins Freitas', cpf: '111.222.333-00', mat: '00889',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao'],
       missing_req: ['Exame Admissional'], total: 4, req: 4,
@@ -67,9 +67,14 @@ function getOrSeed() {
   return list;
 }
 
-router.get('/', (_req, res) => {
-  try { res.json(getOrSeed()); }
-  catch (err) { res.status(500).json({ error: err.message }); }
+router.get('/', (req, res) => {
+  try {
+    let list = getOrSeed();
+    const { companyId, departmentId } = req.query;
+    if (companyId)    list = list.filter(d => d.companyId === companyId);
+    if (departmentId) list = list.filter(d => d.departmentId === departmentId);
+    res.json(list);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/:id', (req, res) => {
