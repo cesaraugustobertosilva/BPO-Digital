@@ -1249,3 +1249,138 @@ html, body {
   .cv-dept-grid   { grid-template-columns: 1fr; }
   .su-box         { padding: 28px 20px; }
 }
+
+/* ── LOGIN SCREEN ────────────────────────────────────────────────── */
+.login-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(1, 40, 36, .97);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-box {
+  width: 400px; max-width: 96vw;
+  background: white; border-radius: 20px;
+  padding: 40px; box-shadow: 0 32px 80px rgba(0,0,0,.35);
+  animation: scaleIn .25s ease;
+}
+.login-title { font-size: 20px; font-weight: 700; color: var(--sbk-dark); text-align: center; margin: 16px 0 4px; }
+.login-sub   { font-size: 12px; color: var(--sbk-slate); text-align: center; margin-bottom: 28px; font-weight: 300; }
+.login-form  { display: flex; flex-direction: column; gap: 14px; }
+.login-field { display: flex; flex-direction: column; gap: 5px; }
+.login-field label { font-size: 11px; font-weight: 700; color: var(--sbk-dark); text-transform: uppercase; letter-spacing: .5px; }
+.login-field input {
+  border: 1.5px solid #d0dae4; border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--sbk-dark); transition: border-color .15s;
+}
+.login-field input:focus { outline: none; border-color: var(--sbk-cyan); }
+.login-error {
+  font-size: 12px; color: #c0392b; font-weight: 600;
+  background: #fde8e8; border-radius: 6px; padding: 8px 12px;
+}
+.login-btn {
+  width: 100%; padding: 12px; border: none; border-radius: 8px;
+  background: var(--sbk-dark); color: white;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif; transition: all .15s;
+  margin-top: 4px;
+}
+.login-btn:hover:not(:disabled) { background: var(--sbk-mid); }
+.login-btn:disabled { opacity: .5; cursor: not-allowed; }
+.login-hint { font-size: 11px; color: #b0b8c1; text-align: center; margin-top: 20px; font-weight: 300; }
+
+/* ── USER WIDGET (header) ────────────────────────────────────────── */
+.user-widget {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,.08); border-radius: 10px;
+  padding: 6px 12px 6px 8px;
+}
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--sbk-cyan); color: white;
+  font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.user-name { font-size: 12px; font-weight: 700; color: white; }
+.user-role { font-size: 10px; color: rgba(255,255,255,.5); font-weight: 300; }
+.logout-btn {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.4); font-size: 16px; transition: color .15s;
+  padding: 0 0 0 4px;
+}
+.logout-btn:hover { color: white; }
+
+/* ── ADMIN TABS ───────────────────────────────────────────────────── */
+.adm-tabs-row {
+  display: flex; gap: 6px; margin-bottom: 20px;
+}
+.adm-tab {
+  padding: 9px 18px; border-radius: 8px; border: 1.5px solid #d0dae4;
+  background: white; color: var(--sbk-slate);
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif; transition: all .15s;
+}
+.adm-tab.active { background: var(--sbk-dark); color: white; border-color: var(--sbk-dark); }
+.adm-tab:hover:not(.active) { border-color: var(--sbk-cyan); }
+.adm-tab-panel { animation: fadeIn .2s ease; }
+
+/* ── USER LIST (admin) ───────────────────────────────────────────── */
+.user-list-table {
+  width: 100%; border-collapse: collapse;
+  background: white; border-radius: 12px; overflow: hidden;
+  border: 1px solid #e0e8ef;
+}
+.user-list-table th {
+  background: var(--sbk-off); padding: 12px 16px;
+  font-size: 11px; font-weight: 700; color: var(--sbk-slate);
+  text-transform: uppercase; letter-spacing: .5px; text-align: left;
+  border-bottom: 1px solid #e0e8ef;
+}
+.user-list-table td {
+  padding: 12px 16px; font-size: 13px; color: var(--sbk-dark);
+  border-bottom: 1px solid #f0f4f7; vertical-align: middle;
+}
+.user-list-table tr:last-child td { border-bottom: none; }
+.user-list-table tr:hover td { background: var(--sbk-off); }
+.role-badge {
+  display: inline-block; padding: 3px 9px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+}
+.role-badge.admin      { background: #e8f0fe; color: #1a4db0; }
+.role-badge.company    { background: #e8f4ec; color: #1a6b32; }
+.role-badge.department { background: #fff3e0; color: #8a4500; }
+.user-actions { display: flex; gap: 6px; }
+.user-edit-btn, .user-del-btn {
+  padding: 4px 10px; border-radius: 5px; border: none;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif; transition: all .12s;
+}
+.user-edit-btn { background: var(--sbk-off); color: var(--sbk-dark); }
+.user-edit-btn:hover { background: #d0dae4; }
+.user-del-btn  { background: #fde8e8; color: #a32d2d; }
+.user-del-btn:hover  { background: #fcd0c8; }
+
+/* ── USER FORM MODAL ─────────────────────────────────────────────── */
+.user-form-overlay {
+  position: fixed; inset: 0; z-index: 8500;
+  background: rgba(1,40,36,.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.user-form-modal {
+  width: 500px; max-width: 96vw; max-height: 90vh;
+  background: white; border-radius: 16px;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  animation: scaleIn .2s ease;
+}
+.user-form-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid #e0e8ef;
+}
+.user-form-title { font-size: 15px; font-weight: 700; color: var(--sbk-dark); }
+.user-form-body  { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.user-form-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.user-form-foot  {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 16px 24px; border-top: 1px solid #e0e8ef;
+}

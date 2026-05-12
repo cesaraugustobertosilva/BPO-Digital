@@ -2,6 +2,7 @@ const express = require('express');
 const fs      = require('fs');
 const path    = require('path');
 const router  = express.Router();
+const { requireAuth } = require('./auth-middleware');
 
 const DATA_DIR  = process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'dossies.json');
@@ -67,17 +68,22 @@ function getOrSeed() {
   return list;
 }
 
-router.get('/', (req, res) => {
+router.get('/', requireAuth, (req, res) => {
   try {
     let list = getOrSeed();
-    const { companyId, departmentId } = req.query;
-    if (companyId)    list = list.filter(d => d.companyId === companyId);
-    if (departmentId) list = list.filter(d => d.departmentId === departmentId);
+    const { role, companyId: uCo, departmentId: uDept } = req.user;
+    if (role === 'company')    list = list.filter(d => d.companyId === uCo);
+    if (role === 'department') list = list.filter(d => d.companyId === uCo && d.departmentId === uDept);
+    if (role === 'admin') {
+      const { companyId, departmentId } = req.query;
+      if (companyId)    list = list.filter(d => d.companyId === companyId);
+      if (departmentId) list = list.filter(d => d.departmentId === departmentId);
+    }
     res.json(list);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', requireAuth, (req, res) => {
   try {
     const entry = getOrSeed().find(d => d.id === req.params.id);
     if (!entry) return res.status(404).json({ error: 'Dossie nao encontrado.' });
@@ -85,7 +91,7 @@ router.get('/:id', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireAuth, (req, res) => {
   try {
     const entry = req.body;
     if (!entry || !entry.id) return res.status(400).json({ error: 'Payload invalido.' });
@@ -98,7 +104,7 @@ router.post('/', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireAuth, (req, res) => {
   try {
     writeDossies(getOrSeed().filter(d => d.id !== req.params.id));
     res.json({ ok: true });

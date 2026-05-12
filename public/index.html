@@ -11,63 +11,35 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     STARTUP OVERLAY
-═══════════════════════════════════════════════════════════════════ -->
-<div class="su-overlay" id="suOverlay">
-  <div class="su-box">
-
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
     <div class="su-logo">
       <div class="logo-sym">
-        <div class="lc lc1"></div>
-        <div class="lc lc2"></div>
-        <div class="lc lc3"></div>
+        <div class="lc lc1"></div><div class="lc lc2"></div><div class="lc lc3"></div>
       </div>
       <div>
         <div class="logo-txt">SBK</div>
         <div class="logo-sub">LEGAL OPERATIONS</div>
       </div>
     </div>
-
-    <div class="su-title">Portal Documental</div>
-    <div class="su-sub" id="suSub">Selecione seu perfil de acesso para continuar</div>
-
-    <!-- STEP 1: Profile -->
-    <div class="su-step" id="suStepProfile">
-      <div class="profile-grid">
-        <div class="profile-card" onclick="selectProfile('admin')">
-          <div class="pc-ico">&#9881;</div>
-          <div class="pc-name">Administrador</div>
-          <div class="pc-desc">Gerencia empresas, departamentos e configuracoes globais</div>
-        </div>
-        <div class="profile-card" onclick="selectProfile('company')">
-          <div class="pc-ico">&#127970;</div>
-          <div class="pc-name">Gestao de Empresa</div>
-          <div class="pc-desc">Visualiza todos os departamentos e pesquisa na empresa inteira</div>
-        </div>
-        <div class="profile-card" onclick="selectProfile('department')">
-          <div class="pc-ico">&#128101;</div>
-          <div class="pc-name">Departamental</div>
-          <div class="pc-desc">Gerencia dossies e configura o checklist do departamento</div>
-        </div>
+    <div class="login-title">Portal Documental</div>
+    <div class="login-sub">Faca login para acessar o sistema</div>
+    <div class="login-form">
+      <div class="login-field">
+        <label>Usuario</label>
+        <input type="text" id="loginUser" placeholder="Seu usuario" autocomplete="username"
+          onkeydown="if(event.key==='Enter') gel('loginPass').focus()">
       </div>
+      <div class="login-field">
+        <label>Senha</label>
+        <input type="password" id="loginPass" placeholder="Sua senha" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter') doLogin()">
+      </div>
+      <div class="login-error hidden" id="loginError">Credenciais invalidas</div>
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">Entrar</button>
     </div>
-
-    <!-- STEP 2: Company -->
-    <div class="su-step hidden" id="suStepCompany">
-      <button class="su-back" onclick="suBack('profile')">&#8592; Voltar</button>
-      <div class="su-step-lbl">Selecione a empresa</div>
-      <div class="su-company-grid" id="suCompanyGrid"></div>
-      <button class="su-new-btn" onclick="suPromptNewCompany()">+ Nova empresa</button>
-    </div>
-
-    <!-- STEP 3: Department -->
-    <div class="su-step hidden" id="suStepDept">
-      <button class="su-back" onclick="suBack('company')">&#8592; Voltar</button>
-      <div class="su-step-lbl">Selecione o departamento</div>
-      <div class="su-dept-grid" id="suDeptGrid"></div>
-    </div>
-
+    <div class="login-hint">Acesso restrito. Contate o administrador para obter credenciais.</div>
   </div>
 </div>
 
@@ -93,13 +65,21 @@
       <span class="ctx-item" id="ctxCompany"></span>
       <span class="ctx-sep" id="ctxSep">&#8250;</span>
       <span class="ctx-item ctx-dept" id="ctxDept"></span>
-      <button class="ctx-switch" onclick="showStartup()">Trocar acesso</button>
+      <button class="ctx-switch" onclick="doLogout()">Sair</button>
     </div>
     <div class="header-right">
-      <button class="inc-btn" id="incHeaderBtn" onclick="showIncView()">
+      <button class="inc-btn hidden" id="incHeaderBtn" onclick="showIncView()">
         <span>&#9888;</span> Inconsistencias
         <div class="inc-badge" id="incBadge">0</div>
       </button>
+      <div class="user-widget hidden" id="userWidget">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="userName">Usuario</div>
+          <div class="user-role" id="userRole">Perfil</div>
+        </div>
+        <button class="logout-btn" onclick="doLogout()" title="Sair">&#8594;</button>
+      </div>
       <div class="htag">
         <div class="htag-dot"></div>
         Portal Documental &middot; IA Ativa
@@ -123,33 +103,41 @@
         <div class="adm-title">&#9881; Administracao</div>
         <div class="adm-sub">Gerencie empresas e departamentos da plataforma</div>
       </div>
-      <button class="back-btn" onclick="showStartup()">&#8592; Trocar acesso</button>
+      <button class="back-btn" onclick="doLogout()">&#8594; Sair</button>
     </div>
 
-    <div class="adm-layout">
+    <div class="adm-tabs-row">
+      <button class="adm-tab active" id="admTabCompanies" onclick="adminSetTab('companies')">&#127970; Empresas e Deps</button>
+      <button class="adm-tab" id="admTabUsers" onclick="adminSetTab('users')">&#128100; Usuarios</button>
+    </div>
 
-      <!-- Companies column -->
-      <div class="adm-col">
-        <div class="adm-col-head">
-          <div class="adm-col-title">Empresas</div>
-          <button class="adm-add-btn" onclick="adminNewCompany()">+ Adicionar</button>
+    <!-- Tab: Companies/Departments -->
+    <div id="adminTabCompanies" class="adm-tab-panel">
+      <div class="adm-layout">
+        <div class="adm-col">
+          <div class="adm-col-head">
+            <div class="adm-col-title">Empresas</div>
+            <button class="adm-add-btn" onclick="adminNewCompany()">+ Adicionar</button>
+          </div>
+          <div id="adminCompanyList"><div class="adm-empty">Carregando...</div></div>
         </div>
-        <div id="adminCompanyList">
-          <div class="adm-empty">Carregando...</div>
+        <div class="adm-col">
+          <div class="adm-col-head">
+            <div class="adm-col-title">Departamentos</div>
+            <button class="adm-add-btn" id="adminNewDeptBtn" onclick="adminNewDept()" disabled>+ Adicionar</button>
+          </div>
+          <div id="adminDeptList"><div class="adm-empty">Selecione uma empresa</div></div>
         </div>
       </div>
+    </div>
 
-      <!-- Departments column -->
-      <div class="adm-col">
-        <div class="adm-col-head">
-          <div class="adm-col-title">Departamentos</div>
-          <button class="adm-add-btn" id="adminNewDeptBtn" onclick="adminNewDept()" disabled>+ Adicionar</button>
-        </div>
-        <div id="adminDeptList">
-          <div class="adm-empty">Selecione uma empresa</div>
-        </div>
+    <!-- Tab: Users -->
+    <div id="adminTabUsers" class="adm-tab-panel hidden">
+      <div class="adm-col-head" style="margin-bottom:16px;">
+        <div class="adm-col-title">Usuarios do sistema</div>
+        <button class="adm-add-btn" onclick="openUserForm()">+ Novo usuario</button>
       </div>
-
+      <div id="adminUserList"><div class="adm-empty">Carregando...</div></div>
     </div>
   </div>
 
@@ -163,7 +151,7 @@
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
         <button class="adm-add-btn" onclick="cvNewDept()">+ Novo departamento</button>
-        <button class="back-btn" onclick="showStartup()">&#8592; Trocar acesso</button>
+        <button class="back-btn" onclick="doLogout()">&#8594; Sair</button>
       </div>
     </div>
 
@@ -474,6 +462,57 @@
     <div class="prompt-btns">
       <button class="ibtn-sec" onclick="closePrompt()">Cancelar</button>
       <button class="ibtn-pri" id="promptOkBtn" onclick="confirmPrompt()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- USER FORM MODAL -->
+<div class="user-form-overlay hidden" id="userFormOverlay">
+  <div class="user-form-modal">
+    <div class="user-form-head">
+      <div class="user-form-title" id="userFormTitle">Novo usuario</div>
+      <button class="imodal-close" onclick="closeUserForm()">&#10005;</button>
+    </div>
+    <div class="user-form-body">
+      <div class="user-form-grid">
+        <div class="fg">
+          <label>Nome completo</label>
+          <input type="text" id="ufName" placeholder="Ex.: Ana Silva">
+        </div>
+        <div class="fg">
+          <label>Usuario (login)</label>
+          <input type="text" id="ufUsername" placeholder="Ex.: ana.silva" autocomplete="off">
+        </div>
+        <div class="fg">
+          <label>Senha <span id="ufPassHint" style="font-size:10px;color:#9aa;font-weight:300;"></span></label>
+          <input type="password" id="ufPassword" placeholder="Minimo 6 caracteres" autocomplete="new-password">
+        </div>
+        <div class="fg">
+          <label>Perfil de acesso</label>
+          <select id="ufRole" onchange="ufRoleChange()">
+            <option value="admin">Administrador</option>
+            <option value="company">Gestao de Empresa</option>
+            <option value="department">Departamental</option>
+          </select>
+        </div>
+        <div class="fg hidden" id="ufCompanyField">
+          <label>Empresa</label>
+          <select id="ufCompany" onchange="ufCompanyChange()">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="fg hidden" id="ufDeptField">
+          <label>Departamento</label>
+          <select id="ufDept">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+      </div>
+      <div class="login-error hidden" id="ufError">Erro ao salvar</div>
+    </div>
+    <div class="user-form-foot">
+      <button class="ibtn-sec" onclick="closeUserForm()">Cancelar</button>
+      <button class="ibtn-pri" onclick="saveUserForm()">&#10003; Salvar</button>
     </div>
   </div>
 </div>
