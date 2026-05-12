@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SBK · Portal Documental</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-sym">
+        <div class="lc lc1"></div>
+        <div class="lc lc2"></div>
+        <div class="lc lc3"></div>
+      </div>
+      <div>
+        <div class="logo-txt">SBK</div>
+        <div class="logo-sub">LEGAL OPERATIONS</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="inc-btn" id="incHeaderBtn" onclick="showIncView()">
+        <span>&#9888;</span> Inconsistencias
+        <div class="inc-badge" id="incBadge">0</div>
+      </button>
+      <div class="htag">
+        <div class="htag-dot"></div>
+        Portal Documental &middot; IA Ativa
+      </div>
+    </div>
+  </header>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nt active" onclick="switchTab(this)">&#128101; RH</div>
+    <div class="nt" onclick="switchTab(this)">&#129534; Notas Fiscais</div>
+    <div class="nt" onclick="switchTab(this)">&#128203; Contratos</div>
+    <div class="nt" onclick="switchTab(this)">&#128194; Documentos Variados</div>
+  </nav>
+
+  <!-- MAIN VIEW -->
+  <div id="mainView">
+  <main class="body">
+
+    <!-- STEP BAR -->
+    <div class="steps">
+      <div class="stp done" id="s1"><div class="sn">1</div><span class="slbl">Modulo</span></div>
+      <div class="sc done"></div>
+      <div class="stp active" id="s2"><div class="sn">2</div><span class="slbl">Colaborador</span></div>
+      <div class="sc" id="sc2"></div>
+      <div class="stp idle" id="s3"><div class="sn">3</div><span class="slbl">Upload</span></div>
+      <div class="sc" id="sc3"></div>
+      <div class="stp idle" id="s4"><div class="sn">4</div><span class="slbl">Validacao IA</span></div>
+    </div>
+
+    <!-- SEARCH PANEL -->
+    <div class="search-panel">
+      <div class="search-header">
+        <div class="search-title">Pesquisar dossies anteriores</div>
+        <div class="search-hint">Busque por qualquer um dos campos abaixo</div>
+      </div>
+      <div class="search-row">
+        <div class="fg">
+          <label>Nome</label>
+          <input type="text" id="srchName" placeholder="Ex.: Maria Silva" oninput="liveSearch()">
+        </div>
+        <div class="fg">
+          <label>CPF</label>
+          <input type="text" id="srchCpf" placeholder="000.000.000-00" oninput="mCpfS(this); liveSearch()">
+        </div>
+        <div class="fg">
+          <label>Matricula</label>
+          <input type="text" id="srchMat" placeholder="Ex.: 00123" oninput="liveSearch()">
+        </div>
+        <button class="sbtn" onclick="runSearch()">&#128269; Buscar</button>
+      </div>
+      <div class="sresults-wrap" id="srWrap">
+        <div class="sresults">
+          <div class="sresults-label" id="srLabel">Resultados</div>
+          <div id="srList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPLOYEE -->
+    <div class="ecard">
+      <div class="etit">Dados do Colaborador</div>
+      <div class="frow">
+        <div class="fg">
+          <label>Nome completo</label>
+          <input type="text" id="eName" placeholder="Ex.: Maria Silva" oninput="chkEmp()">
+        </div>
+        <div class="fg">
+          <label>CPF</label>
+          <input type="text" id="eCpf" placeholder="000.000.000-00" oninput="mCpf(this); chkEmp()">
+        </div>
+        <div class="fg">
+          <label>Matricula</label>
+          <input type="text" id="eMat" placeholder="Ex.: 00123" oninput="chkEmp()">
+        </div>
+      </div>
+    </div>
+
+    <!-- TWO COLUMNS -->
+    <div class="tcol">
+
+      <!-- CHECKLIST -->
+      <div class="cpanel">
+        <div class="ph">
+          <div class="ptit">Checklist RH</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="pinfo" id="pinfo">0 / 7</div>
+            <button class="edit-req-btn" id="editReqBtn" onclick="toggleEditMode()" title="Editar obrigatoriedade">&#9998; Editar</button>
+          </div>
+        </div>
+        <div class="pbw"><div class="pbf" id="pbf" style="width:0%"></div></div>
+        <div class="edit-mode-bar" id="editModeBar">&#9998; <strong>Modo edicao:</strong> clique em Obrigatorio / Opcional para alterar cada item.</div>
+        <div id="clist"></div>
+        <button class="impbtn" onclick="openImport()">&#128202; Importar layout via planilha (.xlsx)</button>
+      </div>
+
+      <!-- UPLOAD -->
+      <div class="upanel">
+        <div class="uzone" id="uzone"
+          onclick="trigUp()"
+          ondragover="dOver(event)"
+          ondragleave="dLeave(event)"
+          ondrop="dDrop(event)">
+          <div class="uglow"></div>
+          <div class="uiw">&#128206;</div>
+          <div class="ucta">+ Upload Documental</div>
+          <div class="usub">Clique ou arraste &middot; IA analisa o conteudo real</div>
+          <div class="upills">
+            <span class="upill">PDF</span>
+            <span class="upill">JPG / PNG</span>
+            <span class="upill">DOCX</span>
+          </div>
+        </div>
+        <div class="toast" id="toast">
+          <div class="tdot"></div>
+          <span id="tmsg">Aguardando documentos...</span>
+        </div>
+        <div class="dlist">
+          <div class="dltit">Documentos enviados</div>
+          <div id="doclist"></div>
+        </div>
+      </div>
+
+    </div><!-- /tcol -->
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <div class="fstats">
+        <div class="stat"><div class="sv" id="stDocs">0</div><div class="slb">Enviados</div></div>
+        <div class="stat"><div class="sv ok" id="stDet">0</div><div class="slb">Detectados</div></div>
+        <div class="stat"><div class="sv" id="stPend">7</div><div class="slb">Pendentes</div></div>
+      </div>
+      <button class="fbtn" id="finBtn" disabled onclick="finalize()">Finalizar Dossie</button>
+    </div>
+
+  </main>
+  </div><!-- /#mainView -->
+
+  <!-- INCONSISTENCIES VIEW -->
+  <div id="incView" class="body">
+
+    <div class="inc-page-header">
+      <div>
+        <div class="inc-page-title">&#9888; Inconsistencias documentais</div>
+        <div class="inc-page-sub">Prontuarios com documentos obrigatorios pendentes</div>
+      </div>
+      <button class="back-btn" onclick="hideIncView()">&larr; Voltar ao portal</button>
+    </div>
+
+    <div class="inc-summary">
+      <div class="inc-stat">
+        <div class="inc-stat-val slate" id="incTotalCount">0</div>
+        <div class="inc-stat-lbl">Total de dossies</div>
+      </div>
+      <div class="inc-stat">
+        <div class="inc-stat-val red" id="incCriticalCount">0</div>
+        <div class="inc-stat-lbl">Criticos (2+ faltando)</div>
+      </div>
+      <div class="inc-stat">
+        <div class="inc-stat-val amber" id="incWarningCount">0</div>
+        <div class="inc-stat-lbl">Atencao (1 faltando)</div>
+      </div>
+      <div class="inc-stat">
+        <div class="inc-stat-val green" id="incOkCount">0</div>
+        <div class="inc-stat-lbl">Completos</div>
+      </div>
+    </div>
+
+    <div class="inc-filters">
+      <button class="inc-filter-btn active" onclick="setIncFilter('all', this)">Todos</button>
+      <button class="inc-filter-btn" onclick="setIncFilter('critical', this)">&#9940; Criticos</button>
+      <button class="inc-filter-btn" onclick="setIncFilter('warning', this)">&#9888; Atencao</button>
+      <button class="inc-filter-btn" onclick="setIncFilter('ok', this)">&#10003; Completos</button>
+      <input class="inc-search-input" id="incSearchInput" placeholder="&#128269;  Filtrar por nome ou CPF..." oninput="renderIncTable()">
+    </div>
+
+    <div class="inc-table-wrap">
+      <table class="inc-table">
+        <thead>
+          <tr>
+            <th>Colaborador</th>
+            <th>Documentos faltando</th>
+            <th>Situacao</th>
+            <th>Ultima atualizacao</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="incTableBody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /#incView -->
+
+</div><!-- /.layout -->
+
+<!-- IMPORT MODAL -->
+<div class="imodal-overlay" id="importOverlay">
+  <div class="imodal">
+    <div class="imodal-head">
+      <div class="imodal-title"><span>&#128202;</span> Importar layout via planilha</div>
+      <button class="imodal-close" onclick="closeImport()">&#10005;</button>
+    </div>
+    <div class="imodal-body">
+      <div class="izone" id="izone"
+        onclick="document.getElementById('xlsxInput').click()"
+        ondragover="iDragOver(event)" ondragleave="iDragLeave(event)" ondrop="iDrop(event)">
+        <div class="izone-ico">&#128194;</div>
+        <div class="izone-cta">Clique ou arraste a planilha aqui</div>
+        <div class="izone-sub">A IA vai ler as colunas e montar o checklist automaticamente</div>
+        <span class="izone-pill">.xlsx &middot; .xls &middot; .csv</span>
+      </div>
+      <div class="imodal-hint">
+        <div class="imodal-hint-title">&#128203; Formato esperado da planilha</div>
+        A planilha deve ter ao menos duas colunas:
+        <code>documento</code> (nome do item) e <code>obrigatorio</code> (<code>sim</code> ou <code>nao</code>).
+        Cada linha vira um item no checklist. Colunas extras sao ignoradas.
+      </div>
+      <div class="ipreview" id="ipreview">
+        <div class="ipreview-header">
+          <span id="ipreviewLabel">Pre-visualizacao</span>
+          <span id="ipreviewCount" style="color:rgba(255,255,255,.5);font-size:10px;"></span>
+        </div>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Documento</th><th>Obrigatorio</th></tr>
+          </thead>
+          <tbody id="ipreviewBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="imodal-foot">
+      <div class="imodal-foot-info" id="iModalInfo">Nenhum arquivo carregado</div>
+      <div class="imodal-btns">
+        <button class="ibtn-sec" onclick="closeImport()">Cancelar</button>
+        <button class="ibtn-pri" id="iApplyBtn" disabled onclick="applyImport()">&#10003; Confirmar e aplicar checklist</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS OVERLAY -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-card">
+    <div class="success-icon">&#9989;</div>
+    <div class="success-title" id="successTitle">Dossie finalizado!</div>
+    <div class="success-sub" id="successSub">O dossie foi gerado com sucesso.</div>
+    <button class="success-btn" onclick="closeSuccess()">Novo dossie</button>
+  </div>
+</div>
+
+<input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.docx" onchange="handleFiles(event)" style="display:none">
+<input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" onchange="handleXlsx(event)" style="display:none">
+
+<script src="/js/app.js"></script>
+</body>
+</html>
