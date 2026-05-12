@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path    = require('path');
+const { requireAuth } = require('./routes/auth-middleware');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -8,20 +9,18 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/api/analyze', require('./routes/analyze'));
-app.use('/api/dossies', require('./routes/dossies'));
-app.use('/api/companies', require('./routes/companies'));
+app.use('/api/auth',      require('./routes/auth'));
+app.use('/api/users',     require('./routes/users'));
+app.use('/api/analyze',   requireAuth, require('./routes/analyze'));
+app.use('/api/companies', requireAuth, require('./routes/companies'));
+app.use('/api/dossies',   requireAuth, require('./routes/dossies'));
 
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Sobe o servidor apenas quando executado diretamente (local).
-// No Vercel, o modulo e importado como funcao serverless.
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`SBK Portal Documental rodando em http://localhost:${PORT}`);
-  });
+  app.listen(PORT, () => console.log(`SBK Portal Documental rodando em http://localhost:${PORT}`));
 }
 
 module.exports = app;

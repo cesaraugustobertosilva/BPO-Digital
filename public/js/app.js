@@ -1,3 +1,123 @@
+/* ── AUTH ────────────────────────────────────────────────────────── */
+const AUTH = {
+  token: localStorage.getItem('sbk_token') || null,
+  user:  null,
+};
+
+function authHdr() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + (AUTH.token || ''),
+  };
+}
+
+async function apiFetch(url, opts = {}) {
+  const resp = await fetch(url, { ...opts, headers: { ...authHdr(), ...(opts.headers || {}) } });
+  if (resp.status === 401) { doLogout(true); return null; }
+  return resp;
+}
+
+async function doLogin() {
+  const username = gel('loginUser').value.trim();
+  const password = gel('loginPass').value;
+  const errEl    = gel('loginError');
+  const btn      = gel('loginBtn');
+  errEl.classList.add('hidden');
+  if (!username || !password) { errEl.textContent = 'Preencha usuario e senha.'; errEl.classList.remove('hidden'); return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  try {
+    const resp = await fetch('/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) { errEl.textContent = data.error || 'Credenciais invalidas.'; errEl.classList.remove('hidden'); return; }
+    AUTH.token = data.token;
+    AUTH.user  = data.user;
+    localStorage.setItem('sbk_token', data.token);
+    hideLogin();
+    setupFromUser(data.user);
+  } catch (e) {
+    errEl.textContent = 'Erro de conexao. Tente novamente.'; errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+function doLogout(silent = false) {
+  AUTH.token = null; AUTH.user = null;
+  localStorage.removeItem('sbk_token');
+  STATE.profile = null; STATE.company = null; STATE.department = null;
+  gel('userWidget').classList.add('hidden');
+  gel('incHeaderBtn').classList.add('hidden');
+  gel('ctxBar').classList.add('hidden');
+  showLogin();
+  if (!silent) fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+}
+
+function showLogin() {
+  const ov = gel('loginOverlay');
+  ov.classList.remove('hidden');
+  ov.style.display = '';
+  gel('loginUser').value = '';
+  gel('loginPass').value = '';
+  gel('loginError').classList.add('hidden');
+  gel('loginBtn').disabled = false;
+  gel('loginBtn').textContent = 'Entrar';
+  setTimeout(() => gel('loginUser').focus(), 100);
+}
+
+function hideLogin() {
+  gel('loginOverlay').style.display = 'none';
+}
+
+async function setupFromUser(user) {
+  AUTH.user = user;
+  const roleLabels = { admin: 'Administrador', company: 'Gestao de Empresa', department: 'Departamental' };
+  gel('userName').textContent  = user.name;
+  gel('userRole').textContent  = roleLabels[user.role] || user.role;
+  gel('userAvatar').textContent = user.name.charAt(0).toUpperCase();
+  gel('userWidget').classList.remove('hidden');
+  gel('incHeaderBtn').classList.remove('hidden');
+
+  STATE.profile = user.role;
+
+  if (user.role === 'admin') {
+    STATE.company    = null;
+    STATE.department = null;
+    updateContextBar();
+    enterAdminView();
+    return;
+  }
+
+  // Load company data for company/department users
+  if (user.companyId) {
+    const companies = await apiGetCompanies();
+    STATE.company = companies.find(c => c.id === user.companyId) || null;
+  }
+
+  if (user.role === 'department' && user.departmentId && STATE.company) {
+    STATE.department = STATE.company.departments.find(d => d.id === user.departmentId) || null;
+    resetChecklistFromDept();
+  }
+
+  updateContextBar();
+
+  if (user.role === 'company')    { enterCompanyView(); return; }
+  if (user.role === 'department') { enterDeptView();    return; }
+}
+
+async function initApp() {
+  if (!AUTH.token) { showLogin(); return; }
+  try {
+    const resp = await fetch('/api/auth/me', { headers: authHdr() });
+    if (!resp.ok) { AUTH.token = null; localStorage.removeItem('sbk_token'); showLogin(); return; }
+    const user = await resp.json();
+    hideLogin();
+    await setupFromUser(user);
+  } catch { showLogin(); }
+}
+
 /* ── DEFAULT CHECKLIST ───────────────────────────────────────────── */
 const DEFAULT_CHECKLIST = [
   { id:'cnh',    name:'CNH / RG / Documento de Identidade', req:true  },
@@ -201,31 +321,34 @@ function enterDeptView() {
 
 /* ── API: COMPANIES ──────────────────────────────────────────────── */
 async function apiGetCompanies() {
-  try { const r = await fetch('/api/companies'); return r.ok ? r.json() : []; } catch { return []; }
+  try { const r = await apiFetch('/api/companies'); if (!r) return []; return r.ok ? r.json() : []; } catch { return []; }
 }
 async function apiPostCompany(name) {
   try {
-    const r = await fetch('/api/companies', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+    const r = await apiFetch('/api/companies', { method:'POST', body:JSON.stringify({name}) });
+    if (!r) return null;
     return r.ok ? r.json() : null;
   } catch { return null; }
 }
 async function apiPostDept(companyId, name) {
   try {
-    const r = await fetch(`/api/companies/${companyId}/departments`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+    const r = await apiFetch(`/api/companies/${companyId}/departments`, { method:'POST', body:JSON.stringify({name}) });
+    if (!r) return null;
     return r.ok ? r.json() : null;
   } catch { return null; }
 }
 async function apiPutDept(companyId, deptId, data) {
   try {
-    const r = await fetch(`/api/companies/${companyId}/departments/${deptId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+    const r = await apiFetch(`/api/companies/${companyId}/departments/${deptId}`, { method:'PUT', body:JSON.stringify(data) });
+    if (!r) return null;
     return r.ok ? r.json() : null;
   } catch { return null; }
 }
 async function apiDeleteCompany(id) {
-  try { await fetch('/api/companies/' + id, { method:'DELETE' }); } catch {}
+  try { await apiFetch('/api/companies/' + id, { method:'DELETE' }); } catch {}
 }
 async function apiDeleteDept(companyId, deptId) {
-  try { await fetch(`/api/companies/${companyId}/departments/${deptId}`, { method:'DELETE' }); } catch {}
+  try { await apiFetch(`/api/companies/${companyId}/departments/${deptId}`, { method:'DELETE' }); } catch {}
 }
 
 /* ── ADMIN PANEL ─────────────────────────────────────────────────── */
@@ -321,7 +444,8 @@ async function renderCvDeptCards() {
     return;
   }
   grid.innerHTML = '<div class="adm-empty">Carregando...</div>';
-  const all = await fetch('/api/dossies?companyId=' + STATE.company.id).then(r => r.json()).catch(() => []);
+  const _r1 = await apiFetch('/api/dossies?companyId=' + STATE.company.id);
+  const all  = _r1 ? await _r1.json().catch(() => []) : [];
   grid.innerHTML = depts.map(d => {
     const dossies  = all.filter(x => x.departmentId === d.id);
     const critical = dossies.filter(x => (x.missing_req||[]).length >= 2).length;
@@ -370,7 +494,8 @@ async function cvRunSearch() {
   const c   = gel('cvSrchCpf').value.trim().replace(/\D/g,'');
   const m   = gel('cvSrchMat').value.trim().toLowerCase();
   if (!n && !c && !m) { gel('cvSrWrap').classList.remove('open'); return; }
-  const all = await fetch('/api/dossies?companyId=' + STATE.company.id).then(r => r.json()).catch(() => []);
+  const _r2 = await apiFetch('/api/dossies?companyId=' + STATE.company.id);
+  const all  = _r2 ? await _r2.json().catch(() => []) : [];
   const hits = all.filter(d => {
     return (n && d.name.toLowerCase().includes(n)) ||
            (c && (d.cpf||'').replace(/\D/g,'').includes(c)) ||
@@ -395,8 +520,8 @@ async function cvRunSearch() {
 }
 
 async function cvLoadDossie(id) {
-  const resp  = await fetch('/api/dossies/' + id);
-  const entry = resp.ok ? await resp.json() : null;
+  const resp  = await apiFetch('/api/dossies/' + id);
+  const entry = resp?.ok ? await resp.json() : null;
   if (!entry) return;
   const dept = STATE.company?.departments?.find(d => d.id === entry.departmentId);
   if (dept) { STATE.department = dept; resetChecklistFromDept(); updateContextBar(); }
@@ -623,11 +748,11 @@ async function analyzeWithAI(file) {
     const text = await file.text().catch(() => 'Conteudo nao legivel');
     messages   = [{ role:'user', content:`Analise este documento (${file.name}):\n\n${text.substring(0,3000)}` }];
   }
-  const resp = await fetch('/api/analyze', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+  const resp = await apiFetch('/api/analyze', {
+    method:'POST',
     body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system:SYSTEM_PROMPT, messages }),
   });
-  if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error?.message || `HTTP ${resp.status}`); }
+  if (!resp || !resp.ok) { const err = resp ? await resp.json().catch(() => ({})) : {}; throw new Error(err.error?.message || `HTTP ${resp?.status || 401}`); }
   const data  = await resp.json();
   const raw   = data.content?.find(c => c.type === 'text')?.text || '{}';
   return JSON.parse(raw.replace(/```json|```/g, '').trim());
@@ -742,14 +867,15 @@ async function loadDossies() {
     const params = new URLSearchParams();
     if (STATE.company)    params.set('companyId',    STATE.company.id);
     if (STATE.department) params.set('departmentId', STATE.department.id);
-    const resp = await fetch('/api/dossies' + (params.toString() ? '?' + params : ''));
+    const resp = await apiFetch('/api/dossies' + (params.toString() ? '?' + params : ''));
+    if (!resp) return [];
     return resp.ok ? resp.json() : [];
   } catch { return []; }
 }
 
 async function saveDossie(entry) {
-  await fetch('/api/dossies', {
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry),
+  await apiFetch('/api/dossies', {
+    method:'POST', body:JSON.stringify(entry),
   });
 }
 
@@ -1039,8 +1165,8 @@ function renderSearchResults(hits) {
 function closeSearch() { document.getElementById('srWrap').classList.remove('open'); }
 
 async function loadDossie(id) {
-  const resp  = await fetch('/api/dossies/' + id);
-  const entry = resp.ok ? await resp.json() : null;
+  const resp  = await apiFetch('/api/dossies/' + id);
+  const entry = resp?.ok ? await resp.json() : null;
   if (!entry) return;
   document.getElementById('eName').value = entry.name;
   document.getElementById('eCpf').value  = entry.cpf || '';
@@ -1052,5 +1178,137 @@ async function loadDossie(id) {
   window.scrollTo({ top:0, behavior:'smooth' });
 }
 
+/* ── ADMIN: USER MANAGEMENT ──────────────────────────────────────── */
+let editingUserId = null;
+let userFormCompanies = [];
+
+function adminSetTab(tab) {
+  ['companies','users'].forEach(t => {
+    gel('admTab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+    gel('adminTab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('hidden', t !== tab);
+  });
+  if (tab === 'users') renderUserList();
+}
+
+async function renderUserList() {
+  const list = gel('adminUserList');
+  list.innerHTML = '<div class="adm-empty">Carregando...</div>';
+  const resp  = await apiFetch('/api/users');
+  if (!resp) return;
+  const users = await resp.json();
+  const companies = await apiGetCompanies();
+
+  if (!users.length) { list.innerHTML = '<div class="adm-empty">Nenhum usuario cadastrado.</div>'; return; }
+
+  const roleLbl = { admin:'Administrador', company:'Gestao de Empresa', department:'Departamental' };
+  list.innerHTML = `<table class="user-list-table">
+    <thead><tr>
+      <th>Nome</th><th>Usuario</th><th>Perfil</th><th>Empresa / Departamento</th><th></th>
+    </tr></thead>
+    <tbody>${users.map(u => {
+      const co   = companies.find(c => c.id === u.companyId);
+      const dept = co?.departments?.find(d => d.id === u.departmentId);
+      const scope = u.role === 'admin' ? 'Todos' : (co?.name || '') + (dept ? ' / ' + dept.name : '');
+      const safe = encodeURIComponent(JSON.stringify(u));
+      return `<tr>
+        <td>${u.name}</td>
+        <td style="color:var(--sbk-slate)">@${u.username}</td>
+        <td><span class="role-badge ${u.role}">${roleLbl[u.role]||u.role}</span></td>
+        <td style="font-size:12px;color:var(--sbk-slate)">${scope}</td>
+        <td><div class="user-actions">
+          <button class="user-edit-btn" onclick="openUserForm(decodeURIComponent('${safe}'))">Editar</button>
+          <button class="user-del-btn"  onclick="deleteUser('${u.id}','${u.name}')">Excluir</button>
+        </div></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+async function openUserForm(userJson) {
+  editingUserId = null;
+  userFormCompanies = await apiGetCompanies();
+
+  const coSel = gel('ufCompany');
+  coSel.innerHTML = '<option value="">Selecione...</option>' +
+    userFormCompanies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  if (userJson) {
+    const u = JSON.parse(typeof userJson === 'string' ? userJson : JSON.stringify(userJson));
+    editingUserId = u.id;
+    gel('userFormTitle').textContent = 'Editar usuario';
+    gel('ufPassHint').textContent    = '(deixe vazio para nao alterar)';
+    gel('ufName').value     = u.name;
+    gel('ufUsername').value = u.username;
+    gel('ufPassword').value = '';
+    gel('ufRole').value     = u.role;
+    if (u.companyId) coSel.value = u.companyId;
+    ufRoleChange();
+    if (u.departmentId) {
+      ufCompanyChange();
+      setTimeout(() => { gel('ufDept').value = u.departmentId; }, 50);
+    }
+  } else {
+    editingUserId = null;
+    gel('userFormTitle').textContent = 'Novo usuario';
+    gel('ufPassHint').textContent    = '';
+    gel('ufName').value = gel('ufUsername').value = gel('ufPassword').value = '';
+    gel('ufRole').value = 'department';
+    ufRoleChange();
+  }
+
+  gel('ufError').classList.add('hidden');
+  gel('userFormOverlay').classList.remove('hidden');
+}
+
+function closeUserForm() { gel('userFormOverlay').classList.add('hidden'); }
+
+function ufRoleChange() {
+  const role = gel('ufRole').value;
+  gel('ufCompanyField').classList.toggle('hidden', role === 'admin');
+  gel('ufDeptField').classList.toggle('hidden',    role !== 'department');
+}
+
+function ufCompanyChange() {
+  const coId = gel('ufCompany').value;
+  const co   = userFormCompanies.find(c => c.id === coId);
+  const sel  = gel('ufDept');
+  sel.innerHTML = '<option value="">Selecione...</option>' +
+    (co?.departments || []).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+}
+
+async function saveUserForm() {
+  const role     = gel('ufRole').value;
+  const name     = gel('ufName').value.trim();
+  const username = gel('ufUsername').value.trim();
+  const password = gel('ufPassword').value;
+  const coId     = gel('ufCompany').value || null;
+  const deptId   = gel('ufDept').value   || null;
+  const errEl    = gel('ufError');
+  errEl.classList.add('hidden');
+
+  if (!name || !username) { errEl.textContent = 'Nome e usuario sao obrigatorios.'; errEl.classList.remove('hidden'); return; }
+  if (!editingUserId && !password) { errEl.textContent = 'Senha obrigatoria para novo usuario.'; errEl.classList.remove('hidden'); return; }
+  if (password && password.length < 6) { errEl.textContent = 'Senha deve ter ao menos 6 caracteres.'; errEl.classList.remove('hidden'); return; }
+
+  const payload = { name, username, role, companyId: coId, departmentId: deptId };
+  if (password) payload.password = password;
+
+  const url  = editingUserId ? '/api/users/' + editingUserId : '/api/users';
+  const meth = editingUserId ? 'PUT' : 'POST';
+  const resp = await apiFetch(url, { method: meth, body: JSON.stringify(payload) });
+  if (!resp) return;
+  const data = await resp.json();
+  if (!resp.ok) { errEl.textContent = data.error || 'Erro ao salvar.'; errEl.classList.remove('hidden'); return; }
+  closeUserForm();
+  renderUserList();
+  toast(editingUserId ? 'Usuario atualizado.' : 'Usuario criado com sucesso.');
+}
+
+async function deleteUser(id, name) {
+  if (!confirm('Excluir usuario "' + name + '"?')) return;
+  const resp = await apiFetch('/api/users/' + id, { method: 'DELETE' });
+  if (resp?.ok) { toast('Usuario excluido.'); renderUserList(); }
+}
+
 /* ── INIT ────────────────────────────────────────────────────────── */
-showStartup();
+initApp();

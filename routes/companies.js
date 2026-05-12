@@ -2,6 +2,7 @@ const express = require('express');
 const fs      = require('fs');
 const path    = require('path');
 const router  = express.Router();
+const { requireAuth, requireAdmin } = require('./auth-middleware');
 
 const DATA_DIR  = process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'companies.json');
@@ -44,12 +45,12 @@ function getOrSeed() {
   return list;
 }
 
-router.get('/', (_req, res) => {
+router.get('/', requireAuth, (_req, res) => {
   try { res.json(getOrSeed()); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireAuth, requireAdmin, (req, res) => {
   try {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'Nome obrigatorio.' });
@@ -61,7 +62,7 @@ router.post('/', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', requireAuth, requireAdmin, (req, res) => {
   try {
     const list = getOrSeed();
     const idx  = list.findIndex(c => c.id === req.params.id);
@@ -72,14 +73,14 @@ router.put('/:id', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireAuth, requireAdmin, (req, res) => {
   try {
     writeCompanies(getOrSeed().filter(c => c.id !== req.params.id));
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/:id/departments', (req, res) => {
+router.get('/:id/departments', requireAuth, (req, res) => {
   try {
     const co = getOrSeed().find(c => c.id === req.params.id);
     if (!co) return res.status(404).json({ error: 'Empresa nao encontrada.' });
@@ -87,8 +88,11 @@ router.get('/:id/departments', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/:id/departments', (req, res) => {
+router.post('/:id/departments', requireAuth, (req, res) => {
   try {
+    const { role, companyId: uCo } = req.user;
+    if (role !== 'admin' && !(role === 'company' && uCo === req.params.id))
+      return res.status(403).json({ error: 'Acesso negado.' });
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'Nome obrigatorio.' });
     const list = getOrSeed();
@@ -101,8 +105,14 @@ router.post('/:id/departments', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.put('/:id/departments/:deptId', (req, res) => {
+router.put('/:id/departments/:deptId', requireAuth, (req, res) => {
   try {
+    const { role, companyId: uCo, departmentId: uDept } = req.user;
+    const isAdmin = role === 'admin';
+    const isCoMgr = role === 'company' && uCo === req.params.id;
+    const isDeptMgr = role === 'department' && uCo === req.params.id && uDept === req.params.deptId;
+    if (!isAdmin && !isCoMgr && !isDeptMgr)
+      return res.status(403).json({ error: 'Acesso negado.' });
     const list = getOrSeed();
     const co   = list.find(c => c.id === req.params.id);
     if (!co) return res.status(404).json({ error: 'Empresa nao encontrada.' });
@@ -114,7 +124,7 @@ router.put('/:id/departments/:deptId', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/:id/departments/:deptId', (req, res) => {
+router.delete('/:id/departments/:deptId', requireAuth, requireAdmin, (req, res) => {
   try {
     const list = getOrSeed();
     const co   = list.find(c => c.id === req.params.id);
