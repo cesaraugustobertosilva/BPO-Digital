@@ -1,15 +1,23 @@
-/* ── CHECKLIST DATA ──────────────────────────────────────────────── */
-const CHECKLIST = [
-  { id:'cnh',    name:'CNH / RG / Documento de Identidade', req:true,  checked:false, aiDetected:false, aiReason:'' },
-  { id:'cpf',    name:'CPF',                                req:true,  checked:false, aiDetected:false, aiReason:'' },
-  { id:'ctrato', name:'Contrato de Trabalho',               req:true,  checked:false, aiDetected:false, aiReason:'' },
-  { id:'admiss', name:'Ficha de Admissao',                  req:true,  checked:false, aiDetected:false, aiReason:'' },
-  { id:'exame',  name:'Exame Admissional',                  req:true,  checked:false, aiDetected:false, aiReason:'' },
-  { id:'resid',  name:'Comprovante de Residencia',          req:false, checked:false, aiDetected:false, aiReason:'' },
-  { id:'foto',   name:'Foto 3x4',                           req:false, checked:false, aiDetected:false, aiReason:'' },
+/* ── DEFAULT CHECKLIST ───────────────────────────────────────────── */
+const DEFAULT_CHECKLIST = [
+  { id:'cnh',    name:'CNH / RG / Documento de Identidade', req:true  },
+  { id:'cpf',    name:'CPF',                                req:true  },
+  { id:'ctrato', name:'Contrato de Trabalho',               req:true  },
+  { id:'admiss', name:'Ficha de Admissao',                  req:true  },
+  { id:'exame',  name:'Exame Admissional',                  req:true  },
+  { id:'resid',  name:'Comprovante de Residencia',          req:false },
+  { id:'foto',   name:'Foto 3x4',                           req:false },
 ];
 
+let CHECKLIST = DEFAULT_CHECKLIST.map(c => ({ ...c, checked:false, aiDetected:false, aiReason:'' }));
 let docs = [];
+
+/* ── APP STATE ───────────────────────────────────────────────────── */
+const STATE = {
+  profile:    null,  // 'admin' | 'company' | 'department'
+  company:    null,  // { id, name, departments[] }
+  department: null,  // { id, name, checklist[] }
+};
 
 /* ── SYSTEM PROMPT ───────────────────────────────────────────────── */
 const SYSTEM_PROMPT = `Voce e um assistente especializado em analise de documentos de RH para compliance documental.
@@ -42,30 +50,457 @@ Atencao especial:
 - Extraia o nome e CPF visiveis no documento em "nome_no_documento" e "cpf_no_documento".
 - Se o documento nao corresponder a nenhum item da lista, retorne checklist_id como null.`;
 
+/* ── HELPERS ─────────────────────────────────────────────────────── */
+const gel = id => document.getElementById(id);
+
+function resetChecklistFromDept() {
+  const tpl = STATE.department?.checklist || DEFAULT_CHECKLIST;
+  CHECKLIST.length = 0;
+  tpl.forEach(c => CHECKLIST.push({ ...c, checked:false, aiDetected:false, aiReason:'' }));
+}
+
+/* ── VIEW CONTROL ────────────────────────────────────────────────── */
+function showView(name) {
+  ['mainView','incView','adminView','companyView'].forEach(id => {
+    const e = gel(id);
+    if (e) { e.classList.add('hidden'); e.classList.remove('active'); }
+  });
+  const nav = gel('mainNav');
+  if (name === 'main' || name === 'inc') nav?.classList.remove('hidden');
+  else nav?.classList.add('hidden');
+
+  const target = gel(
+    name === 'main'    ? 'mainView'    :
+    name === 'inc'     ? 'incView'     :
+    name === 'admin'   ? 'adminView'   : 'companyView'
+  );
+  if (target) { target.classList.remove('hidden'); if (name === 'inc') target.classList.add('active'); }
+}
+
+function updateContextBar() {
+  const bar = gel('ctxBar');
+  if (!STATE.profile) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  const compEl = gel('ctxCompany');
+  const sepEl  = gel('ctxSep');
+  const deptEl = gel('ctxDept');
+  if (STATE.profile === 'admin') {
+    compEl.textContent = 'Administrador';
+    sepEl.classList.add('hidden'); deptEl.classList.add('hidden');
+    return;
+  }
+  compEl.textContent = STATE.company?.name || '';
+  if (STATE.department) {
+    sepEl.classList.remove('hidden'); deptEl.classList.remove('hidden');
+    deptEl.textContent = STATE.department.name;
+  } else {
+    sepEl.classList.add('hidden'); deptEl.classList.add('hidden');
+  }
+}
+
+/* ── STARTUP FLOW ────────────────────────────────────────────────── */
+function showStartup() {
+  const ov = gel('suOverlay');
+  ov.classList.remove('hidden');
+  ov.style.display = '';
+  suGoStep('profile');
+}
+
+function hideStartup() {
+  const ov = gel('suOverlay');
+  ov.style.display = 'none';
+}
+
+function suGoStep(step) {
+  ['suStepProfile','suStepCompany','suStepDept'].forEach(id => gel(id).classList.add('hidden'));
+  const map = { profile:'suStepProfile', company:'suStepCompany', dept:'suStepDept' };
+  gel(map[step]).classList.remove('hidden');
+  const subs = {
+    profile: 'Selecione seu perfil de acesso para continuar',
+    company: 'Selecione a empresa',
+    dept:    'Selecione o departamento',
+  };
+  gel('suSub').textContent = subs[step];
+}
+
+function suBack(step) { suGoStep(step); }
+
+async function selectProfile(profile) {
+  STATE.profile = profile; STATE.company = null; STATE.department = null;
+  if (profile === 'admin') {
+    hideStartup(); updateContextBar(); enterAdminView(); return;
+  }
+  const companies = await apiGetCompanies();
+  renderSuCompanyGrid(companies);
+  suGoStep('company');
+}
+
+function renderSuCompanyGrid(companies) {
+  const grid = gel('suCompanyGrid');
+  if (!companies.length) {
+    grid.innerHTML = '<div style="color:#6b7280;font-size:13px;text-align:center;padding:16px;">Nenhuma empresa cadastrada.</div>';
+    return;
+  }
+  grid.innerHTML = companies.map(c => {
+    const safe = encodeURIComponent(JSON.stringify(c));
+    return `<div class="su-company-card" onclick="selectCompany(decodeURIComponent('${safe}'))">
+      <div class="su-cc-ico">&#127970;</div>
+      <div><div class="su-cc-name">${c.name}</div>
+      <div class="su-cc-sub">${c.departments.length} departamento${c.departments.length !== 1 ? 's' : ''}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function selectCompany(companyJson) {
+  STATE.company = JSON.parse(typeof companyJson === 'string' ? companyJson : JSON.stringify(companyJson));
+  if (STATE.profile === 'company') { hideStartup(); updateContextBar(); enterCompanyView(); return; }
+  renderSuDeptGrid(STATE.company.departments);
+  suGoStep('dept');
+}
+
+function renderSuDeptGrid(departments) {
+  const grid = gel('suDeptGrid');
+  if (!departments.length) {
+    grid.innerHTML = '<div style="color:#6b7280;font-size:13px;text-align:center;padding:16px;">Nenhum departamento. Contate o administrador.</div>';
+    return;
+  }
+  grid.innerHTML = departments.map(d => {
+    const safe = encodeURIComponent(JSON.stringify(d));
+    return `<div class="su-dept-card" onclick="selectDepartment(decodeURIComponent('${safe}'))">
+      <div class="su-dc-ico">&#128101;</div>
+      <div class="su-dc-name">${d.name}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectDepartment(deptJson) {
+  STATE.department = JSON.parse(typeof deptJson === 'string' ? deptJson : JSON.stringify(deptJson));
+  resetChecklistFromDept();
+  hideStartup(); updateContextBar(); enterDeptView();
+}
+
+function suPromptNewCompany() {
+  openPrompt('Nome da empresa', 'Ex.: Acme Legal', async name => {
+    const c = await apiPostCompany(name);
+    if (c?.id) {
+      toast('Empresa "' + c.name + '" criada.');
+      renderSuCompanyGrid(await apiGetCompanies());
+    }
+  });
+}
+
+/* ── ENTER VIEWS ─────────────────────────────────────────────────── */
+function enterAdminView()   { showView('admin');   renderAdminPanel(); }
+function enterCompanyView() { showView('company'); renderCompanyView(); }
+function enterDeptView() {
+  showView('main');
+  const cfgBtn = gel('cfgClBtn');
+  if (cfgBtn) cfgBtn.classList.remove('hidden');
+  renderChecklist(); renderDocs(); updateIncBadge();
+}
+
+/* ── API: COMPANIES ──────────────────────────────────────────────── */
+async function apiGetCompanies() {
+  try { const r = await fetch('/api/companies'); return r.ok ? r.json() : []; } catch { return []; }
+}
+async function apiPostCompany(name) {
+  try {
+    const r = await fetch('/api/companies', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+    return r.ok ? r.json() : null;
+  } catch { return null; }
+}
+async function apiPostDept(companyId, name) {
+  try {
+    const r = await fetch(`/api/companies/${companyId}/departments`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+    return r.ok ? r.json() : null;
+  } catch { return null; }
+}
+async function apiPutDept(companyId, deptId, data) {
+  try {
+    const r = await fetch(`/api/companies/${companyId}/departments/${deptId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+    return r.ok ? r.json() : null;
+  } catch { return null; }
+}
+async function apiDeleteCompany(id) {
+  try { await fetch('/api/companies/' + id, { method:'DELETE' }); } catch {}
+}
+async function apiDeleteDept(companyId, deptId) {
+  try { await fetch(`/api/companies/${companyId}/departments/${deptId}`, { method:'DELETE' }); } catch {}
+}
+
+/* ── ADMIN PANEL ─────────────────────────────────────────────────── */
+let adminSelCompany = null;
+
+async function renderAdminPanel() {
+  const companies = await apiGetCompanies();
+  renderAdminCompanies(companies);
+  adminSelCompany = null;
+  gel('adminDeptList').innerHTML = '<div class="adm-empty">Selecione uma empresa</div>';
+  gel('adminNewDeptBtn').disabled = true;
+}
+
+function renderAdminCompanies(companies) {
+  const list = gel('adminCompanyList');
+  if (!companies.length) { list.innerHTML = '<div class="adm-empty">Nenhuma empresa cadastrada.</div>'; return; }
+  list.innerHTML = companies.map(c => {
+    const sel = adminSelCompany?.id === c.id ? 'sel' : '';
+    const safe = encodeURIComponent(JSON.stringify(c));
+    return `<div class="adm-item ${sel}" onclick="adminSelectCompany(decodeURIComponent('${safe}'))">
+      <div class="adm-item-ico">&#127970;</div>
+      <div class="adm-item-name">${c.name}</div>
+      <button class="adm-del-btn" onclick="event.stopPropagation();adminDeleteCompany('${c.id}')" title="Excluir">&#215;</button>
+    </div>`;
+  }).join('');
+}
+
+function adminSelectCompany(json) {
+  adminSelCompany = JSON.parse(json);
+  gel('adminNewDeptBtn').disabled = false;
+  renderAdminDepts(adminSelCompany);
+  apiGetCompanies().then(renderAdminCompanies);
+}
+
+function renderAdminDepts(company) {
+  const list = gel('adminDeptList');
+  if (!company.departments.length) { list.innerHTML = '<div class="adm-empty">Nenhum departamento.</div>'; return; }
+  list.innerHTML = company.departments.map(d =>
+    `<div class="adm-item">
+      <div class="adm-item-ico">&#128101;</div>
+      <div class="adm-item-name">${d.name}</div>
+      <button class="adm-del-btn" onclick="adminDeleteDept('${company.id}','${d.id}')" title="Excluir">&#215;</button>
+    </div>`
+  ).join('');
+}
+
+function adminNewCompany() {
+  openPrompt('Nome da empresa', 'Ex.: Acme Legal', async name => {
+    const c = await apiPostCompany(name);
+    if (c?.id) { toast('Empresa criada.'); renderAdminPanel(); }
+  });
+}
+
+function adminNewDept() {
+  if (!adminSelCompany) return;
+  openPrompt('Nome do departamento', 'Ex.: Recursos Humanos', async name => {
+    const d = await apiPostDept(adminSelCompany.id, name);
+    if (d?.id) {
+      toast('Departamento criado.');
+      const companies = await apiGetCompanies();
+      adminSelCompany = companies.find(c => c.id === adminSelCompany.id);
+      renderAdminDepts(adminSelCompany);
+      renderAdminCompanies(companies);
+    }
+  });
+}
+
+async function adminDeleteCompany(id) {
+  if (!confirm('Excluir esta empresa? Todos os departamentos serao removidos.')) return;
+  await apiDeleteCompany(id); toast('Empresa excluida.'); renderAdminPanel();
+}
+
+async function adminDeleteDept(companyId, deptId) {
+  if (!confirm('Excluir este departamento?')) return;
+  await apiDeleteDept(companyId, deptId);
+  toast('Departamento excluido.');
+  const companies = await apiGetCompanies();
+  adminSelCompany = companies.find(c => c.id === companyId);
+  if (adminSelCompany) { renderAdminDepts(adminSelCompany); renderAdminCompanies(companies); }
+}
+
+/* ── COMPANY VIEW ────────────────────────────────────────────────── */
+async function renderCompanyView() {
+  gel('cvTitle').textContent = STATE.company?.name || 'Empresa';
+  await renderCvDeptCards();
+}
+
+async function renderCvDeptCards() {
+  const grid  = gel('cvDeptGrid');
+  const depts = STATE.company?.departments || [];
+  if (!depts.length) {
+    grid.innerHTML = '<div class="adm-empty">Nenhum departamento. Clique em "+ Novo departamento".</div>';
+    return;
+  }
+  grid.innerHTML = '<div class="adm-empty">Carregando...</div>';
+  const all = await fetch('/api/dossies?companyId=' + STATE.company.id).then(r => r.json()).catch(() => []);
+  grid.innerHTML = depts.map(d => {
+    const dossies  = all.filter(x => x.departmentId === d.id);
+    const critical = dossies.filter(x => (x.missing_req||[]).length >= 2).length;
+    const warning  = dossies.filter(x => (x.missing_req||[]).length === 1).length;
+    const ok       = dossies.filter(x => (x.missing_req||[]).length === 0).length;
+    const safe     = encodeURIComponent(JSON.stringify(d));
+    return `<div class="cv-dept-card" onclick="cvEnterDept(decodeURIComponent('${safe}'))">
+      <div class="cv-dc-head"><div class="cv-dc-ico">&#128101;</div><div class="cv-dc-name">${d.name}</div></div>
+      <div class="cv-dc-stats">
+        <div class="cv-dc-stat"><span class="cv-stat-val">${dossies.length}</span><span class="cv-stat-lbl">Dossies</span></div>
+        <div class="cv-dc-stat"><span class="cv-stat-val red">${critical}</span><span class="cv-stat-lbl">Criticos</span></div>
+        <div class="cv-dc-stat"><span class="cv-stat-val amber">${warning}</span><span class="cv-stat-lbl">Atencao</span></div>
+        <div class="cv-dc-stat"><span class="cv-stat-val green">${ok}</span><span class="cv-stat-lbl">Completos</span></div>
+      </div>
+      <div class="cv-dc-footer">Acessar departamento &rarr;</div>
+    </div>`;
+  }).join('');
+}
+
+function cvEnterDept(json) {
+  STATE.department = JSON.parse(json);
+  resetChecklistFromDept(); updateContextBar(); enterDeptView();
+}
+
+function cvNewDept() {
+  openPrompt('Nome do departamento', 'Ex.: Financeiro', async name => {
+    const d = await apiPostDept(STATE.company.id, name);
+    if (d?.id) {
+      const companies = await apiGetCompanies();
+      STATE.company = companies.find(c => c.id === STATE.company.id);
+      toast('Departamento "' + d.name + '" criado.'); renderCvDeptCards();
+    }
+  });
+}
+
+async function cvLiveSearch() {
+  const n = gel('cvSrchName').value.trim();
+  const c = gel('cvSrchCpf').value.trim();
+  const m = gel('cvSrchMat').value.trim();
+  if (!n && !c && !m) { gel('cvSrWrap').classList.remove('open'); return; }
+  await cvRunSearch();
+}
+
+async function cvRunSearch() {
+  const n   = gel('cvSrchName').value.trim().toLowerCase();
+  const c   = gel('cvSrchCpf').value.trim().replace(/\D/g,'');
+  const m   = gel('cvSrchMat').value.trim().toLowerCase();
+  if (!n && !c && !m) { gel('cvSrWrap').classList.remove('open'); return; }
+  const all = await fetch('/api/dossies?companyId=' + STATE.company.id).then(r => r.json()).catch(() => []);
+  const hits = all.filter(d => {
+    return (n && d.name.toLowerCase().includes(n)) ||
+           (c && (d.cpf||'').replace(/\D/g,'').includes(c)) ||
+           (m && (d.mat||'').toLowerCase().includes(m));
+  });
+  const wrap = gel('cvSrWrap'); wrap.classList.add('open');
+  gel('cvSrLabel').textContent = hits.length ? hits.length + ' dossie(s) encontrado(s)' : 'Nenhum resultado';
+  gel('cvSrList').innerHTML = hits.length ? hits.map(d => {
+    const initials = d.name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+    const date     = new Date(d.ts).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
+    const dept     = STATE.company?.departments?.find(dep => dep.id === d.departmentId)?.name || '';
+    return `<div class="sresult-item" onclick="cvLoadDossie('${d.id}')">
+      <div class="sresult-avatar">${initials}</div>
+      <div class="sresult-meta">
+        <div class="sresult-name">${d.name}</div>
+        <div class="sresult-info">CPF: ${d.cpf||'nao informado'} &middot; ${dept}</div>
+      </div>
+      <div class="sresult-date">${date}</div>
+      <div class="sresult-arrow">&#8250;</div>
+    </div>`;
+  }).join('') : '<div class="sno-results">Nenhum dossie encontrado.</div>';
+}
+
+async function cvLoadDossie(id) {
+  const resp  = await fetch('/api/dossies/' + id);
+  const entry = resp.ok ? await resp.json() : null;
+  if (!entry) return;
+  const dept = STATE.company?.departments?.find(d => d.id === entry.departmentId);
+  if (dept) { STATE.department = dept; resetChecklistFromDept(); updateContextBar(); }
+  gel('cvSrWrap').classList.remove('open');
+  enterDeptView();
+  gel('eName').value = entry.name;
+  gel('eCpf').value  = entry.cpf || '';
+  gel('eMat').value  = entry.mat || '';
+  chkEmp();
+  toast('Dossie de ' + entry.name + ' carregado.');
+}
+
+/* ── CHECKLIST EDITOR ────────────────────────────────────────────── */
+let cleItems = [];
+
+function openClEditor() {
+  if (!STATE.department) return;
+  cleItems = (STATE.department.checklist || DEFAULT_CHECKLIST).map(c => ({...c}));
+  renderClEditor();
+  gel('clEditorOverlay').classList.remove('hidden');
+}
+
+function closeClEditor() { gel('clEditorOverlay').classList.add('hidden'); }
+
+function renderClEditor() {
+  gel('cleList').innerHTML = cleItems.map((item, i) =>
+    `<div class="cle-item">
+      <input class="cle-name-input" value="${item.name.replace(/"/g,'&quot;')}"
+        oninput="cleItems[${i}].name = this.value" placeholder="Nome do documento">
+      <label class="cle-req-toggle">
+        <input type="checkbox" ${item.req ? 'checked' : ''} onchange="cleItems[${i}].req = this.checked">
+        <span>Obrigatorio</span>
+      </label>
+      <button class="cle-del-btn" onclick="cleRemoveItem(${i})">&#215;</button>
+    </div>`
+  ).join('');
+}
+
+function cleRemoveItem(i) { cleItems.splice(i, 1); renderClEditor(); }
+
+function cleAddItem() {
+  cleItems.push({ id:'item_' + Date.now(), name:'', req:true });
+  renderClEditor();
+  const inputs = gel('cleList').querySelectorAll('.cle-name-input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+async function saveClEditor() {
+  const valid = cleItems.filter(c => c.name.trim().length > 0);
+  if (!valid.length) { toast('Adicione ao menos um item ao checklist.'); return; }
+  const updated = await apiPutDept(STATE.company.id, STATE.department.id, { checklist: valid });
+  if (updated) {
+    STATE.department = updated;
+    const idx = STATE.company.departments.findIndex(d => d.id === updated.id);
+    if (idx >= 0) STATE.company.departments[idx] = updated;
+    resetChecklistFromDept(); renderChecklist(); closeClEditor();
+    toast('Checklist do departamento atualizado.');
+  }
+}
+
+/* ── GENERIC PROMPT ──────────────────────────────────────────────── */
+let promptCb = null;
+
+function openPrompt(title, placeholder, cb) {
+  gel('promptTitle').textContent = title;
+  gel('promptInput').placeholder = placeholder;
+  gel('promptInput').value = '';
+  promptCb = cb;
+  gel('promptOverlay').classList.remove('hidden');
+  setTimeout(() => gel('promptInput').focus(), 50);
+}
+
+function closePrompt() { gel('promptOverlay').classList.add('hidden'); promptCb = null; }
+function confirmPrompt() {
+  const val = gel('promptInput').value.trim();
+  if (!val) return;
+  closePrompt();
+  if (promptCb) promptCb(val);
+}
+
+document.addEventListener('keydown', e => {
+  if (!gel('promptOverlay').classList.contains('hidden')) {
+    if (e.key === 'Enter') confirmPrompt();
+    if (e.key === 'Escape') closePrompt();
+  }
+});
+
 /* ── RENDER CHECKLIST ────────────────────────────────────────────── */
 let editMode = false;
 
 function renderChecklist() {
   const el = document.getElementById('clist');
   el.innerHTML = CHECKLIST.map(item => {
-    const cls   = item.checked ? (item.aiDetected ? 'ai-det' : 'chk') : '';
-    const badge = item.aiDetected
+    const cls    = item.checked ? (item.aiDetected ? 'ai-det' : 'chk') : '';
+    const badge  = item.aiDetected
       ? '<span class="ibadge bai">IA</span>'
       : (item.req ? '<span class="ibadge breq">Obrigatorio</span>' : '<span class="ibadge bopt">Opcional</span>');
-    const reason = item.aiReason
-      ? `<div class="cin-reason show">${item.aiReason}</div>`
-      : '';
-
+    const reason = item.aiReason ? `<div class="cin-reason show">${item.aiReason}</div>` : '';
     const toggle = `<div class="req-toggle" onclick="event.stopPropagation()">
-      <button class="req-toggle-opt ${item.req ? 'sel-req' : ''}"
-        onclick="setReq('${item.id}', true)">Obrigatorio</button>
-      <button class="req-toggle-opt ${!item.req ? 'sel-opt' : ''}"
-        onclick="setReq('${item.id}', false)">Opcional</button>
+      <button class="req-toggle-opt ${item.req ? 'sel-req' : ''}" onclick="setReq('${item.id}',true)">Obrigatorio</button>
+      <button class="req-toggle-opt ${!item.req ? 'sel-opt' : ''}" onclick="setReq('${item.id}',false)">Opcional</button>
     </div>`;
-
     const editCls = editMode ? 'edit-mode' : '';
     const clickFn = editMode ? '' : `onclick="toggleItem('${item.id}')"`;
-
     return `<div class="ci ${editCls}" ${clickFn}>
       <div class="cb ${cls}" id="cb_${item.id}"></div>
       <div class="cin" style="flex:1;min-width:0;">
@@ -97,21 +532,16 @@ function toggleEditMode() {
 function toggleItem(id) {
   if (editMode) return;
   const item = CHECKLIST.find(i => i.id === id);
-  if (item) {
-    item.checked    = !item.checked;
-    item.aiDetected = false;
-    item.aiReason   = '';
-    renderChecklist();
-  }
+  if (item) { item.checked = !item.checked; item.aiDetected = false; item.aiReason = ''; renderChecklist(); }
 }
 
 /* ── STATS ───────────────────────────────────────────────────────── */
 function updateStats() {
   const chk   = CHECKLIST.filter(i => i.checked).length;
   const total = CHECKLIST.length;
-  const pct   = Math.round((chk / total) * 100);
-  document.getElementById('pbf').style.width   = pct + '%';
-  document.getElementById('pinfo').textContent = chk + ' / ' + total;
+  const pct   = total ? Math.round((chk / total) * 100) : 0;
+  document.getElementById('pbf').style.width    = pct + '%';
+  document.getElementById('pinfo').textContent  = chk + ' / ' + total;
   document.getElementById('stDet').textContent  = chk;
   document.getElementById('stPend').textContent = total - chk;
   document.getElementById('stDocs').textContent = docs.length;
@@ -123,44 +553,34 @@ function updateStats() {
 /* ── RENDER DOCS ─────────────────────────────────────────────────── */
 function renderDocs() {
   const el = document.getElementById('doclist');
-  if (!docs.length) {
-    el.innerHTML = '<div class="empty">Nenhum documento enviado ainda</div>';
-    return;
-  }
+  if (!docs.length) { el.innerHTML = '<div class="empty">Nenhum documento enviado ainda</div>'; return; }
   const icoMap = { pdf:'&#128196;', jpg:'&#128444;', jpeg:'&#128444;', png:'&#128444;', docx:'&#128221;', doc:'&#128221;', xlsx:'&#128202;' };
   const clsMap = { pdf:'ico-pdf', jpg:'ico-img', jpeg:'ico-img', png:'ico-img', docx:'ico-doc', doc:'ico-doc', xlsx:'ico-xlsx' };
   el.innerHTML = docs.map(d => {
-    const ext  = d.name.split('.').pop().toLowerCase();
-    const ico  = icoMap[ext] || '&#128206;';
-    const cls  = clsMap[ext] || 'ico-doc';
+    const ext = d.name.split('.').pop().toLowerCase();
+    const ico = icoMap[ext] || '&#128206;', cls = clsMap[ext] || 'ico-doc';
     let statusHtml = '';
     if      (d.status === 'analyzing') statusHtml = `<div class="dstatus s-analyzing"><div class="spin"></div> Analisando com IA...</div>`;
     else if (d.status === 'done')      statusHtml = `<div class="dstatus s-done">&#10003; ${d.result || 'Identificado'}</div>`;
     else                               statusHtml = `<div class="dstatus s-error">&#10007; ${d.error || 'Erro'}</div>`;
     const analysis = d.analysis ? `<div class="danalysis show">${d.analysis}</div>` : '';
-
     let alertHtml = '';
     if (d.identityAlert) {
-      alertHtml = `<div class="id-alert" id="idalert_${d.id}">
-        <div class="id-alert-icon">&#9888;</div>
+      alertHtml = `<div class="id-alert"><div class="id-alert-icon">&#9888;</div>
         <div class="id-alert-body">
           <div class="id-alert-title">Inspecao humana necessaria</div>
           <div class="id-alert-msg">${d.identityAlert}</div>
           <div class="id-alert-actions">
             <button class="id-alert-confirm" onclick="confirmIdentity(${d.id})">Confirmar mesmo assim</button>
-            <button class="id-alert-remove"  onclick="remDoc(${d.id})">Remover documento</button>
+            <button class="id-alert-remove" onclick="remDoc(${d.id})">Remover documento</button>
           </div>
-        </div>
-      </div>`;
+        </div></div>`;
     }
-
     return `<div class="ditem" id="ditem_${d.id}">
       <div class="dico ${cls}">${ico}</div>
       <div class="dmeta" style="flex:1;min-width:0;">
         <div class="dname" title="${d.name}">${d.name}</div>
-        ${statusHtml}
-        ${analysis}
-        ${alertHtml}
+        ${statusHtml}${analysis}${alertHtml}
       </div>
       <button class="drem" onclick="remDoc(${d.id})" title="Remover">&#215;</button>
     </div>`;
@@ -184,19 +604,16 @@ function fileToBase64(file) {
 
 /* ── AI ANALYSIS ─────────────────────────────────────────────────── */
 async function analyzeWithAI(file) {
-  const ext     = file.name.split('.').pop().toLowerCase();
-  const isImage = ['jpg','jpeg','png'].includes(ext);
-  const isPdf   = ext === 'pdf';
-  let   messages;
-
-  if (isImage) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  let messages;
+  if (['jpg','jpeg','png'].includes(ext)) {
     const b64 = await fileToBase64(file);
     const mt  = ext === 'png' ? 'image/png' : 'image/jpeg';
     messages  = [{ role:'user', content:[
       { type:'image',  source:{ type:'base64', media_type:mt, data:b64 } },
       { type:'text',   text:'Analise este documento de acordo com as instrucoes.' }
     ]}];
-  } else if (isPdf) {
+  } else if (ext === 'pdf') {
     const b64 = await fileToBase64(file);
     messages  = [{ role:'user', content:[
       { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } },
@@ -206,62 +623,35 @@ async function analyzeWithAI(file) {
     const text = await file.text().catch(() => 'Conteudo nao legivel');
     messages   = [{ role:'user', content:`Analise este documento (${file.name}):\n\n${text.substring(0,3000)}` }];
   }
-
   const resp = await fetch('/api/analyze', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model:      'claude-sonnet-4-6',
-      max_tokens: 1000,
-      system:     SYSTEM_PROMPT,
-      messages,
-    })
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system:SYSTEM_PROMPT, messages }),
   });
-
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error?.message || `HTTP ${resp.status}`);
-  }
-
+  if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error?.message || `HTTP ${resp.status}`); }
   const data  = await resp.json();
   const raw   = data.content?.find(c => c.type === 'text')?.text || '{}';
-  const clean = raw.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  return JSON.parse(raw.replace(/```json|```/g, '').trim());
 }
 
 /* ── IDENTITY CHECK ──────────────────────────────────────────────── */
 function normalizeStr(s) {
-  return (s || '').toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9 ]/g, '').trim();
+  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, '').trim();
 }
 
 function checkIdentity(result) {
   const empName = normalizeStr(document.getElementById('eName').value);
   const empCpf  = (document.getElementById('eCpf').value || '').replace(/\D/g, '');
   const alerts  = [];
-
-  if (result.multiplas_pessoas) {
-    alerts.push('Este documento parece conter dados de mais de uma pessoa.');
-  }
-
+  if (result.multiplas_pessoas) alerts.push('Este documento parece conter dados de mais de uma pessoa.');
   if (result.nome_no_documento && empName.length > 2) {
-    const docName   = normalizeStr(result.nome_no_documento);
-    const empTokens = empName.split(' ').filter(t => t.length > 2);
-    const docTokens = docName.split(' ').filter(t => t.length > 2);
-    const hasMatch  = empTokens.some(t => docTokens.includes(t));
-    if (!hasMatch) {
-      alerts.push(`Nome no documento: "${result.nome_no_documento}" diverge do colaborador cadastrado.`);
-    }
+    const docName = normalizeStr(result.nome_no_documento);
+    const match   = empName.split(' ').filter(t => t.length > 2).some(t => docName.split(' ').includes(t));
+    if (!match) alerts.push(`Nome no documento: "${result.nome_no_documento}" diverge do colaborador cadastrado.`);
   }
-
   if (result.cpf_no_documento && empCpf.length === 11) {
-    const docCpf = result.cpf_no_documento.replace(/\D/g, '');
-    if (docCpf.length === 11 && docCpf !== empCpf) {
-      alerts.push(`CPF no documento: ${result.cpf_no_documento} diverge do CPF cadastrado.`);
-    }
+    const docCpf = result.cpf_no_documento.replace(/\D/g,'');
+    if (docCpf.length === 11 && docCpf !== empCpf) alerts.push(`CPF no documento: ${result.cpf_no_documento} diverge do CPF cadastrado.`);
   }
-
   return alerts.length ? alerts.join(' ') : null;
 }
 
@@ -270,46 +660,33 @@ async function processFiles(files) {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const id   = Date.now() + i;
-    const doc  = { id, name:file.name, status:'analyzing', result:'', analysis:'', error:'', identityAlert: null };
-    docs.push(doc);
-    renderDocs();
+    const doc  = { id, name:file.name, status:'analyzing', result:'', analysis:'', error:'', identityAlert:null };
+    docs.push(doc); renderDocs();
     toast(`Enviando "${file.name}" para analise IA...`);
-
     try {
-      const result = await analyzeWithAI(file);
-      doc.status   = 'done';
-      doc.result   = result.tipo_detectado || 'Documento recebido';
-      doc.analysis = result.resumo || '';
-
+      const result   = await analyzeWithAI(file);
+      doc.status     = 'done';
+      doc.result     = result.tipo_detectado || 'Documento recebido';
+      doc.analysis   = result.resumo || '';
       const alertMsg = checkIdentity(result);
-      if (alertMsg) {
-        doc.identityAlert = alertMsg;
-        toast(`Alerta de identidade em "${file.name}" inspecao necessaria.`);
-      }
-
+      if (alertMsg) { doc.identityAlert = alertMsg; toast(`Alerta de identidade em "${file.name}" inspecao necessaria.`); }
       if (result.checklist_id) {
         const item = CHECKLIST.find(i => i.id === result.checklist_id);
         if (item && !item.checked) {
-          item.checked    = true;
-          item.aiDetected = true;
-          item.aiReason   = `IA (${result.confianca}): ${result.resumo}`;
+          item.checked = true; item.aiDetected = true;
+          item.aiReason = `IA (${result.confianca}): ${result.resumo}`;
           renderChecklist();
           if (!alertMsg) toast(`Detectado: ${item.name}`);
           document.getElementById('s3').className = 'stp done';
           document.getElementById('sc3').classList.add('done');
           document.getElementById('s4').className = 'stp active';
         }
-      } else if (!alertMsg) {
-        toast('Documento recebido, nao mapeado ao checklist.');
-      }
+      } else if (!alertMsg) { toast('Documento recebido, nao mapeado ao checklist.'); }
     } catch (e) {
-      doc.status = 'error';
-      doc.error  = e.message.substring(0, 60);
+      doc.status = 'error'; doc.error = e.message.substring(0, 60);
       toast(`Erro: ${e.message.substring(0, 55)}`);
     }
-
-    renderDocs();
-    updateStats();
+    renderDocs(); updateStats();
   }
 }
 
@@ -321,31 +698,26 @@ function mCpf(input) {
   else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
   input.value = v;
 }
+function mCpfS(input) { mCpf(input); }
 
 /* ── EMPLOYEE CHECK ──────────────────────────────────────────────── */
 function chkEmp() {
   const n = document.getElementById('eName').value.trim();
-  if (n.length > 2) {
-    document.getElementById('s2').className  = 'stp done';
-    document.getElementById('s3').className  = 'stp active';
-    document.getElementById('sc2').classList.add('done');
-  } else {
-    document.getElementById('s2').className  = 'stp active';
-    document.getElementById('s3').className  = 'stp idle';
-    document.getElementById('sc2').classList.remove('done');
-  }
+  document.getElementById('s2').className  = n.length > 2 ? 'stp done'   : 'stp active';
+  document.getElementById('s3').className  = n.length > 2 ? 'stp active' : 'stp idle';
+  n.length > 2
+    ? document.getElementById('sc2').classList.add('done')
+    : document.getElementById('sc2').classList.remove('done');
   updateStats();
 }
 
 /* ── DRAG & DROP / UPLOAD ────────────────────────────────────────── */
-function trigUp()    { document.getElementById('fileInput').click(); }
-function dOver(e)    { e.preventDefault(); document.getElementById('uzone').classList.add('drag'); }
-function dLeave()    { document.getElementById('uzone').classList.remove('drag'); }
-function dDrop(e)    { e.preventDefault(); document.getElementById('uzone').classList.remove('drag'); processFiles(Array.from(e.dataTransfer.files)); }
+function trigUp()       { document.getElementById('fileInput').click(); }
+function dOver(e)       { e.preventDefault(); document.getElementById('uzone').classList.add('drag'); }
+function dLeave()       { document.getElementById('uzone').classList.remove('drag'); }
+function dDrop(e)       { e.preventDefault(); document.getElementById('uzone').classList.remove('drag'); processFiles(Array.from(e.dataTransfer.files)); }
 function handleFiles(e) { processFiles(Array.from(e.target.files)); e.target.value = ''; }
-
-/* ── REMOVE DOC ──────────────────────────────────────────────────── */
-function remDoc(id) { docs = docs.filter(d => d.id !== id); renderDocs(); updateStats(); }
+function remDoc(id)     { docs = docs.filter(d => d.id !== id); renderDocs(); updateStats(); }
 
 /* ── TOAST ───────────────────────────────────────────────────────── */
 let toastTimer;
@@ -358,25 +730,26 @@ function toast(msg) {
 }
 
 /* ── SWITCH TAB ──────────────────────────────────────────────────── */
-function switchTab(el) {
+function switchTab(tabEl) {
   document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  if (!el.textContent.includes('RH')) toast('Modulo "' + el.textContent.trim() + '" em desenvolvimento.');
+  tabEl.classList.add('active');
+  if (!tabEl.textContent.includes('RH')) toast('Modulo "' + tabEl.textContent.trim() + '" em desenvolvimento.');
 }
 
 /* ── API: DOSSIES ────────────────────────────────────────────────── */
 async function loadDossies() {
   try {
-    const resp = await fetch('/api/dossies');
+    const params = new URLSearchParams();
+    if (STATE.company)    params.set('companyId',    STATE.company.id);
+    if (STATE.department) params.set('departmentId', STATE.department.id);
+    const resp = await fetch('/api/dossies' + (params.toString() ? '?' + params : ''));
     return resp.ok ? resp.json() : [];
   } catch { return []; }
 }
 
 async function saveDossie(entry) {
   await fetch('/api/dossies', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(entry),
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry),
   });
 }
 
@@ -392,10 +765,7 @@ function openImport() {
   document.getElementById('xlsxInput').value = '';
   document.getElementById('importOverlay').classList.add('show');
 }
-
-function closeImport() {
-  document.getElementById('importOverlay').classList.remove('show');
-}
+function closeImport() { document.getElementById('importOverlay').classList.remove('show'); }
 
 document.getElementById('importOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeImport();
@@ -403,40 +773,25 @@ document.getElementById('importOverlay').addEventListener('click', function(e) {
 
 function iDragOver(e)  { e.preventDefault(); document.getElementById('izone').classList.add('drag'); }
 function iDragLeave()  { document.getElementById('izone').classList.remove('drag'); }
-function iDrop(e) {
-  e.preventDefault();
-  document.getElementById('izone').classList.remove('drag');
-  const f = e.dataTransfer.files[0];
-  if (f) processXlsx(f);
-}
-function handleXlsx(e) {
-  const f = e.target.files[0];
-  if (f) processXlsx(f);
-  e.target.value = '';
-}
+function iDrop(e)      { e.preventDefault(); document.getElementById('izone').classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) processXlsx(f); }
+function handleXlsx(e) { const f = e.target.files[0]; if (f) processXlsx(f); e.target.value = ''; }
 
 function processXlsx(file) {
   const ext = file.name.split('.').pop().toLowerCase();
-
   if (ext === 'csv') {
     const reader = new FileReader();
     reader.onload = e => parseCsvText(e.target.result, file.name);
-    reader.readAsText(file, 'UTF-8');
-    return;
+    reader.readAsText(file, 'UTF-8'); return;
   }
-
   const reader = new FileReader();
   reader.onload = e => {
     try {
       const XLSX = window.XLSX;
       if (!XLSX) { showImportError('SheetJS nao carregado. Use um arquivo .csv.'); return; }
-      const wb   = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const wb   = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
       const ws   = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      parseRows(rows, file.name);
-    } catch (err) {
-      showImportError('Nao foi possivel ler a planilha: ' + err.message);
-    }
+      parseRows(XLSX.utils.sheet_to_json(ws, { defval:'' }), file.name);
+    } catch (err) { showImportError('Nao foi possivel ler a planilha: ' + err.message); }
   };
   reader.readAsArrayBuffer(file);
 }
@@ -445,8 +800,7 @@ function parseCsvText(text, fname) {
   const lines   = text.trim().split(/\r?\n/);
   const headers = lines[0].split(/[,;]/).map(h => h.trim().toLowerCase());
   const rows    = lines.slice(1).map(line => {
-    const cols = line.split(/[,;]/);
-    const obj  = {};
+    const cols = line.split(/[,;]/), obj = {};
     headers.forEach((h, i) => obj[h] = (cols[i] || '').trim());
     return obj;
   }).filter(r => Object.values(r).some(v => v));
@@ -455,28 +809,17 @@ function parseCsvText(text, fname) {
 
 function parseRows(rows, fname) {
   if (!rows.length) { showImportError('Planilha vazia ou sem dados.'); return; }
-
   const nameKey = Object.keys(rows[0]).find(k => /doc|nome|item|descri/i.test(k)) || Object.keys(rows[0])[0];
   const reqKey  = Object.keys(rows[0]).find(k => /obrig|required|req|manda/i.test(k));
-
-  importedRows = rows
-    .map(r => ({
-      name: String(r[nameKey] || '').trim(),
-      req:  reqKey ? /^(s|sim|yes|true|1|x|obr)/i.test(String(r[reqKey] || '').trim()) : true,
-    }))
-    .filter(r => r.name.length > 0);
-
+  importedRows  = rows.map(r => ({
+    name: String(r[nameKey] || '').trim(),
+    req:  reqKey ? /^(s|sim|yes|true|1|x|obr)/i.test(String(r[reqKey] || '').trim()) : true,
+  })).filter(r => r.name.length > 0);
   if (!importedRows.length) { showImportError('Nenhum item valido encontrado.'); return; }
-
-  const tbody = document.getElementById('ipreviewBody');
-  tbody.innerHTML = importedRows.map((r, i) =>
-    `<tr>
-      <td style="color:#9aaab8;font-size:11px">${i+1}</td>
-      <td>${r.name}</td>
-      <td><span class="ipreview-req ${r.req ? 'yes' : 'no'}">${r.req ? '&#9679; Obrigatorio' : '&#9675; Opcional'}</span></td>
-    </tr>`
+  document.getElementById('ipreviewBody').innerHTML = importedRows.map((r, i) =>
+    `<tr><td style="color:#9aaab8;font-size:11px">${i+1}</td><td>${r.name}</td>
+     <td><span class="ipreview-req ${r.req ? 'yes' : 'no'}">${r.req ? '&#9679; Obrigatorio' : '&#9675; Opcional'}</span></td></tr>`
   ).join('');
-
   document.getElementById('ipreview').classList.add('show');
   document.getElementById('ipreviewLabel').textContent = fname;
   document.getElementById('ipreviewCount').textContent = importedRows.length + ' itens';
@@ -493,11 +836,8 @@ function showImportError(msg) {
 function applyImport() {
   if (!importedRows.length) return;
   CHECKLIST.length = 0;
-  importedRows.forEach((r, i) => {
-    CHECKLIST.push({ id:'item_'+i, name:r.name, req:r.req, checked:false, aiDetected:false, aiReason:'' });
-  });
-  renderChecklist();
-  closeImport();
+  importedRows.forEach((r, i) => CHECKLIST.push({ id:'item_'+i, name:r.name, req:r.req, checked:false, aiDetected:false, aiReason:'' }));
+  renderChecklist(); closeImport();
   toast(`Checklist atualizado com ${importedRows.length} itens da planilha.`);
 }
 
@@ -506,19 +846,17 @@ async function finalize() {
   const name = document.getElementById('eName').value;
   const cpf  = document.getElementById('eCpf').value;
   const mat  = document.getElementById('eMat').value;
-
-  const missingReq = CHECKLIST.filter(i => i.req && !i.checked).map(i => i.name);
-
   await saveDossie({
-    id:          'dossie_' + Date.now(),
-    ts:          Date.now(),
+    id:           'dossie_' + Date.now(),
+    ts:           Date.now(),
+    companyId:    STATE.company?.id,
+    departmentId: STATE.department?.id,
     name, cpf, mat,
     docs:        docs.filter(d => d.status === 'done').map(d => d.result || d.name),
-    missing_req: missingReq,
+    missing_req: CHECKLIST.filter(i => i.req && !i.checked).map(i => i.name),
     total:       CHECKLIST.filter(i => i.checked).length,
     req:         CHECKLIST.filter(i => i.req && i.checked).length,
   });
-
   await updateIncBadge();
   document.getElementById('successTitle').textContent = `Dossie de ${name} finalizado!`;
   document.getElementById('successSub').textContent   = `CPF: ${cpf || 'nao informado'}  |  Matricula: ${mat || 'nao informada'}`;
@@ -529,14 +867,11 @@ async function finalize() {
 
 function closeSuccess() {
   document.getElementById('successOverlay').classList.remove('show');
-  docs = [];
-  CHECKLIST.forEach(i => { i.checked = false; i.aiDetected = false; i.aiReason = ''; });
+  docs = []; resetChecklistFromDept();
   ['eName','eCpf','eMat'].forEach(id => document.getElementById(id).value = '');
   ['s2','s3','s4'].forEach(id => document.getElementById(id).className = id === 's2' ? 'stp active' : 'stp idle');
   ['sc2','sc3'].forEach(id => document.getElementById(id).classList.remove('done'));
-  renderChecklist();
-  renderDocs();
-  updateStats();
+  renderChecklist(); renderDocs(); updateStats();
 }
 
 /* ── INCONSISTENCIES VIEW ────────────────────────────────────────── */
@@ -550,65 +885,48 @@ async function showIncView() {
 
 function hideIncView() {
   document.getElementById('incView').classList.remove('active');
+  // return to the correct view based on profile
+  if (STATE.profile === 'admin')   { enterAdminView(); return; }
+  if (STATE.profile === 'company' && !STATE.department) { enterCompanyView(); return; }
   document.getElementById('mainView').classList.remove('hidden');
 }
 
-function setIncFilter(f, el) {
+function setIncFilter(f, btn) {
   incFilter = f;
   document.querySelectorAll('.inc-filter-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  renderIncTable();
+  btn.classList.add('active'); renderIncTable();
 }
 
 function getSeverity(d) {
-  const missing = (d.missing_req || []).length;
-  if (missing >= 2) return 'critical';
-  if (missing === 1) return 'warning';
-  return 'ok';
+  const n = (d.missing_req || []).length;
+  return n >= 2 ? 'critical' : n === 1 ? 'warning' : 'ok';
 }
 
 async function renderIncTable() {
   const list  = await loadDossies();
   const query = (document.getElementById('incSearchInput')?.value || '').toLowerCase();
-
   let total = list.length, critical = 0, warning = 0, ok = 0;
-  list.forEach(d => {
-    const sev = getSeverity(d);
-    if (sev === 'critical') critical++;
-    else if (sev === 'warning') warning++;
-    else ok++;
-  });
+  list.forEach(d => { const s = getSeverity(d); if (s === 'critical') critical++; else if (s === 'warning') warning++; else ok++; });
   document.getElementById('incTotalCount').textContent    = total;
   document.getElementById('incCriticalCount').textContent = critical;
   document.getElementById('incWarningCount').textContent  = warning;
   document.getElementById('incOkCount').textContent       = ok;
   document.getElementById('incBadge').textContent         = critical + warning;
-
-  let filtered = list.filter(d => {
-    const sev    = getSeverity(d);
-    const matchF = incFilter === 'all' || sev === incFilter;
-    const matchQ = !query ||
-      d.name.toLowerCase().includes(query) ||
-      (d.cpf || '').includes(query);
-    return matchF && matchQ;
+  const filtered = list.filter(d => {
+    const s = getSeverity(d);
+    return (incFilter === 'all' || s === incFilter) &&
+           (!query || d.name.toLowerCase().includes(query) || (d.cpf||'').includes(query));
   });
-
   const tbody = document.getElementById('incTableBody');
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="5">
-      <div class="inc-empty">
-        <div class="inc-empty-icon">&#9989;</div>
-        Nenhum dossie encontrado para este filtro.
-      </div>
-    </td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="inc-empty"><div class="inc-empty-icon">&#9989;</div>Nenhum dossie encontrado.</div></td></tr>`;
     return;
   }
-
   tbody.innerHTML = filtered.map(d => {
-    const sev       = getSeverity(d);
-    const initials  = d.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
-    const date      = new Date(d.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
-    const missing   = d.missing_req || [];
+    const sev      = getSeverity(d);
+    const initials = d.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    const date     = new Date(d.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
+    const missing  = d.missing_req || [];
     const missingHtml = missing.length
       ? missing.map(m => `<span class="inc-missing-tag">${m}</span>`).join('')
       : '<span style="font-size:11px;color:#2a7c3a;font-weight:300;">Nenhum</span>';
@@ -617,59 +935,38 @@ async function renderIncTable() {
       : sev === 'warning'
       ? `<span class="inc-severity sev-warning">&#9888; Atencao</span>`
       : `<span class="inc-severity sev-ok">&#10003; Completo</span>`;
-
     return `<tr onclick="toggleDrawer('${d.id}')">
-      <td>
-        <div class="inc-name-cell">
-          <div class="inc-avatar">${initials}</div>
-          <div class="inc-name-meta">
-            <div class="inc-name-main">${d.name}</div>
-            <div class="inc-name-sub">CPF: ${d.cpf||'nao informado'} &middot; Mat.: ${d.mat||'nao informada'}</div>
-          </div>
+      <td><div class="inc-name-cell">
+        <div class="inc-avatar">${initials}</div>
+        <div class="inc-name-meta">
+          <div class="inc-name-main">${d.name}</div>
+          <div class="inc-name-sub">CPF: ${d.cpf||'nao informado'} &middot; Mat.: ${d.mat||'nao informada'}</div>
         </div>
-      </td>
+      </div></td>
       <td><div class="inc-missing-list">${missingHtml}</div></td>
       <td>${sevHtml}</td>
       <td><span class="inc-date">${date}</span></td>
-      <td><button class="inc-action-btn" onclick="event.stopPropagation(); loadAndGo('${d.id}')">Completar dossie &rarr;</button></td>
+      <td><button class="inc-action-btn" onclick="event.stopPropagation();loadAndGo('${d.id}')">Completar &rarr;</button></td>
     </tr>
     <tr id="drawer_${d.id}" style="background:#f4f7fa;">
       <td colspan="5" style="padding:0;">
-        <div class="inc-drawer" id="drawerContent_${d.id}">
-          ${buildDrawerContent(d)}
-        </div>
+        <div class="inc-drawer" id="drawerContent_${d.id}">${buildDrawerContent(d)}</div>
       </td>
     </tr>`;
   }).join('');
 }
 
 function buildDrawerContent(d) {
-  const allItems = [
-    {name:'CNH / RG / Documento de Identidade', req:true},
-    {name:'CPF', req:true},
-    {name:'Contrato de Trabalho', req:true},
-    {name:'Ficha de Admissao', req:true},
-    {name:'Exame Admissional', req:true},
-    {name:'Comprovante de Residencia', req:false},
-    {name:'Foto 3x4', req:false},
-  ];
-  const present = new Set(d.docs || []);
-  const missing = new Set(d.missing_req || []);
-
-  const chips = allItems.map(item => {
-    const isPresent = present.has(item.name);
-    const isMissing = missing.has(item.name);
-    const cls  = isPresent ? 'present' : (isMissing ? 'missing' : 'optional');
-    const dot  = isPresent ? 'present' : (isMissing ? 'missing' : 'optional');
-    const icon = isPresent ? '&#10003;' : (isMissing ? '&#10007;' : '&#9675;');
-    return `<div class="inc-doc-chip ${cls}">
-      <div class="chip-dot ${dot}"></div>
-      <span>${icon} ${item.name}${!item.req?' (opt.)':''}</span>
-    </div>`;
+  const template = STATE.department?.checklist || DEFAULT_CHECKLIST;
+  const present  = new Set(d.docs || []);
+  const missing  = new Set(d.missing_req || []);
+  const chips = template.map(item => {
+    const p = present.has(item.name), m = missing.has(item.name);
+    const cls = p ? 'present' : m ? 'missing' : 'optional';
+    return `<div class="inc-doc-chip ${cls}"><div class="chip-dot ${cls}"></div>
+      <span>${p ? '&#10003;' : m ? '&#10007;' : '&#9675;'} ${item.name}${!item.req?' (opt.)':''}</span></div>`;
   }).join('');
-
-  return `<div class="inc-drawer-title">Situacao detalhada do prontuario</div>
-    <div class="inc-drawer-grid">${chips}</div>`;
+  return `<div class="inc-drawer-title">Situacao detalhada do prontuario</div><div class="inc-drawer-grid">${chips}</div>`;
 }
 
 let openDrawerId = null;
@@ -684,10 +981,7 @@ function toggleDrawer(id) {
   openDrawerId = el.classList.contains('open') ? id : null;
 }
 
-async function loadAndGo(id) {
-  await loadDossie(id);
-  hideIncView();
-}
+async function loadAndGo(id) { await loadDossie(id); hideIncView(); }
 
 async function updateIncBadge() {
   const list  = await loadDossies();
@@ -696,14 +990,6 @@ async function updateIncBadge() {
 }
 
 /* ── SEARCH ──────────────────────────────────────────────────────── */
-function mCpfS(input) {
-  let v = input.value.replace(/\D/g,'').substring(0,11);
-  if      (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
-  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
-  else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
-  input.value = v;
-}
-
 function liveSearch() {
   const n = document.getElementById('srchName').value.trim();
   const c = document.getElementById('srchCpf').value.trim();
@@ -717,43 +1003,31 @@ async function runSearch() {
   const c = document.getElementById('srchCpf').value.trim().replace(/\D/g,'');
   const m = document.getElementById('srchMat').value.trim().toLowerCase();
   if (!n && !c && !m) { closeSearch(); return; }
-
   const list = await loadDossies();
-  const hits = list.filter(d => {
-    const dn = d.name.toLowerCase();
-    const dc = (d.cpf || '').replace(/\D/g,'');
-    const dm = (d.mat || '').toLowerCase();
-    return (n && dn.includes(n)) || (c && dc.includes(c)) || (m && dm.includes(m));
-  });
-
-  renderSearchResults(hits);
+  renderSearchResults(list.filter(d =>
+    (n && d.name.toLowerCase().includes(n)) ||
+    (c && (d.cpf||'').replace(/\D/g,'').includes(c)) ||
+    (m && (d.mat||'').toLowerCase().includes(m))
+  ));
 }
 
 function renderSearchResults(hits) {
-  const wrap  = document.getElementById('srWrap');
-  const label = document.getElementById('srLabel');
-  const list  = document.getElementById('srList');
-
-  wrap.classList.add('open');
-  label.textContent = hits.length
-    ? hits.length + (hits.length === 1 ? ' dossie encontrado' : ' dossies encontrados')
-    : 'Nenhum resultado';
-
+  const wrap = document.getElementById('srWrap'); wrap.classList.add('open');
+  document.getElementById('srLabel').textContent = hits.length
+    ? hits.length + (hits.length === 1 ? ' dossie encontrado' : ' dossies encontrados') : 'Nenhum resultado';
   if (!hits.length) {
-    list.innerHTML = '<div class="sno-results">Nenhum dossie encontrado para esses filtros.</div>';
-    return;
+    document.getElementById('srList').innerHTML = '<div class="sno-results">Nenhum dossie encontrado para esses filtros.</div>'; return;
   }
-
-  list.innerHTML = hits.map(d => {
+  document.getElementById('srList').innerHTML = hits.map(d => {
     const initials = d.name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
-    const date     = new Date(d.ts).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' });
-    const badges   = (d.docs || []).slice(0,3).map(b => `<span class="sresult-badge">${b}</span>`).join('');
-    const extra    = (d.docs || []).length > 3 ? `<span class="sresult-badge">+${d.docs.length - 3}</span>` : '';
+    const date     = new Date(d.ts).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
+    const badges   = (d.docs||[]).slice(0,3).map(b => `<span class="sresult-badge">${b}</span>`).join('');
+    const extra    = (d.docs||[]).length > 3 ? `<span class="sresult-badge">+${d.docs.length-3}</span>` : '';
     return `<div class="sresult-item" onclick="loadDossie('${d.id}')">
       <div class="sresult-avatar">${initials}</div>
       <div class="sresult-meta">
         <div class="sresult-name">${d.name}</div>
-        <div class="sresult-info">CPF: ${d.cpf || 'nao informado'} &middot; Matricula: ${d.mat || 'nao informada'}</div>
+        <div class="sresult-info">CPF: ${d.cpf||'nao informado'} &middot; Matricula: ${d.mat||'nao informada'}</div>
         <div class="sresult-badges">${badges}${extra}</div>
       </div>
       <div class="sresult-date">${date}</div>
@@ -762,13 +1036,11 @@ function renderSearchResults(hits) {
   }).join('');
 }
 
-function closeSearch() {
-  document.getElementById('srWrap').classList.remove('open');
-}
+function closeSearch() { document.getElementById('srWrap').classList.remove('open'); }
 
 async function loadDossie(id) {
-  const list  = await loadDossies();
-  const entry = list.find(d => d.id === id);
+  const resp  = await fetch('/api/dossies/' + id);
+  const entry = resp.ok ? await resp.json() : null;
   if (!entry) return;
   document.getElementById('eName').value = entry.name;
   document.getElementById('eCpf').value  = entry.cpf || '';
@@ -777,10 +1049,8 @@ async function loadDossie(id) {
   ['srchName','srchCpf','srchMat'].forEach(f => document.getElementById(f).value = '');
   chkEmp();
   toast(`Dossie de ${entry.name} carregado. Voce pode adicionar novos documentos.`);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top:0, behavior:'smooth' });
 }
 
 /* ── INIT ────────────────────────────────────────────────────────── */
-renderChecklist();
-renderDocs();
-updateIncBadge();
+showStartup();

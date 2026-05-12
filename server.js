@@ -10,6 +10,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/analyze', require('./routes/analyze'));
 app.use('/api/dossies', require('./routes/dossies'));
+app.use('/api/companies', require('./routes/companies'));
 
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
