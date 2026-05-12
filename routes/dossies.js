@@ -1,26 +1,7 @@
 const express = require('express');
-const fs      = require('fs');
-const path    = require('path');
 const router  = express.Router();
 const { requireAuth } = require('./auth-middleware');
-
-const DATA_DIR  = process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data');
-const DATA_FILE = path.join(DATA_DIR, 'dossies.json');
-
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-function readDossies() {
-  ensureDir();
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-  catch { return []; }
-}
-
-function writeDossies(list) {
-  ensureDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
-}
+const { readData, writeData } = require('./db');
 
 function seed() {
   const now = Date.now();
@@ -58,19 +39,19 @@ function seed() {
   ];
 }
 
-function getOrSeed() {
-  const list = readDossies();
-  if (!list.length) {
+async function getOrSeed() {
+  const list = await readData('dossies');
+  if (!list || !list.length) {
     const s = seed();
-    writeDossies(s);
+    await writeData('dossies', s);
     return s;
   }
   return list;
 }
 
-router.get('/', requireAuth, (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
-    let list = getOrSeed();
+    let list = await getOrSeed();
     const { role, companyId: uCo, departmentId: uDept } = req.user;
     if (role === 'company')    list = list.filter(d => d.companyId === uCo);
     if (role === 'department') list = list.filter(d => d.companyId === uCo && d.departmentId === uDept);
@@ -83,30 +64,31 @@ router.get('/', requireAuth, (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/:id', requireAuth, (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
-    const entry = getOrSeed().find(d => d.id === req.params.id);
+    const entry = (await getOrSeed()).find(d => d.id === req.params.id);
     if (!entry) return res.status(404).json({ error: 'Dossie nao encontrado.' });
     res.json(entry);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   try {
     const entry = req.body;
     if (!entry || !entry.id) return res.status(400).json({ error: 'Payload invalido.' });
-    const list = getOrSeed();
+    const list = await getOrSeed();
     const idx  = list.findIndex(d => d.id === entry.id);
     if (idx >= 0) list[idx] = entry;
     else list.unshift(entry);
-    writeDossies(list.slice(0, 500));
+    await writeData('dossies', list.slice(0, 500));
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    writeDossies(getOrSeed().filter(d => d.id !== req.params.id));
+    const list = await getOrSeed();
+    await writeData('dossies', list.filter(d => d.id !== req.params.id));
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
