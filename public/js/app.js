@@ -311,12 +311,29 @@ function suPromptNewCompany() {
 
 /* ── ENTER VIEWS ─────────────────────────────────────────────────── */
 function enterAdminView()   { showView('admin');   renderAdminPanel(); }
-function enterCompanyView() { showView('company'); renderCompanyView(); }
+function enterCompanyView() {
+  showView('company');
+  // Update back button for admin (goes back to panel) vs company user (logs out)
+  const backBtn = gel('cvBackBtn');
+  if (backBtn) {
+    backBtn.textContent = AUTH.user?.role === 'admin' ? '← Painel Admin' : '→ Sair';
+  }
+  renderCompanyView();
+}
 function enterDeptView() {
   showView('main');
   const cfgBtn = gel('cfgClBtn');
   if (cfgBtn) cfgBtn.classList.remove('hidden');
+  // Update context bar switch button for admin
+  const ctxSwitch = gel('ctxSwitch');
+  if (ctxSwitch) {
+    ctxSwitch.textContent = AUTH.user?.role === 'admin' ? '← Painel Admin' : 'Sair';
+    ctxSwitch.onclick = AUTH.user?.role === 'admin'
+      ? () => { STATE.department = null; STATE.company = null; updateContextBar(); enterAdminView(); }
+      : () => doLogout();
+  }
   renderChecklist(); renderDocs(); updateIncBadge();
+  renderIndexedDossies();
 }
 
 /* ── API: COMPANIES ──────────────────────────────────────────────── */
@@ -371,6 +388,7 @@ function renderAdminCompanies(companies) {
     return `<div class="adm-item ${sel}" onclick="adminSelectCompany(decodeURIComponent('${safe}'))">
       <div class="adm-item-ico">&#127970;</div>
       <div class="adm-item-name">${c.name}</div>
+      <button class="adm-view-btn" onclick="event.stopPropagation();adminViewCompany(decodeURIComponent('${safe}'))" title="Visualizar empresa">&#128065;</button>
       <button class="adm-del-btn" onclick="event.stopPropagation();adminDeleteCompany('${c.id}')" title="Excluir">&#215;</button>
     </div>`;
   }).join('');
@@ -386,13 +404,16 @@ function adminSelectCompany(json) {
 function renderAdminDepts(company) {
   const list = gel('adminDeptList');
   if (!company.departments.length) { list.innerHTML = '<div class="adm-empty">Nenhum departamento.</div>'; return; }
-  list.innerHTML = company.departments.map(d =>
-    `<div class="adm-item">
+  const safeC = encodeURIComponent(JSON.stringify(company));
+  list.innerHTML = company.departments.map(d => {
+    const safeD = encodeURIComponent(JSON.stringify(d));
+    return `<div class="adm-item">
       <div class="adm-item-ico">&#128101;</div>
       <div class="adm-item-name">${d.name}</div>
+      <button class="adm-view-btn" onclick="adminViewDept(decodeURIComponent('${safeC}'), decodeURIComponent('${safeD}'))" title="Visualizar departamento">&#128065;</button>
       <button class="adm-del-btn" onclick="adminDeleteDept('${company.id}','${d.id}')" title="Excluir">&#215;</button>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 }
 
 function adminNewCompany() {
@@ -428,6 +449,30 @@ async function adminDeleteDept(companyId, deptId) {
   const companies = await apiGetCompanies();
   adminSelCompany = companies.find(c => c.id === companyId);
   if (adminSelCompany) { renderAdminDepts(adminSelCompany); renderAdminCompanies(companies); }
+}
+
+async function adminViewCompany(companyJson) {
+  STATE.company    = JSON.parse(companyJson);
+  STATE.department = null;
+  updateContextBar();
+  enterCompanyView();
+}
+
+function adminViewDept(coJson, deptJson) {
+  STATE.company    = JSON.parse(coJson);
+  STATE.department = JSON.parse(deptJson);
+  resetChecklistFromDept();
+  updateContextBar();
+  enterDeptView();
+}
+
+function goBackFromCompanyView() {
+  if (AUTH.user?.role === 'admin') {
+    STATE.company = null; STATE.department = null;
+    updateContextBar(); enterAdminView();
+  } else {
+    doLogout();
+  }
 }
 
 /* ── COMPANY VIEW ────────────────────────────────────────────────── */
@@ -984,6 +1029,7 @@ async function finalize() {
     req:         CHECKLIST.filter(i => i.req && i.checked).length,
   });
   await updateIncBadge();
+  renderIndexedDossies();
   document.getElementById('successTitle').textContent = `Dossie de ${name} finalizado!`;
   document.getElementById('successSub').textContent   = `CPF: ${cpf || 'nao informado'}  |  Matricula: ${mat || 'nao informada'}`;
   document.getElementById('successOverlay').classList.add('show');
@@ -1011,8 +1057,7 @@ async function showIncView() {
 
 function hideIncView() {
   document.getElementById('incView').classList.remove('active');
-  // return to the correct view based on profile
-  if (STATE.profile === 'admin')   { enterAdminView(); return; }
+  if (!STATE.department && STATE.profile === 'admin')   { enterAdminView(); return; }
   if (STATE.profile === 'company' && !STATE.department) { enterCompanyView(); return; }
   document.getElementById('mainView').classList.remove('hidden');
 }
@@ -1308,6 +1353,37 @@ async function deleteUser(id, name) {
   if (!confirm('Excluir usuario "' + name + '"?')) return;
   const resp = await apiFetch('/api/users/' + id, { method: 'DELETE' });
   if (resp?.ok) { toast('Usuario excluido.'); renderUserList(); }
+}
+
+/* ── INDEXED DOSSIE LIST ─────────────────────────────────────────── */
+async function renderIndexedDossies() {
+  const el = gel('indexedDossieList');
+  if (!el) return;
+  el.innerHTML = '<div class="adm-empty" style="padding:16px;">Carregando...</div>';
+  const list = await loadDossies();
+  const count = gel('indexedDossieCount');
+  if (count) count.textContent = list.length + (list.length === 1 ? ' prontuario' : ' prontuarios');
+  if (!list.length) { el.innerHTML = '<div class="adm-empty" style="padding:16px;">Nenhum prontuario indexado.</div>'; return; }
+  el.innerHTML = list.map(d => {
+    const sev  = (d.missing_req||[]).length >= 2 ? 'critical' : (d.missing_req||[]).length === 1 ? 'warning' : 'ok';
+    const badge = sev === 'critical'
+      ? '<span class="inc-severity sev-critical" style="font-size:10px;">&#9940; Critico</span>'
+      : sev === 'warning'
+      ? '<span class="inc-severity sev-warning" style="font-size:10px;">&#9888; Atencao</span>'
+      : '<span class="inc-severity sev-ok" style="font-size:10px;">&#10003; Completo</span>';
+    const date = new Date(d.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
+    const initials = d.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    return `<div class="idx-dossie-row" onclick="loadDossie('${d.id}'); window.scrollTo({top:0,behavior:'smooth'});">
+      <div class="idx-avatar">${initials}</div>
+      <div class="idx-meta">
+        <div class="idx-name">${d.name}</div>
+        <div class="idx-sub">CPF: ${d.cpf||'nao informado'} &middot; Mat.: ${d.mat||'nao informada'}</div>
+      </div>
+      ${badge}
+      <div class="idx-date">${date}</div>
+      <div class="idx-arrow">&#8250;</div>
+    </div>`;
+  }).join('');
 }
 
 /* ── INIT ────────────────────────────────────────────────────────── */

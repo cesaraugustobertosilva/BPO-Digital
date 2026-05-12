@@ -65,7 +65,7 @@
       <span class="ctx-item" id="ctxCompany"></span>
       <span class="ctx-sep" id="ctxSep">&#8250;</span>
       <span class="ctx-item ctx-dept" id="ctxDept"></span>
-      <button class="ctx-switch" onclick="doLogout()">Sair</button>
+      <button class="ctx-switch" id="ctxSwitch" onclick="doLogout()">Sair</button>
     </div>
     <div class="header-right">
       <button class="inc-btn hidden" id="incHeaderBtn" onclick="showIncView()">
@@ -151,7 +151,7 @@
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
         <button class="adm-add-btn" onclick="cvNewDept()">+ Novo departamento</button>
-        <button class="back-btn" onclick="doLogout()">&#8594; Sair</button>
+        <button class="back-btn" id="cvBackBtn" onclick="goBackFromCompanyView()">&#8594; Sair</button>
       </div>
     </div>
 
@@ -301,6 +301,15 @@
       </div>
 
     </div><!-- /tcol -->
+
+    <!-- INDEXED DOSSIES -->
+    <div class="indexed-section">
+      <div class="indexed-header">
+        <div class="indexed-title">&#128203; Prontuarios indexados</div>
+        <div class="indexed-count" id="indexedDossieCount">0 prontuarios</div>
+      </div>
+      <div id="indexedDossieList"></div>
+    </div>
 
     <!-- FOOTER -->
     <div class="footer">

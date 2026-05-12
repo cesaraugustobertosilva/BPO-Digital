@@ -250,12 +250,12 @@ html, body {
   background: var(--sbk-dark);
   margin: 12px;
   border-radius: var(--r);
-  padding: 26px 22px;
+  padding: 16px 22px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   cursor: pointer;
   transition: background .2s, border-color .2s;
-  min-height: 160px;
+  min-height: 110px;
   border: 2px dashed rgba(255,255,255,.12);
   position: relative; overflow: hidden;
   user-select: none;
@@ -272,13 +272,13 @@ html, body {
   pointer-events: none;
 }
 .uiw {
-  width: 52px; height: 52px;
-  border-radius: 12px;
+  width: 36px; height: 36px;
+  border-radius: 8px;
   background: rgba(255,255,255,.1);
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 12px; font-size: 22px;
+  margin-bottom: 8px; font-size: 16px;
 }
-.ucta  { color: white; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.ucta  { color: white; font-size: 14px; font-weight: 700; margin-bottom: 2px; }
 .usub  { color: rgba(255,255,255,.45); font-size: 11px; font-weight: 300; }
 .upills { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; justify-content: center; }
 .upill {
@@ -1384,3 +1384,51 @@ html, body {
   display: flex; justify-content: flex-end; gap: 10px;
   padding: 16px 24px; border-top: 1px solid #e0e8ef;
 }
+
+/* ADMIN VIEW BUTTON */
+.adm-view-btn {
+  background: rgba(42,124,121,.12);
+  border: none; border-radius: 6px;
+  color: var(--sbk-cyan);
+  font-size: 13px; padding: 3px 8px;
+  cursor: pointer; transition: background .15s;
+  margin-right: 4px;
+}
+.adm-view-btn:hover { background: rgba(42,124,121,.25); }
+
+/* INDEXED DOSSIE SECTION */
+.indexed-section {
+  background: white;
+  border: .5px solid #d0d8e0;
+  border-radius: var(--r);
+  margin-top: 20px;
+  overflow: hidden;
+  animation: fadeUp .4s .2s ease both;
+}
+.indexed-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #edf0f4;
+}
+.indexed-title { font-size: 13px; font-weight: 600; color: var(--sbk-dark); }
+.indexed-count { font-size: 11px; color: var(--sbk-slate); font-weight: 300; }
+.idx-dossie-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 18px;
+  border-bottom: .5px solid #f0f3f7;
+  cursor: pointer; transition: background .15s;
+}
+.idx-dossie-row:last-child { border-bottom: none; }
+.idx-dossie-row:hover { background: #f6f9fc; }
+.idx-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--sbk-dark);
+  color: white; font-size: 11px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.idx-meta { flex: 1; min-width: 0; }
+.idx-name { font-size: 13px; font-weight: 500; color: var(--sbk-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.idx-sub  { font-size: 11px; color: var(--sbk-slate); font-weight: 300; }
+.idx-date { font-size: 11px; color: var(--sbk-slate); font-weight: 300; white-space: nowrap; }
+.idx-arrow { color: var(--sbk-slate); font-size: 16px; }
