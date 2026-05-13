@@ -1496,6 +1496,7 @@ const LBR = {
   nextScanAt:    null,
   scanQueue:     [],
   scanIdx:       0,
+  riskFilter:    null, // 'alto'|'medio'|'baixo'|'na' — filtro ativo da barra de prioridade
 };
 
 /* ── DEMO DATA ── */
@@ -1783,9 +1784,24 @@ async function laborLoadCollabs() {
 }
 
 /* ── RENDER COLLAB LIST ── */
+function laborSetRiskFilter(risk) {
+  LBR.riskFilter = LBR.riskFilter === risk ? null : risk;
+  laborUpdateStats();
+  laborRenderCollabList();
+}
+
 function laborRenderCollabList(filter) {
-  const q   = (filter || gel('laborCollabFilter')?.value || '').toLowerCase();
-  const list = LBR.collaborators.filter(c => !q || c.name.toLowerCase().includes(q) || (c.cpf||'').includes(q));
+  const q    = (filter || gel('laborCollabFilter')?.value || '').toLowerCase();
+  let   list = LBR.collaborators.filter(c => !q || c.name.toLowerCase().includes(q) || (c.cpf||'').includes(q));
+
+  if (LBR.riskFilter) {
+    if (LBR.riskFilter === 'na') {
+      list = list.filter(c => c.processes.some(p => !p._ai));
+    } else {
+      list = list.filter(c => c.processes.some(p => p._ai?.risco === LBR.riskFilter));
+    }
+  }
+
   const el   = gel('laborCollabList');
   if (!list.length) { el.innerHTML = '<div class="labor-collab-empty">Nenhum colaborador encontrado.</div>'; return; }
   el.innerHTML = list.map(c => {
@@ -2189,28 +2205,65 @@ function laborUpdateStats() {
     return;
   }
 
+  const rf = LBR.riskFilter;
+
   const segments = [
-    { label:'Risco alto',  count:alto,  pct:pct(alto),  cls:'prio-alto'  },
-    { label:'Risco medio', count:medio, pct:pct(medio), cls:'prio-medio' },
-    { label:'Risco baixo', count:baixo, pct:pct(baixo), cls:'prio-baixo' },
-    { label:'Nao analisado', count:semAi, pct:pct(semAi), cls:'prio-na'  },
+    { key:'alto',  label:'Risco alto',     count:alto,  cls:'prio-alto',  desc:'Processos com alto potencial de condenacao ou valor elevado' },
+    { key:'medio', label:'Risco medio',    count:medio, cls:'prio-medio', desc:'Processos em andamento com risco moderado' },
+    { key:'baixo', label:'Risco baixo',    count:baixo, cls:'prio-baixo', desc:'Processos com baixa probabilidade de condenacao significativa' },
+    { key:'na',    label:'Nao analisado',  count:semAi, cls:'prio-na',    desc:'Processos ainda sem analise de IA' },
   ].filter(s => s.count > 0);
 
-  const bars = segments.map(s =>
-    `<div class="prio-seg ${s.cls}" style="flex:${s.count}" title="${s.label}: ${s.count} processo${s.count>1?'s':''}"></div>`
-  ).join('');
+  const bars = segments.map(s => {
+    const active = rf === s.key ? ' prio-seg-active' : (rf && rf !== s.key ? ' prio-seg-dim' : '');
+    return `<div class="prio-seg ${s.cls}${active}" style="flex:${s.count}"
+      title="${s.label}: ${s.count} processo${s.count>1?'s':''}"
+      onclick="laborSetRiskFilter('${s.key}')"></div>`;
+  }).join('');
 
-  const legend = segments.map(s =>
-    `<div class="prio-leg-item">
+  const clearBtn = rf
+    ? `<button class="prio-clear-btn" onclick="laborSetRiskFilter('${rf}')">&#10005; Limpar filtro</button>`
+    : '';
+
+  const legend = segments.map(s => {
+    const active = rf === s.key ? ' prio-leg-active' : (rf && rf !== s.key ? ' prio-leg-dim' : '');
+    return `<div class="prio-leg-item${active}" onclick="laborSetRiskFilter('${s.key}')" title="${s.desc}">
       <span class="prio-leg-dot ${s.cls}"></span>
       <span class="prio-leg-label">${s.label}</span>
       <span class="prio-leg-count">${s.count}</span>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
+
+  const filterBanner = rf ? (() => {
+    const seg = segments.find(s => s.key === rf);
+    const filtered = LBR.collaborators.filter(c =>
+      rf === 'na' ? c.processes.some(p => !p._ai) : c.processes.some(p => p._ai?.risco === rf)
+    ).length;
+    return `<div class="prio-filter-banner">
+      <span class="prio-filter-dot ${seg?.cls || ''}"></span>
+      Exibindo <strong>${filtered} colaborador${filtered!==1?'es':''}</strong> com processos de ${seg?.label || rf}
+      <button class="prio-clear-btn" onclick="laborSetRiskFilter('${rf}')">&#10005; Limpar</button>
+    </div>`;
+  })() : '';
+
+  const criteriosHtml = `
+    <div class="prio-criterios">
+      <button class="prio-crit-toggle" onclick="this.closest('.prio-criterios').classList.toggle('prio-crit-open')">
+        &#9432; Como e determinada a criticidade?
+      </button>
+      <div class="prio-crit-body">
+        <div class="prio-crit-item"><span class="prio-crit-dot prio-alto"></span><strong>Risco alto:</strong> valor da causa elevado, fase avancada (audiencia ou sentenca), pedidos de dano moral, rescisao indireta ou reintegracao</div>
+        <div class="prio-crit-item"><span class="prio-crit-dot prio-medio"></span><strong>Risco medio:</strong> processo em instrucao com pedidos de horas extras, equiparacao salarial ou verbas rescisorias em valor moderado</div>
+        <div class="prio-crit-item"><span class="prio-crit-dot prio-baixo"></span><strong>Risco baixo:</strong> processo inicial, pedidos de valor reduzido, chances de acordo elevadas ou processo ja arquivado</div>
+        <div class="prio-crit-item"><span class="prio-crit-dot prio-na"></span><strong>Nao analisado:</strong> processo localizado mas ainda sem analise da IA — clique em "Analisar com IA" no card do processo</div>
+      </div>
+    </div>`;
 
   barEl.innerHTML = `
     <div class="prio-track">${bars}</div>
-    <div class="prio-legend">${legend}</div>`;
+    <div class="prio-legend">${legend}${clearBtn}</div>
+    ${filterBanner}
+    ${criteriosHtml}`;
 }
 
 /* ── AUTO-TIMER (10 min) ── */
