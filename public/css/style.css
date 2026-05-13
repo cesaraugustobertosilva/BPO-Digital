@@ -2225,3 +2225,22 @@ html, body {
 .ct-input { padding: 9px 12px; border: 1px solid #d0d8e0; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; }
 .ct-input:focus { border-color: var(--sbk-mid); box-shadow: 0 0 0 2px #ccfbf1; }
 .ct-form-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; padding-top: 4px; border-top: 1px solid #f1f5f9; }
+
+/* CT FILES SECTION */
+.ct-files-section  { border-top: 1px solid #f1f5f9; padding: 16px 22px 20px; }
+.ct-files-header   { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.ct-files-title    { font-size: 13px; font-weight: 600; color: var(--sbk-dark); flex: 1; }
+.ct-files-add-btn  { background: var(--sbk-dark); color: white; border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; transition: background .15s; white-space: nowrap; }
+.ct-files-add-btn:hover { background: var(--sbk-mid); }
+.ct-files-empty    { font-size: 12px; color: var(--sbk-slate); padding: 10px 0; }
+.ct-files-list     { display: flex; flex-direction: column; gap: 6px; }
+.ct-file-item      { display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; }
+.ct-file-uploading { opacity: .6; }
+.ct-file-icon      { font-size: 18px; flex-shrink: 0; }
+.ct-file-info      { flex: 1; min-width: 0; }
+.ct-file-name      { font-size: 12px; font-weight: 500; color: var(--sbk-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct-file-meta      { font-size: 10px; color: var(--sbk-slate); margin-top: 1px; }
+.ct-file-open      { font-size: 11px; color: var(--sbk-mid); font-weight: 500; text-decoration: none; padding: 3px 8px; border-radius: 5px; border: 1px solid #a7f3d0; background: #f0fdf4; white-space: nowrap; }
+.ct-file-open:hover { background: #dcfce7; }
+.ct-file-del       { background: none; border: none; font-size: 13px; color: #94a3b8; cursor: pointer; padding: 3px 6px; border-radius: 5px; flex-shrink: 0; }
+.ct-file-del:hover { color: #dc2626; background: #fef2f2; }

@@ -238,11 +238,21 @@
             </div>
           </div>
           <div class="ct-form-actions">
-            <button type="button" class="ct-btn-del hidden" id="ctBtnDel" onclick="ctDelete()">&#128465; Excluir</button>
+            <button type="button" class="ct-btn-del hidden" id="ctBtnDel" onclick="ctDelete()">&#128465; Excluir contrato</button>
             <button type="button" class="ct-btn-sec" onclick="ctCloseForm()">Cancelar</button>
             <button type="submit" class="ct-btn-primary" id="ctBtnSave">Salvar</button>
           </div>
         </form>
+
+        <!-- Files section (shown only when editing an existing contract) -->
+        <div class="ct-files-section hidden" id="ctFilesSection">
+          <div class="ct-files-header">
+            <span class="ct-files-title">&#128196; Arquivos anexados</span>
+            <label class="ct-files-add-btn" for="ctFileInput">&#43; Adicionar arquivo</label>
+            <input type="file" id="ctFileInput" multiple style="display:none" onchange="ctUploadFiles(this.files)">
+          </div>
+          <div class="ct-files-list" id="ctFilesList"></div>
+        </div>
       </div>
     </div>
 

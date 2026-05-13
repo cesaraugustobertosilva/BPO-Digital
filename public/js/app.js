@@ -2857,6 +2857,13 @@ function ctOpenForm(id) {
     const el = gel('ct' + k); if (el) el.value = v;
   });
   gel('ctModal').classList.remove('hidden');
+
+  // Files section: visible only when editing existing contract
+  const filesSection = gel('ctFilesSection');
+  if (filesSection) {
+    filesSection.classList.toggle('hidden', !id);
+    if (id) ctRenderFiles();
+  }
 }
 
 function ctCloseForm() {
@@ -2922,6 +2929,95 @@ async function ctDelete() {
   toast('Contrato excluido.');
   ctCloseForm();
   await ctLoad();
+}
+
+/* ── CT FILES ── */
+function ctFileIcon(mime) {
+  if (!mime) return '&#128196;';
+  if (mime.startsWith('image/'))       return '&#128444;';
+  if (mime === 'application/pdf')      return '&#128196;';
+  if (mime.includes('word'))           return '&#128221;';
+  if (mime.includes('spreadsheet') || mime.includes('excel')) return '&#128202;';
+  return '&#128196;';
+}
+
+function ctFileSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024)        return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function ctRenderFiles() {
+  const el = gel('ctFilesList');
+  if (!el || !CT.editingId) return;
+  const ct = CT.list.find(c => c.id === CT.editingId);
+  const files = ct?.files || [];
+  if (!files.length) {
+    el.innerHTML = '<div class="ct-files-empty">Nenhum arquivo anexado.</div>';
+    return;
+  }
+  el.innerHTML = files.map(f => `
+    <div class="ct-file-item" id="ctfi_${f.id}">
+      <span class="ct-file-icon">${ctFileIcon(f.mime)}</span>
+      <div class="ct-file-info">
+        <div class="ct-file-name">${f.name}</div>
+        <div class="ct-file-meta">${ctFileSize(f.size)} &bull; ${f.uploadedAt ? new Date(f.uploadedAt).toLocaleDateString('pt-BR') : ''}</div>
+      </div>
+      <a class="ct-file-open" href="/api/contratos/${CT.editingId}/files/${f.id}" target="_blank" rel="noopener">Abrir</a>
+      <button class="ct-file-del" onclick="ctDeleteFile('${f.id}')" title="Remover">&#128465;</button>
+    </div>`).join('');
+}
+
+async function ctUploadFiles(filesRaw) {
+  const files = Array.from(filesRaw);
+  if (!files.length || !CT.editingId) return;
+
+  const el = gel('ctFilesList');
+  for (const file of files) {
+    const tmpId = 'tmp_' + Date.now();
+    // Show uploading placeholder
+    const placeholder = document.createElement('div');
+    placeholder.className = 'ct-file-item ct-file-uploading';
+    placeholder.id = 'ctfi_' + tmpId;
+    placeholder.innerHTML = `<span class="ct-file-icon">&#128257;</span><div class="ct-file-info"><div class="ct-file-name">${file.name}</div><div class="ct-file-meta">Enviando...</div></div>`;
+    el?.appendChild(placeholder);
+
+    try {
+      const ext  = file.name.split('.').pop().toLowerCase();
+      const mime = file.type || (ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : 'image/jpeg');
+      const b64  = await fileToBase64(file);
+
+      const r = await apiFetch(`/api/contratos/${CT.editingId}/files`, {
+        method: 'POST',
+        body:   JSON.stringify({ name: file.name, mime, data: b64 }),
+      });
+      if (!r || !r.ok) {
+        const err = r ? await r.json().catch(() => ({})) : {};
+        throw new Error(err.error || `HTTP ${r?.status}`);
+      }
+      const saved = await r.json();
+      // Update local list
+      const ct = CT.list.find(c => c.id === CT.editingId);
+      if (ct) { ct.files = ct.files || []; ct.files.push(saved); }
+      toast(`"${file.name}" anexado.`);
+    } catch (e) {
+      toast(`Erro ao enviar "${file.name}": ${e.message}`);
+    }
+    placeholder.remove();
+  }
+  gel('ctFileInput').value = '';
+  ctRenderFiles();
+  ctRenderTable(); // update table in case file count changes
+}
+
+async function ctDeleteFile(fid) {
+  if (!CT.editingId || !confirm('Remover este arquivo?')) return;
+  const r = await apiFetch(`/api/contratos/${CT.editingId}/files/${fid}`, { method: 'DELETE' });
+  if (!r || !r.ok) { toast('Erro ao remover arquivo.'); return; }
+  const ct = CT.list.find(c => c.id === CT.editingId);
+  if (ct) ct.files = (ct.files || []).filter(f => f.id !== fid);
+  ctRenderFiles();
 }
 
 /* ── INIT ────────────────────────────────────────────────────────── */
