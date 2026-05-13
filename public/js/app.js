@@ -181,20 +181,21 @@ function resetChecklistFromDept() {
 
 /* ── VIEW CONTROL ────────────────────────────────────────────────── */
 function showView(name) {
-  ['mainView','incView','adminView','companyView'].forEach(id => {
+  ['mainView','incView','adminView','companyView','trabalhistaView'].forEach(id => {
     const e = gel(id);
     if (e) { e.classList.add('hidden'); e.classList.remove('active'); }
   });
   const nav = gel('mainNav');
-  if (name === 'main' || name === 'inc') nav?.classList.remove('hidden');
+  if (name === 'main' || name === 'inc' || name === 'trabalhista') nav?.classList.remove('hidden');
   else nav?.classList.add('hidden');
 
-  const target = gel(
-    name === 'main'    ? 'mainView'    :
-    name === 'inc'     ? 'incView'     :
-    name === 'admin'   ? 'adminView'   : 'companyView'
-  );
+  const idMap = { main:'mainView', inc:'incView', admin:'adminView', trabalhista:'trabalhistaView' };
+  const target = gel(idMap[name] || 'companyView');
   if (target) { target.classList.remove('hidden'); if (name === 'inc') target.classList.add('active'); }
+
+  // Highlight the trabalhista nav tab only when in that view
+  gel('ntLabor')?.classList.toggle('active', name === 'trabalhista');
+  gel('ntRH')?.classList.toggle('active', name === 'main');
 }
 
 function updateContextBar() {
@@ -906,6 +907,15 @@ function switchTab(tabEl) {
   if (!tabEl.textContent.includes('RH')) toast('Modulo "' + tabEl.textContent.trim() + '" em desenvolvimento.');
 }
 
+function switchTabRH(tabEl) {
+  // If currently in trabalhista view, go back to main dept view
+  if (gel('trabalhistaView') && !gel('trabalhistaView').classList.contains('hidden')) {
+    exitTrabalhistaView();
+    return;
+  }
+  switchTab(tabEl);
+}
+
 /* ── API: DOSSIES ────────────────────────────────────────────────── */
 async function loadDossies() {
   try {
@@ -1384,6 +1394,167 @@ async function renderIndexedDossies() {
       <div class="idx-arrow">&#8250;</div>
     </div>`;
   }).join('');
+}
+
+/* ── TRABALHISTA VIEW ────────────────────────────────────────────── */
+let laborEmpList = [];
+
+function enterTrabalhistaView() {
+  showView('trabalhista');
+  gel('laborResults').innerHTML = '';
+  gel('laborCpf').value = '';
+  gel('laborEmpName').value = '';
+  gel('laborEmpSuggestions').innerHTML = '';
+  loadDossies().then(list => { laborEmpList = list; });
+}
+
+function exitTrabalhistaView() {
+  if (STATE.department)   { enterDeptView(); return; }
+  if (STATE.company)      { enterCompanyView(); return; }
+  if (STATE.profile === 'admin') { enterAdminView(); return; }
+  enterDeptView();
+}
+
+function laborFilterEmployees() {
+  const q = gel('laborEmpName').value.trim().toLowerCase();
+  const sug = gel('laborEmpSuggestions');
+  if (!q || q.length < 2) { sug.innerHTML = ''; return; }
+  const hits = laborEmpList.filter(d => d.name.toLowerCase().includes(q)).slice(0, 6);
+  if (!hits.length) { sug.innerHTML = ''; return; }
+  sug.innerHTML = hits.map(d =>
+    `<div class="labor-sug-item" onclick="laborSelectEmp('${encodeURIComponent(JSON.stringify({name:d.name,cpf:d.cpf}))}')">
+      <span class="labor-sug-name">${d.name}</span>
+      <span class="labor-sug-cpf">${d.cpf || 'CPF nao informado'}</span>
+    </div>`
+  ).join('');
+}
+
+function laborSelectEmp(json) {
+  const emp = JSON.parse(decodeURIComponent(json));
+  gel('laborEmpName').value = emp.name;
+  gel('laborCpf').value     = emp.cpf || '';
+  gel('laborEmpSuggestions').innerHTML = '';
+}
+
+async function laborSearch() {
+  const cpf      = gel('laborCpf').value.replace(/\D/g, '');
+  const name     = gel('laborEmpName').value.trim();
+  const tribunal = gel('laborTribunal').value;
+  if (!cpf && !name) { toast('Informe um CPF ou nome para pesquisar.'); return; }
+
+  const btn = gel('laborSearchBtn');
+  btn.disabled = true; btn.textContent = 'Consultando DataJud...';
+  gel('laborResults').innerHTML = '<div class="labor-loading"><div class="labor-spinner"></div><div>Consultando todos os TRTs no DataJud (CNJ)...</div></div>';
+
+  try {
+    const resp = await apiFetch('/api/labor/search', {
+      method: 'POST',
+      body:   JSON.stringify({ cpf, name, tribunal: tribunal || null }),
+    });
+    if (!resp) return;
+    const data = await resp.json();
+    if (!resp.ok) { gel('laborResults').innerHTML = `<div class="labor-empty">Erro: ${data.error}</div>`; return; }
+    renderLaborResults(data.processes, name || cpf);
+  } catch (e) {
+    gel('laborResults').innerHTML = `<div class="labor-empty">Erro de conexao: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '&#128269; Buscar processos';
+  }
+}
+
+function renderLaborResults(processes, searchTerm) {
+  const el = gel('laborResults');
+  if (!processes.length) {
+    el.innerHTML = `<div class="labor-empty">&#9989; Nenhum processo trabalhista encontrado para "${searchTerm}" no DataJud.</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="labor-results-header">${processes.length} processo${processes.length > 1 ? 's' : ''} encontrado${processes.length > 1 ? 's' : ''}</div>` +
+    processes.map((p, i) => buildLaborCard(p, i)).join('');
+}
+
+function buildLaborCard(p, i) {
+  const dateAj  = p.dataAjuizamento ? new Date(p.dataAjuizamento).toLocaleDateString('pt-BR') : 'nao informada';
+  const partes  = (p.partes || []);
+  const recl    = partes.find(x => /reclamante|autor/i.test(x.tipoParte?.nome || ''));
+  const recdo   = partes.find(x => /reclamado|reu/i.test(x.tipoParte?.nome || ''));
+  const lastMov = (p.movimentos || []).slice(-1)[0]?.nome || 'sem movimentos';
+  const trib    = p._tribunal || p.tribunal || '';
+  const num     = p.numeroProcesso || 'nao informado';
+  const classe  = p.classe?.nome || 'Processo Trabalhista';
+  const valor   = p.valor ? 'R$ ' + Number(p.valor).toLocaleString('pt-BR', {minimumFractionDigits:2}) : null;
+
+  const safeP = encodeURIComponent(JSON.stringify(p));
+  return `<div class="labor-card" id="laborCard_${i}">
+    <div class="labor-card-top">
+      <div class="labor-card-badge">${trib}</div>
+      <div class="labor-card-num">${num}</div>
+      <div class="labor-card-date">Ajuizado em ${dateAj}</div>
+    </div>
+    <div class="labor-card-body">
+      <div class="labor-card-classe">${classe}</div>
+      <div class="labor-partes">
+        ${recl ? `<div class="labor-parte"><span class="labor-parte-lbl recl">Reclamante</span><span class="labor-parte-nome">${recl.nome}</span></div>` : ''}
+        ${recdo ? `<div class="labor-parte"><span class="labor-parte-lbl recdo">Reclamado</span><span class="labor-parte-nome">${recdo.nome}</span></div>` : ''}
+      </div>
+      <div class="labor-last-mov"><span>Ultimo mov.:</span> ${lastMov}</div>
+      ${valor ? `<div class="labor-valor">Valor da causa: <strong>${valor}</strong></div>` : ''}
+    </div>
+    <div class="labor-card-footer">
+      <button class="labor-analyze-btn" id="laborAnalyzeBtn_${i}" onclick="laborAnalyze(${i}, decodeURIComponent('${safeP}'))">&#128161; Analisar com IA</button>
+    </div>
+    <div class="labor-analysis hidden" id="laborAnalysis_${i}"></div>
+  </div>`;
+}
+
+async function laborAnalyze(idx, processoJson) {
+  const processo = JSON.parse(processoJson);
+  const btn      = gel(`laborAnalyzeBtn_${idx}`);
+  const panel    = gel(`laborAnalysis_${idx}`);
+  btn.disabled = true; btn.textContent = 'Analisando...';
+  panel.classList.remove('hidden');
+  panel.innerHTML = '<div class="labor-ai-loading">&#129302; A IA esta analisando o processo...</div>';
+
+  try {
+    const resp = await apiFetch('/api/labor/analyze', {
+      method: 'POST',
+      body:   JSON.stringify({ processo }),
+    });
+    if (!resp) return;
+    const ai = await resp.json();
+    if (!resp.ok) { panel.innerHTML = `<div class="labor-ai-error">Erro na analise: ${ai.error}</div>`; return; }
+
+    const riskClass = ai.risco === 'alto' ? 'risk-alto' : ai.risco === 'medio' ? 'risk-medio' : 'risk-baixo';
+    const riskLabel = ai.risco === 'alto' ? '&#9940; Risco Alto' : ai.risco === 'medio' ? '&#9888; Risco Medio' : '&#10003; Risco Baixo';
+    const pedidos   = (ai.pedidos_provaveis || []).map(p => `<li>${p}</li>`).join('');
+    const atencao   = (ai.pontos_atencao   || []).map(p => `<li>${p}</li>`).join('');
+
+    panel.innerHTML = `
+      <div class="labor-ai-result">
+        <div class="labor-ai-header">
+          <div class="labor-ai-title">&#128161; Analise da IA</div>
+          <span class="labor-risk-badge ${riskClass}">${riskLabel}</span>
+        </div>
+        <div class="labor-ai-section">
+          <div class="labor-ai-label">Tipo de acao</div>
+          <div class="labor-ai-value">${ai.tipo_acao || 'nao identificado'}</div>
+        </div>
+        <div class="labor-ai-section">
+          <div class="labor-ai-label">Fase atual</div>
+          <div class="labor-ai-value">${ai.fase_atual || ai.status_resumido || 'nao informado'}</div>
+        </div>
+        <div class="labor-ai-section">
+          <div class="labor-ai-label">Resumo da inicial</div>
+          <div class="labor-ai-value labor-ai-resumo">${ai.resumo_inicial || 'sem resumo disponivel'}</div>
+        </div>
+        ${pedidos ? `<div class="labor-ai-section"><div class="labor-ai-label">Principais pedidos provaveis</div><ul class="labor-ai-list">${pedidos}</ul></div>` : ''}
+        ${atencao ? `<div class="labor-ai-section"><div class="labor-ai-label">Pontos de atencao para o RH</div><ul class="labor-ai-list labor-ai-atencao">${atencao}</ul></div>` : ''}
+        ${ai.valor_causa && ai.valor_causa !== 'nao informado' ? `<div class="labor-ai-section"><div class="labor-ai-label">Valor da causa</div><div class="labor-ai-value">${ai.valor_causa}</div></div>` : ''}
+      </div>`;
+  } catch (e) {
+    panel.innerHTML = `<div class="labor-ai-error">Erro: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '&#128161; Reanalisar';
+  }
 }
 
 /* ── INIT ────────────────────────────────────────────────────────── */
