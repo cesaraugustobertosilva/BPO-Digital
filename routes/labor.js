@@ -76,26 +76,33 @@ router.post('/analyze', async (req, res) => {
     if (!processo) return res.status(400).json({ error: 'Dados do processo obrigatorios.' });
 
     const client = new Anthropic();
-    const prompt = `Voce e um especialista em direito trabalhista brasileiro. Analise os dados deste processo e responda APENAS com JSON valido, sem texto extra:
+    const prompt = `Voce e um especialista em direito trabalhista brasileiro. Analise os dados publicos deste processo trabalhista e responda APENAS com JSON valido, sem texto extra.
 
+Dados do processo:
 ${JSON.stringify(processo, null, 2)}
 
-Retorne exatamente este formato:
+Retorne exatamente este formato JSON (sem markdown, sem texto fora do JSON):
 {
   "tipo_acao": "nome da acao trabalhista",
-  "pedidos_provaveis": ["lista dos pedidos/verbas mais provaveis com base na classe e movimentos"],
+  "pedidos_provaveis": ["lista dos pedidos/verbas mais provaveis com base na classe, assuntos CNJ e movimentos"],
   "empresa_reclamada": "nome da empresa reclamada ou null",
   "fase_atual": "fase processual atual com base nos movimentos",
   "status_resumido": "frase curta sobre o status atual",
   "risco": "alto|medio|baixo",
   "valor_causa": "valor em reais ou nao informado",
-  "resumo_inicial": "resumo de 2-3 frases sobre o caso, inferindo os fatos da inicial com base nos dados disponiveis",
+  "resumo_inicial": "resumo de 2-3 frases sobre o caso inferindo os fatos da inicial com base nos dados publicos",
+  "inicial_reconstituida": {
+    "fatos_alegados": "Narrativa em 3-5 frases dos fatos que o reclamante provavelmente narrou na inicial, com base nos assuntos CNJ, classe processual, valor e movimentos. Use linguagem juridica mas acessivel.",
+    "fundamentos_juridicos": ["CLT art. X - motivo", "Sumula TST XXX - motivo"],
+    "pedidos_detalhados": ["Pedido 1 com estimativa de valor se possivel", "Pedido 2", "..."],
+    "documentos_provaveis": ["Lista de documentos que o reclamante provavelmente juntou na inicial"]
+  },
   "pontos_atencao": ["lista de pontos criticos para o RH/empresa"]
 }`;
 
     const msg = await client.messages.create({
       model:      'claude-sonnet-4-6',
-      max_tokens: 800,
+      max_tokens: 1800,
       messages:   [{ role: 'user', content: prompt }],
     });
 
