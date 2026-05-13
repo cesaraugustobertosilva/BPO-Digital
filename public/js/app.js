@@ -820,7 +820,11 @@ async function analyzeWithAI(file) {
     method:'POST',
     body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system:SYSTEM_PROMPT, messages }),
   });
-  if (!resp || !resp.ok) { const err = resp ? await resp.json().catch(() => ({})) : {}; throw new Error(err.error?.message || `HTTP ${resp?.status || 401}`); }
+  if (!resp || !resp.ok) {
+    const err = resp ? await resp.json().catch(() => ({})) : {};
+    const msg = err.error?.message || `HTTP ${resp?.status || 401}`;
+    throw new Error(msg.length > 120 ? msg.substring(0, 120) + '...' : msg);
+  }
   const data  = await resp.json();
   const raw   = data.content?.find(c => c.type === 'text')?.text || '{}';
   return JSON.parse(raw.replace(/```json|```/g, '').trim());
