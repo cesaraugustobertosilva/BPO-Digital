@@ -90,12 +90,18 @@ Retorne exatamente este formato:
   "risco": "alto|medio|baixo",
   "valor_causa": "valor em reais ou nao informado",
   "resumo_inicial": "resumo de 2-3 frases sobre o caso, inferindo os fatos da inicial com base nos dados disponiveis",
-  "pontos_atencao": ["lista de pontos criticos para o RH/empresa"]
+  "pontos_atencao": ["lista de pontos criticos para o RH/empresa"],
+  "inicial_reconstituida": {
+    "fatos_alegados": "narrativa dos fatos da inicial reconstituida com base nos dados do processo (2-4 frases)",
+    "fundamentos_juridicos": ["CLT art. X - descricao do motivo", "Sumula TST N - descricao"],
+    "pedidos_detalhados": ["Pedido 1 com estimativa de valor se possivel", "Pedido 2..."],
+    "documentos_provaveis": ["documento que provavelmente foi juntado na inicial", "..."]
+  }
 }`;
 
     const msg = await client.messages.create({
       model:      'claude-sonnet-4-6',
-      max_tokens: 800,
+      max_tokens: 1800,
       messages:   [{ role: 'user', content: prompt }],
     });
 

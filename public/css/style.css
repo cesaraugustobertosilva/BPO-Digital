@@ -1855,3 +1855,96 @@ html, body {
   font-size: 11px; cursor: pointer; transition: all .2s;
 }
 .labor-rh-view-btn:hover { border-color: var(--sbk-cyan); color: var(--sbk-cyan); }
+
+/* ── RICH RH DOCUMENT CARDS (TRABALHISTA DEMO) ───────────────────── */
+.labor-rh-docs-rich { padding: 16px; }
+.rh-doc-count { font-size: 11px; color: var(--sbk-slate); margin-left: 8px; }
+.rh-doc-missing-alert {
+  background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px;
+  padding: 8px 12px; font-size: 11px; font-weight: 600; color: #c2410c;
+  margin-bottom: 14px;
+}
+.rh-doc-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px;
+}
+.rh-doc-card {
+  border-radius: 10px; overflow: hidden; border: 1.5px solid #e2e8f0;
+  font-size: 11px; transition: box-shadow .2s;
+}
+.rh-doc-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.rh-doc-card.rh-doc-miss { border-color: #fca5a5; }
+.rh-doc-header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+}
+.rh-doc-icon { font-size: 18px; line-height: 1; }
+.rh-doc-title {
+  flex: 1; font-size: 11px; font-weight: 600; color: #fff; line-height: 1.3;
+}
+.rh-doc-badge {
+  font-size: 9px; font-weight: 700; padding: 3px 7px; border-radius: 20px;
+  white-space: nowrap; letter-spacing: .3px;
+}
+.rh-doc-badge-ok   { background: rgba(255,255,255,.25); color: #fff; }
+.rh-doc-badge-miss { background: #fee2e2; color: #dc2626; }
+.rh-doc-body {
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; background: white;
+}
+.rh-doc-body-miss { background: #fff5f5; }
+.rh-doc-field { display: flex; justify-content: space-between; gap: 8px; }
+.rh-doc-lbl { color: #94a3b8; font-weight: 500; white-space: nowrap; font-size: 10px; }
+.rh-doc-val { color: #334155; font-weight: 600; text-align: right; font-size: 10.5px; }
+.rh-doc-alert {
+  background: #fffbeb; border: 1px solid #fde68a; border-radius: 5px;
+  padding: 4px 8px; color: #b45309; font-weight: 600; font-size: 10px; margin-top: 3px;
+}
+.rh-doc-alerta {
+  background: #fff7ed; border: 1px solid #fed7aa; border-radius: 5px;
+  padding: 5px 8px; color: #c2410c; font-weight: 700; font-size: 10px; margin-top: 4px;
+}
+
+/* ── ASSUNTOS CNJ TAGS + LINK TRIBUNAL ───────────────────────────── */
+.labor-assuntos { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 4px; }
+.labor-assunto-tag {
+  background: #e0f2fe; color: #0369a1; font-size: 10px; font-weight: 600;
+  padding: 3px 9px; border-radius: 20px; letter-spacing: .2px;
+}
+.labor-trib-link {
+  font-size: 10px; font-weight: 600; color: #0369a1; text-decoration: none;
+  background: #e0f2fe; padding: 3px 9px; border-radius: 20px;
+  white-space: nowrap; transition: background .2s; margin-left: auto;
+}
+.labor-trib-link:hover { background: #bae6fd; }
+
+/* ── PETICAO INICIAL RECONSTITUIDA ───────────────────────────────── */
+.labor-inicial-section {
+  margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 14px;
+}
+.labor-inicial-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.labor-inicial-icon { font-size: 18px; }
+.labor-inicial-title { font-size: 13px; font-weight: 700; color: var(--sbk-dark); flex: 1; }
+.labor-inicial-badge {
+  font-size: 9px; font-weight: 700; background: #fef9c3; color: #854d0e;
+  border: 1px solid #fde68a; padding: 3px 8px; border-radius: 20px; letter-spacing: .3px;
+}
+.labor-ini-fatos { background: #f8fafc; border-left: 3px solid #94a3b8; padding: 10px 12px !important; border-radius: 0 6px 6px 0; }
+.labor-ini-fund li { color: #4338ca; font-size: 11px; }
+.labor-ini-docs li { color: #374151; }
+
+/* ── CHECKLIST ALERTA INLINE (trabalhista demo) ───────────────────── */
+.rh-chk-alerta {
+  font-size: 10px; font-weight: 700; color: #c2410c;
+  background: #fff7ed; border: 1px solid #fed7aa;
+  border-radius: 4px; padding: 2px 6px; margin-top: 3px; display: inline-block;
+}
+.rh-demo-detail { margin-top: 14px; }
+
+/* ── BOTAO ABRIR DOCUMENTO ───────────────────────────────────────── */
+.dm-open-btn {
+  font-size: 10px; font-weight: 600; color: #0369a1;
+  background: #e0f2fe; border-radius: 5px; padding: 2px 8px;
+  text-decoration: none; white-space: nowrap; flex-shrink: 0;
+  transition: background .15s;
+}
+.dm-open-btn:hover { background: #bae6fd; }

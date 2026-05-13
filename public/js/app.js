@@ -358,11 +358,13 @@ async function apiGetCompanies() {
   try { const r = await apiFetch('/api/companies'); if (!r) return []; return r.ok ? r.json() : []; } catch { return []; }
 }
 async function apiPostCompany(name) {
-  try {
-    const r = await apiFetch('/api/companies', { method:'POST', body:JSON.stringify({name}) });
-    if (!r) return null;
-    return r.ok ? r.json() : null;
-  } catch { return null; }
+  const r = await apiFetch('/api/companies', { method:'POST', body:JSON.stringify({name}) });
+  if (!r) throw new Error('Sem resposta do servidor.');
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${r.status}`);
+  }
+  return r.json();
 }
 async function apiPostDept(companyId, name) {
   try {
@@ -435,8 +437,12 @@ function renderAdminDepts(company) {
 
 function adminNewCompany() {
   openPrompt('Nome da empresa', 'Ex.: Acme Legal', async name => {
-    const c = await apiPostCompany(name);
-    if (c?.id) { toast('Empresa criada.'); renderAdminPanel(); }
+    try {
+      const c = await apiPostCompany(name);
+      if (c?.id) { toast('Empresa criada.'); renderAdminPanel(); }
+    } catch (e) {
+      toast('Erro ao criar empresa: ' + (e.message || 'tente novamente.'));
+    }
   });
 }
 
@@ -1442,7 +1448,9 @@ async function showDossierModal(dossieId) {
   if (!resp || !resp.ok) { toast('Erro ao carregar prontuario.'); return; }
   const d = await resp.json();
 
-  const docsSet = new Set((d.docs || []).map(s => s.toLowerCase()));
+  const docsSet  = new Set((d.docs  || []).map(s => s.toLowerCase()));
+  const filesMap = {};
+  (d.files || []).forEach(f => { filesMap[f.name.toLowerCase()] = f; });
 
   gel('dmName').textContent = d.name;
   gel('dmMeta').textContent =
@@ -1452,9 +1460,14 @@ async function showDossierModal(dossieId) {
 
   const buildItems = items => items.map(item => {
     const present = docsSet.has(item.name.toLowerCase());
+    const file    = filesMap[item.name.toLowerCase()];
+    const openBtn = (present && file?.previewUrl)
+      ? `<a class="dm-open-btn" href="${file.previewUrl}" target="_blank" rel="noopener" title="Abrir documento">&#128065; Abrir</a>`
+      : '';
     return `<div class="dm-item ${present ? 'dm-ok' : 'dm-miss'}">
       <span class="dm-icon">${present ? '&#10003;' : '&#9711;'}</span>
-      <span class="dm-item-name">${item.name}</span>
+      <span class="dm-item-name" style="flex:1;">${item.name}</span>
+      ${openBtn}
     </div>`;
   }).join('');
 
@@ -1492,6 +1505,7 @@ const LABOR_DEMO_COLLABS = [
       classe:{nome:'Reclamacao Trabalhista - Rito Ordinario'},
       orgaoJulgador:{nome:'78a Vara do Trabalho de Sao Paulo'},
       dataAjuizamento:'2022-08-14', _tribunal:'TRT2', valor:85000,
+      assuntos:[{nome:'Horas Extras'},{nome:'FGTS'},{nome:'Verbas Rescisorias'},{nome:'Dano Moral'}],
       partes:[
         {nome:'Carlos Eduardo Mendes',tipoParte:{nome:'Reclamante'}},
         {nome:'Empresa Demo Ltda',    tipoParte:{nome:'Reclamado'}},
@@ -1509,15 +1523,39 @@ const LABOR_DEMO_COLLABS = [
         status_resumido:'Em fase de instrucao',
         risco:'alto', valor_causa:'R$ 85.000,00',
         resumo_inicial:'Colaborador demitido em julho/2022 alega nao ter recebido corretamente todas as verbas rescisorias. Pleiteia horas extras de cerca de 3 anos de contrato, alem de dano moral por cobranca abusiva de metas. Audiencia realizada em novembro/2022 sem acordo.',
+        inicial_reconstituida:{
+          fatos_alegados:'O reclamante, admitido em marco de 2019 como Analista de Logistica, narra que ao longo de aproximadamente 3 anos prestou servico em regime de sobrejornada sistematica, sem o devido pagamento das horas extraordinarias. Alega que, alem da supressao das horas extras, sofreu cobranca abusiva de metas por parte de gestores diretos, configurando assedio moral. Demitido em julho de 2022, afirma que as verbas rescisorias foram pagas de forma incompleta, sem quitacao integral do FGTS e sem o pagamento correto do aviso previo indenizado.',
+          fundamentos_juridicos:['CLT art. 59 - limitacao e pagamento das horas extras','CLT art. 223-A a 223-G - dano extrapatrimonial (dano moral)','CLT art. 477 - pagamento das verbas rescisorias','Sumula TST 291 - horas suplementares habituais e reflexos','OJ SDI-1 TST 394 - base de calculo das horas extras'],
+          pedidos_detalhados:['Horas extras (50%) + adicional noturno, 3 anos de contrato - estimativa R$ 28.000','FGTS nao recolhido sobre horas extras + multa de 40% - estimativa R$ 12.000','Aviso previo indenizado proporcional (30 + 3 dias) - estimativa R$ 4.500','Ferias vencidas + 1/3 constitucional - estimativa R$ 5.200','13o salario proporcional - estimativa R$ 2.800','Indenizacao por dano moral por assedio de metas - estimativa R$ 30.000'],
+          documentos_provaveis:['Carteira de Trabalho (CTPS) com anotacoes do contrato','Contracheques e holerites do periodo','Termo de rescisao contratual (TRCT)','Registro de ponto (cartao ponto ou espelho)','E-mails ou mensagens de cobranca de metas por gestores','Comunicados internos sobre metas e desempenho'],
+        },
         pontos_atencao:['Processo em fase de sentenca com valor expressivo','Alegacao de dano moral aumenta exposicao financeira','Verificar controle de ponto do periodo reclamado','Revisar documentacao da rescisao contratual'],
       },
     }],
+    _demoRhDocs:{status:'Atencao',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'4821 7733 SP/DETRAN',  validade:'15/03/2028',emissao:'08/07/2020'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'342.891.074-55',       validade:null,        emissao:'12/01/2015'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2019/0041',         validade:null,        emissao:'15/03/2019'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2019/0041',         validade:null,        emissao:'15/03/2019'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:true, num:'Conta de Luz - Enel',  validade:'30/06/2025',emissao:'10/05/2025'},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:false,num:null,                   validade:null,        emissao:null},
+    ]},
   },
   {
     id:'d2', name:'Aline Cristina Fonseca', cpf:'521.047.389-81',
     cargo:'Auxiliar Administrativo', admissao:'2021-01-20',
     status:'clean', lastCheck: new Date(Date.now()-7*60000).toISOString(),
     processes:[],
+    _demoRhDocs:{status:'Completo',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'7714 8822 SP/SSP',     validade:'22/01/2027',emissao:'10/01/2022'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'521.047.389-81',       validade:null,        emissao:'03/05/2018'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2021/0007',         validade:null,        emissao:'20/01/2021'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2021/0007',         validade:null,        emissao:'20/01/2021'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2021/0007',         validade:'20/01/2026',emissao:'18/01/2021'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:true, num:'Conta de Agua - Sabesp',validade:'31/05/2025',emissao:'05/05/2025'},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'18/01/2021'},
+    ]},
   },
   {
     id:'d3', name:'Ricardo Viana Barbosa', cpf:'089.345.671-22',
@@ -1529,6 +1567,7 @@ const LABOR_DEMO_COLLABS = [
         classe:{nome:'Reclamacao Trabalhista - Rito Sumario'},
         orgaoJulgador:{nome:'19a Vara do Trabalho de Campinas'},
         dataAjuizamento:'2020-02-03', _tribunal:'TRT15', valor:22500,
+        assuntos:[{nome:'Acumulo de Funcoes'},{nome:'Diferenca Salarial'},{nome:'Reflexos'}],
         partes:[
           {nome:'Ricardo Viana Barbosa',tipoParte:{nome:'Reclamante'}},
           {nome:'Empresa Demo Ltda',    tipoParte:{nome:'Reclamado'}},
@@ -1547,6 +1586,12 @@ const LABOR_DEMO_COLLABS = [
           status_resumido:'Encerrado com transito em julgado',
           risco:'baixo', valor_causa:'R$ 22.500,00',
           resumo_inicial:'Processo encerrado. Colaborador pleiteou adicional por desempenho de funcoes superiores nao reconhecidas. Sentenca proferida em setembro/2020, transito em julgado em marco/2021.',
+          inicial_reconstituida:{
+            fatos_alegados:'O reclamante, admitido em junho de 2017 como Supervisor de Operacoes, narra que passou a exercer cumulativamente funcoes de gestao de equipe e controle operacional sem o correspondente reconhecimento salarial. Alega que, a despeito de acumular atribuicoes tipicas de cargo superior, continuou percebendo remuneracao equivalente ao cargo original, configurando acumulo de funcoes nao remunerado. O processo foi encerrado em 2022 com transito em julgado.',
+            fundamentos_juridicos:['CLT art. 456-A - acumulo de funcoes e remuneracao correspondente','Principio da isonomia salarial - CF art. 7o, XXX','Sumula TST 159 - acumulo de funcoes e adicional'],
+            pedidos_detalhados:['Adicional por acumulo de funcoes (percentual sobre o salario) - estimativa R$ 12.000','Diferenca salarial retroativa pelo periodo acumulado - estimativa R$ 6.500','Reflexos em ferias + 1/3, 13o salario e FGTS - estimativa R$ 4.000'],
+            documentos_provaveis:['Descricao de cargo e funcoes da empresa','Organograma do periodo','E-mails demonstrando exercicio de funcoes superiores','Holerites para calculo da diferenca salarial'],
+          },
           pontos_atencao:['Processo encerrado - nenhuma acao necessaria','Manter documentacao por 5 anos apos arquivamento'],
         },
       },
@@ -1555,6 +1600,7 @@ const LABOR_DEMO_COLLABS = [
         classe:{nome:'Reclamacao Trabalhista - Rito Ordinario'},
         orgaoJulgador:{nome:'19a Vara do Trabalho de Campinas'},
         dataAjuizamento:'2023-11-27', _tribunal:'TRT15', valor:140000,
+        assuntos:[{nome:'Assedio Moral'},{nome:'Dano Moral'},{nome:'Horas Extras'},{nome:'Adicional Noturno'},{nome:'Equiparacao Salarial'}],
         partes:[
           {nome:'Ricardo Viana Barbosa',tipoParte:{nome:'Reclamante'}},
           {nome:'Empresa Demo Ltda',    tipoParte:{nome:'Reclamado'}},
@@ -1572,16 +1618,40 @@ const LABOR_DEMO_COLLABS = [
           status_resumido:'Em fase inicial, audiencia agendada',
           risco:'alto', valor_causa:'R$ 140.000,00',
           resumo_inicial:'Colaborador ATIVO alega assedio moral sistematico por gestores diretos entre 2020 e 2023. Pleiteia dano moral de R$ 80.000 alem de verbas salariais nao pagas. Audiencia de conciliacao agendada.',
+          inicial_reconstituida:{
+            fatos_alegados:'O reclamante, ainda ativo como Supervisor de Operacoes, narra que a partir de 2020 passou a ser submetido a tratamento humilhante e constrangedor por parte de gestores diretos, incluindo cobracas excessivas em publico, exclusao de reunioes estrategicas e ameacas reiteradas de demissao. Paralelamente, alega que prestou servico em sobrejornada de forma sistematica sem o pagamento do adicional correspondente, e que colegas com mesma funcao e experiencia recebem remuneracao superior sem justificativa. O acumulado de situacoes configura, segundo a inicial, assedio moral continuado e dano existencial.',
+            fundamentos_juridicos:['CLT art. 223-A a 223-G - dano extrapatrimonial (assedio moral)','CLT art. 461 - equiparacao salarial','CLT art. 59 - horas extras e adicional','CF art. 5o, X - inviolabilidade da honra e imagem','Lei 9.029/95 - praticas discriminatorias nas relacoes de trabalho'],
+            pedidos_detalhados:['Indenizacao por dano moral por assedio continuado - R$ 80.000','Indenizacao por dano existencial - R$ 20.000','Horas extras (2020-2023) + adicional noturno + reflexos - estimativa R$ 22.000','Diferenca salarial por equiparacao - estimativa R$ 18.000'],
+            documentos_provaveis:['Prints de mensagens de WhatsApp/e-mail com conteudo de assedio','Testemunhas indicadas (colegas de trabalho)','Contracheques para comparacao salarial com paradigma','Registros de ponto do periodo','Laudos medicos ou psicologicos se aplicavel'],
+          },
           pontos_atencao:['COLABORADOR AINDA ATIVO - situacao critica','Valor elevado com risco real de condenacao','Preservar e-mails e comunicados internos','Envolver juridico e RH imediatamente','Avaliar acordo extrajudicial para mitigar risco'],
         },
       },
     ],
+    _demoRhDocs:{status:'Critico',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'3390 5512 MG/DETRAN',  validade:'01/06/2026',emissao:'14/02/2021'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'089.345.671-22',       validade:null,        emissao:'07/08/2010'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2017/0031',         validade:'01/06/2022',emissao:'28/05/2017'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'28/05/2017'},
+    ]},
   },
   {
     id:'d4', name:'Fernanda Lima Carvalho', cpf:'673.890.234-09',
     cargo:'Coordenadora de RH', admissao:'2020-08-10',
     status:'clean', lastCheck: new Date(Date.now()-5*60000).toISOString(),
     processes:[],
+    _demoRhDocs:{status:'Completo',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'2204 9951 SP/SSP',     validade:'10/08/2029',emissao:'03/07/2024'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'673.890.234-09',       validade:null,        emissao:'16/11/2012'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2020/0082',         validade:null,        emissao:'10/08/2020'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2020/0082',         validade:null,        emissao:'10/08/2020'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2020/0082',         validade:'10/08/2025',emissao:'07/08/2020'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:true, num:'Fatura Internet - Vivo',validade:'30/06/2025',emissao:'01/06/2025'},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'07/08/2020'},
+    ]},
   },
   {
     id:'d5', name:'Marcelo dos Santos Pereira', cpf:'815.234.067-44',
@@ -1592,6 +1662,7 @@ const LABOR_DEMO_COLLABS = [
       classe:{nome:'Reclamacao Trabalhista - Vinculo Empregaticio'},
       orgaoJulgador:{nome:'1a Vara do Trabalho de Sao Paulo'},
       dataAjuizamento:'2024-06-05', _tribunal:'TRT2', valor:58000,
+      assuntos:[{nome:'Vinculo Empregaticio'},{nome:'FGTS'},{nome:'Ferias'},{nome:'13o Salario'},{nome:'Horas in Itinere'}],
       partes:[
         {nome:'Marcelo dos Santos Pereira',tipoParte:{nome:'Reclamante'}},
         {nome:'Empresa Demo Ltda',         tipoParte:{nome:'Reclamado'}},
@@ -1608,14 +1679,38 @@ const LABOR_DEMO_COLLABS = [
         status_resumido:'Processo recente, citacao realizada',
         risco:'medio', valor_causa:'R$ 58.000,00',
         resumo_inicial:'Motorista pleiteia reconhecimento formal de vinculo CLT e pagamento de verbas do periodo nao registrado. Alega que parte do contrato foi mascarada como prestacao de servico autonomo sem respaldo legal.',
+        inicial_reconstituida:{
+          fatos_alegados:'O reclamante narra que prestou servico como motorista para a reclamada por aproximadamente 6 anos, entre 2018 e 2024, sem que houvesse o devido registro em Carteira de Trabalho. Alega que a relacao era formalmente enquadrada como prestacao de servico autonomo (MEI ou pessoa fisica), mas que na pratica se configuravam todos os requisitos da relacao de emprego: pessoalidade, nao eventualidade, oneridade e subordinacao juridica. Pleiteia o reconhecimento do vinculo empregaticio e o pagamento de todas as verbas devidas pelo periodo nao registrado, incluindo as horas de deslocamento ate o local de trabalho (horas in itinere).',
+          fundamentos_juridicos:['CLT art. 2o e 3o - conceito de empregado e empregador','CLT art. 29 - obrigatoriedade de registro em CTPS','Sumula TST 90 - horas in itinere','OJ SDI-1 TST 363 - FGTS em vinculo nao reconhecido','CLT art. 477 e 467 - verbas rescisorias e multa'],
+          pedidos_detalhados:['Reconhecimento de vinculo empregaticio (2018-2024)','FGTS nao depositado + multa de 40% - estimativa R$ 14.000','Ferias + 1/3 constitucional pelo periodo - estimativa R$ 8.500','13o salario proporcional - estimativa R$ 7.200','Seguro desemprego - estimativa R$ 5.600','Horas in itinere - estimativa R$ 12.000','Aviso previo indenizado proporcional - estimativa R$ 6.400','INSS do periodo nao recolhido (responsabilidade patronal)'],
+          documentos_provaveis:['Notas fiscais emitidas pelo reclamante no periodo','Mapas e registros de rotas realizadas','Extratos bancarios de pagamentos recebidos','Testemunhas (outros motoristas da empresa)','Comunicacoes internas da empresa com o reclamante'],
+        },
         pontos_atencao:['Verificar natureza juridica do contrato do motorista','Levantar registros de ponto e rotas do periodo','Consultar juridico sobre risco de vinculo informal reconhecido'],
       },
     }],
+    _demoRhDocs:{status:'Atencao',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'5593 1182 SP/DETRAN',  validade:'22/04/2024',emissao:'10/03/2019',alerta:'CNH VENCIDA - renovar urgente'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'815.234.067-44',       validade:null,        emissao:'20/02/2014'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2018/0023',         validade:null,        emissao:'22/04/2018'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2018/0023',         validade:null,        emissao:'22/04/2018'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2018/0023',         validade:'22/04/2023',emissao:'19/04/2018',alerta:'Exame VENCIDO - agendar periodico'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'19/04/2018'},
+    ]},
   },
   {
     id:'d6', name:'Patricia Gomes Alves', cpf:'198.076.523-37',
     cargo:'Assistente Fiscal', admissao:'2022-03-01',
     status:'pending', lastCheck:null, processes:[],
+    _demoRhDocs:{status:'Completo',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'9012 3344 SP/SSP',     validade:'01/03/2030',emissao:'20/02/2025'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'198.076.523-37',       validade:null,        emissao:'14/09/2016'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2022/0019',         validade:null,        emissao:'01/03/2022'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2022/0019',         validade:null,        emissao:'01/03/2022'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2022/0019',         validade:'01/03/2027',emissao:'25/02/2022'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:true, num:'Conta de Luz - Enel',  validade:'30/06/2025',emissao:'12/05/2025'},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'25/02/2022'},
+    ]},
   },
 ];
 
@@ -1788,18 +1883,29 @@ async function laborLoadRhDocs(c) {
   });
 
   if (!dossie) {
-    el.innerHTML = `<div class="labor-rh-empty">
-      <span>&#128196;</span> Colaborador nao localizado no modulo RH deste departamento.
-    </div>`;
+    if (LBR.demoMode && c._demoRhDocs) { laborRenderDemoRhDocs(el, c); return; }
+    el.innerHTML = `<div class="labor-rh-empty"><span>&#128196;</span> Colaborador nao localizado no modulo RH.</div>`;
     return;
   }
 
-  const docsSet = new Set((dossie.docs || []).map(s => s.toLowerCase()));
-  const items   = CHECKLIST_DEF.map(item => {
-    const ok = docsSet.has(item.name.toLowerCase());
-    return `<div class="dm-item ${ok?'dm-ok':'dm-miss'} dm-compact">
+  laborRenderRhChecklist(el, dossie);
+}
+
+function laborRenderRhChecklist(el, dossie) {
+  const docsSet  = new Set((dossie.docs  || []).map(s => s.toLowerCase()));
+  const filesMap = {};
+  (dossie.files || []).forEach(f => { filesMap[f.name.toLowerCase()] = f; });
+
+  const items = CHECKLIST_DEF.map(item => {
+    const ok   = docsSet.has(item.name.toLowerCase());
+    const file = filesMap[item.name.toLowerCase()];
+    const openBtn = (ok && file?.previewUrl)
+      ? `<a class="dm-open-btn" href="${file.previewUrl}" target="_blank" rel="noopener">&#128065; Abrir</a>`
+      : '';
+    return `<div class="dm-item dm-compact ${ok?'dm-ok':'dm-miss'}">
       <span class="dm-icon">${ok?'&#10003;':'&#9711;'}</span>
-      <span class="dm-item-name">${item.name}${item.req?'':' <em>(opc.)</em>'}</span>
+      <span class="dm-item-name" style="flex:1;">${item.name}${item.req?'':' <em>(opc.)</em>'}</span>
+      ${openBtn}
     </div>`;
   }).join('');
 
@@ -1811,11 +1917,92 @@ async function laborLoadRhDocs(c) {
   el.innerHTML = `<div class="labor-rh-docs">
     <div class="labor-rh-docs-header">
       <div class="labor-rh-docs-title">&#128196; Documentacao no RH</div>
-      <span class="inc-severity ${sevClass}" style="font-size:10px;">${sev}</span>
+      <span class="inc-severity ${sevClass}">${sev}</span>
     </div>
     <div class="dm-checklist dm-two-col">${items}</div>
     <button class="labor-rh-view-btn" onclick="showDossierModal('${dossie.id}')">Ver prontuario completo</button>
   </div>`;
+}
+
+function laborRenderDemoRhDocs(el, c) {
+  const rh = c._demoRhDocs;
+  const sevClass = rh.status === 'Critico' ? 'sev-critical' : rh.status === 'Atencao' ? 'sev-warning' : 'sev-ok';
+
+  const missing = rh.docs.filter(d => !d.ok && d.req).length;
+  const present = rh.docs.filter(d => d.ok).length;
+  const total   = rh.docs.length;
+
+  // Checklist view (matches screenshot style)
+  const checkItems = rh.docs.map(doc => {
+    const nameHtml = doc.name + (doc.req ? '' : ' <em>(opc.)</em>');
+    const alertHtml = doc.alerta ? `<div class="rh-chk-alerta">&#9888; ${doc.alerta}</div>` : '';
+    return `<div class="dm-item dm-compact ${doc.ok ? 'dm-ok' : 'dm-miss'}">
+      <span class="dm-icon">${doc.ok ? '&#10003;' : '&#9711;'}</span>
+      <span class="dm-item-name">${nameHtml}${alertHtml}</span>
+    </div>`;
+  }).join('');
+
+  // Detail cards (colored headers with metadata)
+  const docIcons  = { cnh:'&#128467;', cpf:'&#128196;', ctrato:'&#128221;', admiss:'&#128203;', exame:'&#9877;', resid:'&#127968;', foto:'&#128247;' };
+  const docColors = { cnh:'#1a3a5c', cpf:'#065f46', ctrato:'#7c3aed', admiss:'#0e7490', exame:'#166534', resid:'#b45309', foto:'#be185d' };
+
+  const cards = rh.docs.map(doc => {
+    const icon  = docIcons[doc.id]  || '&#128196;';
+    const color = docColors[doc.id] || '#334155';
+    if (!doc.ok) {
+      return `<div class="rh-doc-card rh-doc-miss">
+        <div class="rh-doc-header" style="background:${color}22;border-color:${color}44;">
+          <span class="rh-doc-icon" style="color:${color};filter:none;">${icon}</span>
+          <div class="rh-doc-title" style="color:#64748b;">${doc.name}</div>
+          <span class="rh-doc-badge rh-doc-badge-miss">${doc.req ? 'AUSENTE' : 'NAO ENTREGUE'}</span>
+        </div>
+        <div class="rh-doc-body rh-doc-body-miss">
+          <span style="color:#94a3b8;">Documento nao localizado no prontuario</span>
+          ${doc.req ? '<span class="rh-doc-alert">Obrigatorio - regularizar</span>' : ''}
+        </div>
+      </div>`;
+    }
+    const alertHtml = doc.alerta ? `<div class="rh-doc-alerta">&#9888; ${doc.alerta}</div>` : '';
+    return `<div class="rh-doc-card rh-doc-ok">
+      <div class="rh-doc-header" style="background:${color};border-color:${color};">
+        <span class="rh-doc-icon" style="filter:brightness(0) invert(1);">${icon}</span>
+        <div class="rh-doc-title">${doc.name}</div>
+        <span class="rh-doc-badge rh-doc-badge-ok">&#10003; OK</span>
+      </div>
+      <div class="rh-doc-body">
+        ${doc.num    ? `<div class="rh-doc-field"><span class="rh-doc-lbl">Numero/Ref.:</span><span class="rh-doc-val">${doc.num}</span></div>` : ''}
+        ${doc.emissao? `<div class="rh-doc-field"><span class="rh-doc-lbl">Emissao:</span><span class="rh-doc-val">${doc.emissao}</span></div>` : ''}
+        ${doc.validade?`<div class="rh-doc-field"><span class="rh-doc-lbl">Validade:</span><span class="rh-doc-val">${doc.validade}</span></div>` : ''}
+        ${alertHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="labor-rh-docs">
+    <div class="labor-rh-docs-header">
+      <div class="labor-rh-docs-title">&#128196; Documentacao no RH</div>
+      <span class="inc-severity ${sevClass}">${rh.status}</span>
+    </div>
+    ${missing > 0 ? `<div class="rh-doc-missing-alert">&#9888; ${missing} documento${missing>1?'s':''} obrigatorio${missing>1?'s':''} ausente${missing>1?'s':''}</div>` : ''}
+    <div class="dm-checklist dm-two-col">${checkItems}</div>
+    <button class="labor-rh-view-btn" onclick="this.closest('.labor-rh-docs').querySelector('.rh-demo-detail').classList.toggle('hidden')">
+      &#128196; Ver detalhes dos documentos
+    </button>
+    <div class="rh-demo-detail hidden">
+      <div class="rh-doc-count" style="margin:12px 0 8px;font-size:11px;color:#64748b;">${present} de ${total} documentos presentes no prontuario</div>
+      <div class="rh-doc-grid">${cards}</div>
+    </div>
+  </div>`;
+}
+
+function laborTribunalUrl(num, trib) {
+  const n = (num || '').replace(/\D/g,'');
+  if (!n) return null;
+  const t = (trib || '').toLowerCase();
+  const match = t.match(/trt(\d+)/);
+  if (match) return `https://pje.trt${match[1]}.jus.br/consultaprocessual/detalhe-processo/${n}`;
+  if (t === 'tst') return `https://consultaprocessual.tst.jus.br/consultaProcessual/consultaTstNumUnica.do?consulta=Consultar&conscsjt=&numeroTst=${n}`;
+  return `https://consulta.cnj.jus.br/consulta/processo-numero?processo=${n}`;
 }
 
 function buildLaborCard(p, uid) {
@@ -1829,6 +2016,8 @@ function buildLaborCard(p, uid) {
   const classe = p.classe?.nome || 'Processo Trabalhista';
   const valor  = p.valor ? 'R$ ' + Number(p.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : null;
   const ai     = p._ai || null;
+  const assuntos = (p.assuntos || []).map(a => `<span class="labor-assunto-tag">${a.nome}</span>`).join('');
+  const tribUrl  = laborTribunalUrl(p.numeroProcesso, trib);
 
   const riskClass = ai ? (ai.risco==='alto'?'risk-alto':ai.risco==='medio'?'risk-medio':'risk-baixo') : '';
   const riskLabel = ai ? (ai.risco==='alto'?'&#9940; Alto':ai.risco==='medio'?'&#9888; Medio':'&#10003; Baixo') : '';
@@ -1841,10 +2030,12 @@ function buildLaborCard(p, uid) {
       <div class="labor-card-badge">${trib}</div>
       <div class="labor-card-num">${num}</div>
       <div class="labor-card-date">Ajuizado em ${dateAj}</div>
-      ${ai ? `<span class="labor-risk-badge ${riskClass}" style="margin-left:auto">${riskLabel}</span>` : ''}
+      ${tribUrl ? `<a class="labor-trib-link" href="${tribUrl}" target="_blank" rel="noopener" title="Abrir no portal do tribunal">&#128196; Ver no tribunal</a>` : ''}
+      ${ai ? `<span class="labor-risk-badge ${riskClass}">${riskLabel}</span>` : ''}
     </div>
     <div class="labor-card-body">
       <div class="labor-card-classe">${classe}</div>
+      ${assuntos ? `<div class="labor-assuntos">${assuntos}</div>` : ''}
       <div class="labor-partes">
         ${recl  ? `<div class="labor-parte"><span class="labor-parte-lbl recl">Reclamante</span><span class="labor-parte-nome">${recl.nome}</span></div>` : ''}
         ${recdo ? `<div class="labor-parte"><span class="labor-parte-lbl recdo">Reclamado</span><span class="labor-parte-nome">${recdo.nome}</span></div>` : ''}
@@ -1865,6 +2056,21 @@ function buildAiPanel(ai) {
   const riskLabel = ai.risco==='alto'?'&#9940; Risco Alto':ai.risco==='medio'?'&#9888; Risco Medio':'&#10003; Risco Baixo';
   const pedidos   = (ai.pedidos_provaveis||[]).map(p=>`<li>${p}</li>`).join('');
   const atencao   = (ai.pontos_atencao||[]).map(p=>`<li>${p}</li>`).join('');
+
+  const ini = ai.inicial_reconstituida;
+  const iniHtml = ini ? `
+    <div class="labor-inicial-section">
+      <div class="labor-inicial-header">
+        <span class="labor-inicial-icon">&#128220;</span>
+        <span class="labor-inicial-title">Peticao Inicial</span>
+        <span class="labor-inicial-badge">Reconstituicao por IA</span>
+      </div>
+      ${ini.fatos_alegados ? `<div class="labor-ai-section"><div class="labor-ai-label">Fatos alegados</div><div class="labor-ai-value labor-ai-resumo labor-ini-fatos">${ini.fatos_alegados}</div></div>` : ''}
+      ${ini.pedidos_detalhados?.length ? `<div class="labor-ai-section"><div class="labor-ai-label">Pedidos detalhados</div><ul class="labor-ai-list">${ini.pedidos_detalhados.map(p=>`<li>${p}</li>`).join('')}</ul></div>` : ''}
+      ${ini.fundamentos_juridicos?.length ? `<div class="labor-ai-section"><div class="labor-ai-label">Fundamentos juridicos</div><ul class="labor-ai-list labor-ini-fund">${ini.fundamentos_juridicos.map(p=>`<li>${p}</li>`).join('')}</ul></div>` : ''}
+      ${ini.documentos_provaveis?.length ? `<div class="labor-ai-section"><div class="labor-ai-label">Documentos provavelmente juntados</div><ul class="labor-ai-list labor-ini-docs">${ini.documentos_provaveis.map(p=>`<li>&#128196; ${p}</li>`).join('')}</ul></div>` : ''}
+    </div>` : '';
+
   return `<div class="labor-analysis">
     <div class="labor-ai-result">
       <div class="labor-ai-header">
@@ -1875,10 +2081,11 @@ function buildAiPanel(ai) {
         <div class="labor-ai-section"><div class="labor-ai-label">Tipo de acao</div><div class="labor-ai-value">${ai.tipo_acao||'nao identificado'}</div></div>
         <div class="labor-ai-section"><div class="labor-ai-label">Fase atual</div><div class="labor-ai-value">${ai.fase_atual||ai.status_resumido||'nao informado'}</div></div>
       </div>
-      <div class="labor-ai-section"><div class="labor-ai-label">Resumo da inicial</div><div class="labor-ai-value labor-ai-resumo">${ai.resumo_inicial||'sem resumo'}</div></div>
-      ${pedidos ? `<div class="labor-ai-section"><div class="labor-ai-label">Principais pedidos provaveis</div><ul class="labor-ai-list">${pedidos}</ul></div>` : ''}
-      ${atencao ? `<div class="labor-ai-section"><div class="labor-ai-label">Pontos de atencao para o RH</div><ul class="labor-ai-list labor-ai-atencao">${atencao}</ul></div>` : ''}
-      ${ai.valor_causa&&ai.valor_causa!=='nao informado'?`<div class="labor-ai-section"><div class="labor-ai-label">Valor da causa</div><div class="labor-ai-value">${ai.valor_causa}</div></div>`:''}
+      <div class="labor-ai-section"><div class="labor-ai-label">Resumo</div><div class="labor-ai-value labor-ai-resumo">${ai.resumo_inicial||'sem resumo'}</div></div>
+      ${pedidos ? `<div class="labor-ai-section"><div class="labor-ai-label">Pedidos provaveis</div><ul class="labor-ai-list">${pedidos}</ul></div>` : ''}
+      ${atencao ? `<div class="labor-ai-section"><div class="labor-ai-label">Pontos de atencao</div><ul class="labor-ai-list labor-ai-atencao">${atencao}</ul></div>` : ''}
+      ${ai.valor_causa&&ai.valor_causa!=='nao informado'?`<div class="labor-ai-section"><div class="labor-ai-label">Valor da causa</div><div class="labor-ai-value"><strong>${ai.valor_causa}</strong></div></div>`:''}
+      ${iniHtml}
     </div>
   </div>`;
 }
