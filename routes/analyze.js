@@ -2,15 +2,20 @@ const express   = require('express');
 const Anthropic  = require('@anthropic-ai/sdk');
 const router     = express.Router();
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic();
 
 const ALLOWED_MODELS = new Set([
   'claude-sonnet-4-6',
-  'claude-sonnet-4-5',
   'claude-haiku-4-5-20251001',
   'claude-opus-4-7',
-  'claude-sonnet-4-20250514',
 ]);
+
+function hasPdfContent(messages) {
+  return messages.some(m =>
+    Array.isArray(m.content) &&
+    m.content.some(c => c.type === 'document' && c.source?.media_type === 'application/pdf')
+  );
+}
 
 router.post('/', async (req, res) => {
   try {
@@ -22,18 +27,26 @@ router.post('/', async (req, res) => {
 
     const safeModel = ALLOWED_MODELS.has(model) ? model : 'claude-sonnet-4-6';
 
-    const response = await client.messages.create({
+    const createParams = {
       model:      safeModel,
       max_tokens: Number(max_tokens) || 1000,
-      system,
       messages,
-    });
+    };
+    if (system) createParams.system = system;
+
+    const betas = [];
+    if (hasPdfContent(messages)) betas.push('pdfs-2024-09-25');
+
+    const response = betas.length
+      ? await client.beta.messages.create({ ...createParams, betas })
+      : await client.messages.create(createParams);
 
     res.json(response);
   } catch (err) {
     console.error('[analyze]', err.message);
     const status = err.status || 500;
-    res.status(status).json({ error: { message: err.message } });
+    const msg = err.error?.error?.message || err.message || 'Erro interno';
+    res.status(status).json({ error: { message: msg } });
   }
 });
 
