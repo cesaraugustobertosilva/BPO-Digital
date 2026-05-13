@@ -19,6 +19,7 @@ app.use('/api/companies', requireAuth, require('./routes/companies'));
 app.use('/api/dossies',   requireAuth, require('./routes/dossies'));
 app.use('/api/labor',     requireAuth, require('./routes/labor'));
 app.use('/api/nf',        requireAuth, require('./routes/nf'));
+app.use('/api/contratos', requireAuth, require('./routes/contratos'));
 
 // Diagnostico de storage (admin only via token)
 app.get('/api/status', requireAuth, (req, res) => {

@@ -197,15 +197,15 @@ function resetChecklistFromDept() {
 
 /* ── VIEW CONTROL ────────────────────────────────────────────────── */
 function showView(name) {
-  ['mainView','incView','adminView','companyView','trabalhistaView','nfView'].forEach(id => {
+  ['mainView','incView','adminView','companyView','trabalhistaView','nfView','contratosView'].forEach(id => {
     const e = gel(id);
     if (e) { e.classList.add('hidden'); e.classList.remove('active'); }
   });
   const nav = gel('mainNav');
-  if (['main','inc','trabalhista','nf'].includes(name)) nav?.classList.remove('hidden');
+  if (['main','inc','trabalhista','nf','contratos'].includes(name)) nav?.classList.remove('hidden');
   else nav?.classList.add('hidden');
 
-  const idMap = { main:'mainView', inc:'incView', admin:'adminView', trabalhista:'trabalhistaView', nf:'nfView' };
+  const idMap = { main:'mainView', inc:'incView', admin:'adminView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView' };
   const target = gel(idMap[name] || 'companyView');
   if (target) { target.classList.remove('hidden'); if (name === 'inc') target.classList.add('active'); }
 
@@ -2728,6 +2728,200 @@ function nfCancelForm() {
     <div class="nf-empty-icon">&#129534;</div>
     <div>Selecione uma NF ao lado ou clique em <strong>+ Nova NF</strong></div>
   </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: CONTRATOS
+   ════════════════════════════════════════════════════════════════════ */
+
+const CT = {
+  list:      [],
+  editingId: null,
+  sortField: 'nomeCliente',
+  sortAsc:   true,
+};
+
+const CT_FIELDS = ['nomeCliente','cidade','clienteChave','cpfCnpj','dataInstalacao','estado','filial','modelo'];
+
+/* ── ENTRY ── */
+function enterContratosView(tabEl) {
+  document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+  showView('contratos');
+  ctLoad();
+}
+
+/* ── LOAD ── */
+async function ctLoad() {
+  const companyId = STATE.company?.id;
+  const r = await apiFetch('/api/contratos' + (companyId ? '?companyId=' + companyId : ''));
+  CT.list = (r && r.ok) ? await r.json() : [];
+  ctRenderStats();
+  ctRenderTable();
+}
+
+/* ── STATS ── */
+function ctRenderStats() {
+  const total    = CT.list.length;
+  const cidades  = new Set(CT.list.map(c => c.cidade).filter(Boolean)).size;
+  const filiais  = new Set(CT.list.map(c => c.filial).filter(Boolean)).size;
+  const modelos  = new Set(CT.list.map(c => c.modelo).filter(Boolean)).size;
+  const el = gel('ctStats');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="ct-stat"><div class="ct-sv">${total}</div><div class="ct-sl">Contratos</div></div>
+    <div class="ct-stat"><div class="ct-sv">${cidades}</div><div class="ct-sl">Cidades</div></div>
+    <div class="ct-stat"><div class="ct-sv">${filiais}</div><div class="ct-sl">Filiais</div></div>
+    <div class="ct-stat"><div class="ct-sv">${modelos}</div><div class="ct-sl">Modelos</div></div>`;
+}
+
+/* ── SORT ── */
+function ctSort(field) {
+  if (CT.sortField === field) CT.sortAsc = !CT.sortAsc;
+  else { CT.sortField = field; CT.sortAsc = true; }
+  ctRenderTable();
+}
+
+/* ── TABLE ── */
+function ctRenderTable() {
+  const q    = (gel('ctSearch')?.value || '').toLowerCase();
+  const body = gel('ctBody');
+  const empty = gel('ctEmpty');
+  if (!body) return;
+
+  // Update sort icons
+  CT_FIELDS.concat(['nomeCliente']).forEach(f => {
+    const el = gel('cts' + f.charAt(0).toUpperCase() + f.slice(1));
+    if (el) el.textContent = CT.sortField === f ? (CT.sortAsc ? ' ▲' : ' ▼') : '';
+  });
+
+  let list = CT.list.filter(c =>
+    !q ||
+    (c.nomeCliente  || '').toLowerCase().includes(q) ||
+    (c.cpfCnpj      || '').includes(q) ||
+    (c.cidade       || '').toLowerCase().includes(q) ||
+    (c.estado       || '').toLowerCase().includes(q) ||
+    (c.filial       || '').toLowerCase().includes(q) ||
+    (c.modelo       || '').toLowerCase().includes(q) ||
+    (c.clienteChave || '').toLowerCase().includes(q)
+  );
+
+  list = list.slice().sort((a, b) => {
+    const va = (a[CT.sortField] || '').toLowerCase();
+    const vb = (b[CT.sortField] || '').toLowerCase();
+    return CT.sortAsc ? va.localeCompare(vb, 'pt-BR') : vb.localeCompare(va, 'pt-BR');
+  });
+
+  if (!list.length) {
+    body.innerHTML = '';
+    empty?.classList.remove('hidden');
+    return;
+  }
+  empty?.classList.add('hidden');
+
+  body.innerHTML = list.map(c => `
+    <tr class="ct-row" onclick="ctOpenForm('${c.id}')">
+      <td class="ct-td ct-td-name">${c.nomeCliente}</td>
+      <td class="ct-td">${c.cidade || '—'}</td>
+      <td class="ct-td ct-td-uf">${c.estado || '—'}</td>
+      <td class="ct-td">${c.filial || '—'}</td>
+      <td class="ct-td">${c.modelo ? `<span class="ct-modelo-tag">${c.modelo}</span>` : '—'}</td>
+      <td class="ct-td ct-td-mono">${c.cpfCnpj || '—'}</td>
+      <td class="ct-td">${c.clienteChave || '—'}</td>
+      <td class="ct-td">${c.dataInstalacao || '—'}</td>
+      <td class="ct-td ct-td-action">
+        <button class="ct-edit-btn" onclick="event.stopPropagation();ctOpenForm('${c.id}')">&#9998;</button>
+      </td>
+    </tr>`).join('');
+}
+
+/* ── FORM ── */
+function ctOpenForm(id) {
+  CT.editingId = id || null;
+  const ct = id ? CT.list.find(c => c.id === id) : null;
+  gel('ctModalTitle').textContent = ct ? 'Editar Contrato' : 'Novo Contrato';
+  gel('ctBtnSave').textContent    = ct ? 'Salvar alteracoes' : 'Cadastrar';
+  gel('ctBtnDel').classList.toggle('hidden', !ct);
+
+  const vals = {
+    NomeCliente:    ct?.nomeCliente    || '',
+    CpfCnpj:        ct?.cpfCnpj        || '',
+    ClienteChave:   ct?.clienteChave   || '',
+    Cidade:         ct?.cidade         || '',
+    Estado:         ct?.estado         || '',
+    Filial:         ct?.filial         || '',
+    Modelo:         ct?.modelo         || '',
+    DataInstalacao: ct?.dataInstalacao || '',
+  };
+  Object.entries(vals).forEach(([k, v]) => {
+    const el = gel('ct' + k); if (el) el.value = v;
+  });
+  gel('ctModal').classList.remove('hidden');
+}
+
+function ctCloseForm() {
+  gel('ctModal').classList.add('hidden');
+  CT.editingId = null;
+}
+
+/* ── MASKS ── */
+function ctMaskDoc(input) {
+  let v = input.value.replace(/\D/g,'');
+  if (v.length <= 11) {
+    if (v.length > 9) v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2}).*/,'$1.$2.$3-$4');
+    else if (v.length > 6) v = v.replace(/^(\d{3})(\d{3})(\d{0,3}).*/,'$1.$2.$3');
+    else if (v.length > 3) v = v.replace(/^(\d{3})(\d{0,3}).*/,'$1.$2');
+  } else {
+    v = v.substring(0,14);
+    if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/,'$1.$2.$3/$4-$5');
+    else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4}).*/,'$1.$2.$3/$4');
+    else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{0,3}).*/,'$1.$2.$3');
+    else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,3}).*/,'$1.$2');
+  }
+  input.value = v;
+}
+function ctMaskDate(input) {
+  let v = input.value.replace(/\D/g,'').substring(0,8);
+  if (v.length > 4) v = v.replace(/^(\d{2})(\d{2})(\d{0,4}).*/,'$1/$2/$3');
+  else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,2}).*/,'$1/$2');
+  input.value = v;
+}
+
+/* ── SUBMIT ── */
+async function ctSubmit(e) {
+  e.preventDefault();
+  const payload = {
+    nomeCliente:    gel('ctNomeCliente').value.trim(),
+    cpfCnpj:        gel('ctCpfCnpj').value.trim(),
+    clienteChave:   gel('ctClienteChave').value.trim(),
+    cidade:         gel('ctCidade').value.trim(),
+    estado:         gel('ctEstado').value.trim(),
+    filial:         gel('ctFilial').value.trim(),
+    modelo:         gel('ctModelo').value.trim(),
+    dataInstalacao: gel('ctDataInstalacao').value.trim(),
+    companyId:      STATE.company?.id || null,
+  };
+  const isEdit = !!CT.editingId;
+  const url    = isEdit ? `/api/contratos/${CT.editingId}` : '/api/contratos';
+  const method = isEdit ? 'PUT' : 'POST';
+  const r = await apiFetch(url, { method, body: JSON.stringify(payload) });
+  if (!r || !r.ok) {
+    const err = r ? await r.json().catch(() => ({})) : {};
+    toast('Erro: ' + (err.error || `HTTP ${r?.status}`)); return;
+  }
+  toast(isEdit ? 'Contrato atualizado.' : 'Contrato cadastrado.');
+  ctCloseForm();
+  await ctLoad();
+}
+
+/* ── DELETE ── */
+async function ctDelete() {
+  if (!CT.editingId || !confirm('Excluir este contrato?')) return;
+  const r = await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'DELETE' });
+  if (!r || !r.ok) { toast('Erro ao excluir.'); return; }
+  toast('Contrato excluido.');
+  ctCloseForm();
+  await ctLoad();
 }
 
 /* ── INIT ────────────────────────────────────────────────────────── */
