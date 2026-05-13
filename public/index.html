@@ -104,12 +104,36 @@
         <div class="nf-sub">Cadastro e interpretacao de NFs por IA</div>
       </div>
       <div class="nf-header-actions">
-        <button class="nf-btn-primary" onclick="nfOpenForm()">&#43; Nova NF</button>
+        <button class="nf-btn-primary" onclick="nfOpenForm()">&#43; Cadastrar manualmente</button>
       </div>
     </div>
 
     <!-- Stats -->
     <div class="nf-stats" id="nfStats"></div>
+
+    <!-- Bulk import zone -->
+    <div class="nf-bulk-zone" id="nfBulkZone"
+      ondragover="event.preventDefault(); this.classList.add('nf-bulk-drag')"
+      ondragleave="this.classList.remove('nf-bulk-drag')"
+      ondrop="nfBulkDrop(event)">
+      <div class="nf-bulk-icon">&#128196;</div>
+      <div class="nf-bulk-text">
+        Arraste arquivos de NF aqui ou
+        <label class="nf-bulk-link" for="nfBulkInput">selecione varios arquivos</label>
+      </div>
+      <div class="nf-bulk-hint">JPG, PNG ou PDF &bull; Multiplos arquivos &bull; Interpretacao e cadastro automatico por IA</div>
+      <input type="file" id="nfBulkInput" accept=".jpg,.jpeg,.png,.pdf" multiple style="display:none" onchange="nfBulkImport(this.files)">
+    </div>
+
+    <!-- Import queue (shown during/after bulk import) -->
+    <div class="nf-queue hidden" id="nfQueue">
+      <div class="nf-queue-header">
+        <span class="nf-queue-title">Fila de importacao</span>
+        <span class="nf-queue-progress" id="nfQueueProgress"></span>
+        <button class="nf-queue-close" onclick="nfQueueClear()">&#10005; Fechar</button>
+      </div>
+      <div class="nf-queue-list" id="nfQueueList"></div>
+    </div>
 
     <!-- Layout -->
     <div class="nf-layout">
@@ -126,7 +150,7 @@
       <div class="nf-right" id="nfRight">
         <div class="nf-empty" id="nfEmpty">
           <div class="nf-empty-icon">&#129534;</div>
-          <div>Selecione uma NF ao lado ou clique em <strong>+ Nova NF</strong></div>
+          <div>Selecione uma NF ao lado ou clique em <strong>+ Cadastrar manualmente</strong></div>
         </div>
       </div>
 
