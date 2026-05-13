@@ -328,64 +328,48 @@
   <!-- ── TRABALHISTA VIEW ───────────────────────────────────────── -->
   <div id="trabalhistaView" class="hidden body">
 
-    <div class="labor-header">
+    <!-- Top bar -->
+    <div class="labor-topbar">
       <div>
         <div class="labor-title">&#9878; Processos Trabalhistas</div>
-        <div class="labor-sub">Consulta via DataJud / CNJ por CPF de colaboradores</div>
+        <div class="labor-sub">Monitoramento automatico de colaboradores via DataJud / CNJ</div>
       </div>
-      <button class="back-btn" onclick="exitTrabalhistaView()">&larr; Voltar</button>
+      <div class="labor-topbar-right">
+        <div class="labor-timer-wrap" id="laborTimerWrap">
+          <span class="labor-timer-dot" id="laborTimerDot"></span>
+          <span id="laborTimerLabel">Carregando...</span>
+        </div>
+        <button class="labor-action-btn" id="laborScanAllBtn" onclick="laborScanAll()">&#128257; Varrer todos</button>
+        <button class="labor-demo-btn" id="laborDemoBtn" onclick="laborToggleDemo()">&#127926; Demo</button>
+        <button class="back-btn" onclick="exitTrabalhistaView()">&larr; Voltar</button>
+      </div>
     </div>
 
-    <!-- Search -->
-    <div class="labor-search-card">
-      <div class="labor-search-row">
-        <div class="fg" style="max-width:280px;">
-          <label>Colaborador (busca por nome)</label>
-          <input type="text" id="laborEmpName" placeholder="Digite o nome para filtrar..." oninput="laborFilterEmployees()">
+    <!-- Stats bar -->
+    <div class="labor-statsbar" id="laborStatsBar"></div>
+
+    <!-- 2-column layout -->
+    <div class="labor-layout">
+
+      <!-- LEFT: Collaborator list -->
+      <div class="labor-left">
+        <div class="labor-left-head">
+          <input type="text" id="laborCollabFilter" class="labor-collab-filter"
+            placeholder="&#128269; Filtrar colaboradores..." oninput="laborFilterCollab()">
         </div>
-        <div class="fg" style="max-width:220px;">
-          <label>CPF</label>
-          <input type="text" id="laborCpf" placeholder="000.000.000-00" oninput="mCpfS(this)">
-        </div>
-        <div class="fg" style="max-width:200px;">
-          <label>Tribunal (opcional)</label>
-          <select id="laborTribunal">
-            <option value="">Todos os TRTs</option>
-            <option value="trt1">TRT 1 - Rio de Janeiro</option>
-            <option value="trt2">TRT 2 - Sao Paulo (capital)</option>
-            <option value="trt3">TRT 3 - Minas Gerais</option>
-            <option value="trt4">TRT 4 - Rio Grande do Sul</option>
-            <option value="trt5">TRT 5 - Bahia</option>
-            <option value="trt6">TRT 6 - Pernambuco</option>
-            <option value="trt7">TRT 7 - Ceara</option>
-            <option value="trt8">TRT 8 - Para / Amapa</option>
-            <option value="trt9">TRT 9 - Parana</option>
-            <option value="trt10">TRT 10 - Distrito Federal</option>
-            <option value="trt11">TRT 11 - Amazonas / Roraima</option>
-            <option value="trt12">TRT 12 - Santa Catarina</option>
-            <option value="trt13">TRT 13 - Paraiba</option>
-            <option value="trt14">TRT 14 - Rondonia / Acre</option>
-            <option value="trt15">TRT 15 - Campinas</option>
-            <option value="trt16">TRT 16 - Maranhao</option>
-            <option value="trt17">TRT 17 - Espirito Santo</option>
-            <option value="trt18">TRT 18 - Goias</option>
-            <option value="trt19">TRT 19 - Alagoas</option>
-            <option value="trt20">TRT 20 - Sergipe</option>
-            <option value="trt21">TRT 21 - Rio Grande do Norte</option>
-            <option value="trt22">TRT 22 - Piaui</option>
-            <option value="trt23">TRT 23 - Mato Grosso</option>
-            <option value="trt24">TRT 24 - Mato Grosso do Sul</option>
-            <option value="tst">TST - Superior Tribunal do Trabalho</option>
-          </select>
-        </div>
-        <button class="sbtn" id="laborSearchBtn" onclick="laborSearch()">&#128269; Buscar processos</button>
+        <div id="laborCollabList"><div class="labor-collab-loading">Carregando colaboradores...</div></div>
       </div>
-      <div id="laborEmpSuggestions" class="labor-suggestions"></div>
+
+      <!-- RIGHT: Detail panel -->
+      <div class="labor-right" id="laborRight">
+        <div class="labor-detail-empty" id="laborDetailEmpty">
+          <div class="labor-detail-empty-icon">&#128101;</div>
+          <div>Selecione um colaborador ao lado para ver os processos</div>
+          <div class="labor-detail-empty-sub">ou use "Varrer todos" para buscar automaticamente</div>
+        </div>
+      </div>
+
     </div>
-
-    <!-- Results -->
-    <div id="laborResults"></div>
-
   </div><!-- /#trabalhistaView -->
 
   <!-- ── INCONSISTENCIES VIEW ────────────────────────────────────── -->

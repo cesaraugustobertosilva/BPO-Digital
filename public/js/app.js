@@ -1397,164 +1397,501 @@ async function renderIndexedDossies() {
 }
 
 /* ── TRABALHISTA VIEW ────────────────────────────────────────────── */
-let laborEmpList = [];
 
+// State
+const LBR = {
+  collaborators: [],   // {id,name,cpf,cargo,admissao,processes:[],lastCheck,status,searching}
+  selected:      null, // id of selected collaborator
+  demoMode:      false,
+  autoTimer:     null,
+  countdownTimer:null,
+  nextScanAt:    null,
+  scanQueue:     [],
+  scanIdx:       0,
+};
+
+/* ── DEMO DATA ── */
+const LABOR_DEMO_COLLABS = [
+  {
+    id:'d1', name:'Carlos Eduardo Mendes', cpf:'342.891.074-55',
+    cargo:'Analista de Logistica', admissao:'2019-03-15',
+    status:'found', lastCheck: new Date(Date.now()-3*60000).toISOString(),
+    processes:[{
+      numeroProcesso:'0001234-56.2022.5.02.0078',
+      classe:{nome:'Reclamacao Trabalhista - Rito Ordinario'},
+      orgaoJulgador:{nome:'78a Vara do Trabalho de Sao Paulo'},
+      dataAjuizamento:'2022-08-14', _tribunal:'TRT2', valor:85000,
+      partes:[
+        {nome:'Carlos Eduardo Mendes',tipoParte:{nome:'Reclamante'}},
+        {nome:'Empresa Demo Ltda',    tipoParte:{nome:'Reclamado'}},
+      ],
+      movimentos:[
+        {nome:'Distribuido',                    dataHora:'2022-08-14T09:15:00Z'},
+        {nome:'Audiencia inaugural realizada',   dataHora:'2022-11-20T14:00:00Z'},
+        {nome:'Em instrucao - aguardando sentenca',dataHora:'2023-04-05T10:00:00Z'},
+      ],
+      _ai:{
+        tipo_acao:'Reclamacao Trabalhista - Verbas Rescisorias e Dano Moral',
+        pedidos_provaveis:['Horas extras e reflexos (3 anos)','FGTS + multa 40%','Aviso previo indenizado','Ferias vencidas + 1/3','13o salario proporcional','Dano moral por assedio de metas'],
+        empresa_reclamada:'Empresa Demo Ltda',
+        fase_atual:'Em instrucao - aguardando sentenca de 1o grau',
+        status_resumido:'Em fase de instrucao',
+        risco:'alto', valor_causa:'R$ 85.000,00',
+        resumo_inicial:'Colaborador demitido em julho/2022 alega nao ter recebido corretamente todas as verbas rescisorias. Pleiteia horas extras de cerca de 3 anos de contrato, alem de dano moral por cobranca abusiva de metas. Audiencia realizada em novembro/2022 sem acordo.',
+        pontos_atencao:['Processo em fase de sentenca com valor expressivo','Alegacao de dano moral aumenta exposicao financeira','Verificar controle de ponto do periodo reclamado','Revisar documentacao da rescisao contratual'],
+      },
+    }],
+  },
+  {
+    id:'d2', name:'Aline Cristina Fonseca', cpf:'521.047.389-81',
+    cargo:'Auxiliar Administrativo', admissao:'2021-01-20',
+    status:'clean', lastCheck: new Date(Date.now()-7*60000).toISOString(),
+    processes:[],
+  },
+  {
+    id:'d3', name:'Ricardo Viana Barbosa', cpf:'089.345.671-22',
+    cargo:'Supervisor de Operacoes', admissao:'2017-06-01',
+    status:'found', lastCheck: new Date(Date.now()-60000).toISOString(),
+    processes:[
+      {
+        numeroProcesso:'0009874-12.2020.5.15.0019',
+        classe:{nome:'Reclamacao Trabalhista - Rito Sumario'},
+        orgaoJulgador:{nome:'19a Vara do Trabalho de Campinas'},
+        dataAjuizamento:'2020-02-03', _tribunal:'TRT15', valor:22500,
+        partes:[
+          {nome:'Ricardo Viana Barbosa',tipoParte:{nome:'Reclamante'}},
+          {nome:'Empresa Demo Ltda',    tipoParte:{nome:'Reclamado'}},
+        ],
+        movimentos:[
+          {nome:'Distribuido',          dataHora:'2020-02-03T08:00:00Z'},
+          {nome:'Sentenca proferida',   dataHora:'2020-09-17T16:00:00Z'},
+          {nome:'Transito em julgado',  dataHora:'2021-03-10T00:00:00Z'},
+          {nome:'Processo arquivado',   dataHora:'2022-01-25T00:00:00Z'},
+        ],
+        _ai:{
+          tipo_acao:'Adicional por Acumulo de Funcoes',
+          pedidos_provaveis:['Adicional por acumulo de funcao','Diferenca salarial retroativa','Reflexos em ferias, 13o e FGTS'],
+          empresa_reclamada:'Empresa Demo Ltda',
+          fase_atual:'Processo arquivado - encerrado',
+          status_resumido:'Encerrado com transito em julgado',
+          risco:'baixo', valor_causa:'R$ 22.500,00',
+          resumo_inicial:'Processo encerrado. Colaborador pleiteou adicional por desempenho de funcoes superiores nao reconhecidas. Sentenca proferida em setembro/2020, transito em julgado em marco/2021.',
+          pontos_atencao:['Processo encerrado - nenhuma acao necessaria','Manter documentacao por 5 anos apos arquivamento'],
+        },
+      },
+      {
+        numeroProcesso:'0003341-88.2023.5.15.0019',
+        classe:{nome:'Reclamacao Trabalhista - Rito Ordinario'},
+        orgaoJulgador:{nome:'19a Vara do Trabalho de Campinas'},
+        dataAjuizamento:'2023-11-27', _tribunal:'TRT15', valor:140000,
+        partes:[
+          {nome:'Ricardo Viana Barbosa',tipoParte:{nome:'Reclamante'}},
+          {nome:'Empresa Demo Ltda',    tipoParte:{nome:'Reclamado'}},
+        ],
+        movimentos:[
+          {nome:'Distribuido',                         dataHora:'2023-11-27T10:00:00Z'},
+          {nome:'Citacao realizada',                   dataHora:'2024-01-08T00:00:00Z'},
+          {nome:'Audiencia de conciliacao designada',  dataHora:'2024-03-12T00:00:00Z'},
+        ],
+        _ai:{
+          tipo_acao:'Dano Moral e Material por Assedio',
+          pedidos_provaveis:['Dano moral por assedio moral continuado','Indenizacao por dano existencial','Horas extras nao pagas (2020-2023)','Adicional noturno','Equiparacao salarial'],
+          empresa_reclamada:'Empresa Demo Ltda',
+          fase_atual:'Instrucao - audiencia de conciliacao agendada',
+          status_resumido:'Em fase inicial, audiencia agendada',
+          risco:'alto', valor_causa:'R$ 140.000,00',
+          resumo_inicial:'Colaborador ATIVO alega assedio moral sistematico por gestores diretos entre 2020 e 2023. Pleiteia dano moral de R$ 80.000 alem de verbas salariais nao pagas. Audiencia de conciliacao agendada.',
+          pontos_atencao:['COLABORADOR AINDA ATIVO - situacao critica','Valor elevado com risco real de condenacao','Preservar e-mails e comunicados internos','Envolver juridico e RH imediatamente','Avaliar acordo extrajudicial para mitigar risco'],
+        },
+      },
+    ],
+  },
+  {
+    id:'d4', name:'Fernanda Lima Carvalho', cpf:'673.890.234-09',
+    cargo:'Coordenadora de RH', admissao:'2020-08-10',
+    status:'clean', lastCheck: new Date(Date.now()-5*60000).toISOString(),
+    processes:[],
+  },
+  {
+    id:'d5', name:'Marcelo dos Santos Pereira', cpf:'815.234.067-44',
+    cargo:'Motorista', admissao:'2018-04-22',
+    status:'found', lastCheck: new Date(Date.now()-9*60000).toISOString(),
+    processes:[{
+      numeroProcesso:'0007123-44.2024.5.02.0001',
+      classe:{nome:'Reclamacao Trabalhista - Vinculo Empregaticio'},
+      orgaoJulgador:{nome:'1a Vara do Trabalho de Sao Paulo'},
+      dataAjuizamento:'2024-06-05', _tribunal:'TRT2', valor:58000,
+      partes:[
+        {nome:'Marcelo dos Santos Pereira',tipoParte:{nome:'Reclamante'}},
+        {nome:'Empresa Demo Ltda',         tipoParte:{nome:'Reclamado'}},
+      ],
+      movimentos:[
+        {nome:'Distribuido',       dataHora:'2024-06-05T11:00:00Z'},
+        {nome:'Citacao realizada', dataHora:'2024-07-15T00:00:00Z'},
+      ],
+      _ai:{
+        tipo_acao:'Reconhecimento de Vinculo CLT e Verbas Trabalhistas',
+        pedidos_provaveis:['Reconhecimento de vinculo empregaticio','FGTS do periodo + multa 40%','Ferias + 1/3','13o salario','Seguro desemprego','Horas in itinere'],
+        empresa_reclamada:'Empresa Demo Ltda',
+        fase_atual:'Fase inicial - aguardando audiencia',
+        status_resumido:'Processo recente, citacao realizada',
+        risco:'medio', valor_causa:'R$ 58.000,00',
+        resumo_inicial:'Motorista pleiteia reconhecimento formal de vinculo CLT e pagamento de verbas do periodo nao registrado. Alega que parte do contrato foi mascarada como prestacao de servico autonomo sem respaldo legal.',
+        pontos_atencao:['Verificar natureza juridica do contrato do motorista','Levantar registros de ponto e rotas do periodo','Consultar juridico sobre risco de vinculo informal reconhecido'],
+      },
+    }],
+  },
+  {
+    id:'d6', name:'Patricia Gomes Alves', cpf:'198.076.523-37',
+    cargo:'Assistente Fiscal', admissao:'2022-03-01',
+    status:'pending', lastCheck:null, processes:[],
+  },
+];
+
+/* ── HELPERS ── */
+function laborInitials(name) {
+  const parts = name.trim().split(' ');
+  return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
+}
+function laborAvatarColor(name) {
+  const colors = ['#1a3a5c','#0e7490','#065f46','#7c3aed','#b45309','#be185d','#1d4ed8','#166534'];
+  let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
+  return colors[Math.abs(h) % colors.length];
+}
+function laborRelTime(iso) {
+  if (!iso) return 'nunca consultado';
+  const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (diff < 60)   return 'agora mesmo';
+  if (diff < 3600) return `ha ${Math.floor(diff/60)} min`;
+  return `ha ${Math.floor(diff/3600)}h`;
+}
+function laborMaskCpf(cpf) {
+  return (cpf || '').replace(/(\d{3})\.\d{3}\.(\d{3}-\d{2})/, '$1.***.***-**').replace(/(\d{3})\d{3}(\d{3})(\d{2})/, '$1.***.***-**');
+}
+
+/* ── ENTRY / EXIT ── */
 function enterTrabalhistaView() {
   showView('trabalhista');
-  gel('laborResults').innerHTML = '';
-  gel('laborCpf').value = '';
-  gel('laborEmpName').value = '';
-  gel('laborEmpSuggestions').innerHTML = '';
-  loadDossies().then(list => { laborEmpList = list; });
+  LBR.selected = null;
+  gel('laborRight').innerHTML = `<div class="labor-detail-empty" id="laborDetailEmpty">
+    <div class="labor-detail-empty-icon">&#128101;</div>
+    <div>Selecione um colaborador ao lado para ver os processos</div>
+    <div class="labor-detail-empty-sub">ou use "Varrer todos" para buscar automaticamente</div>
+  </div>`;
+  laborLoadCollabs();
+  laborStartAutoTimer();
 }
 
 function exitTrabalhistaView() {
-  if (STATE.department)   { enterDeptView(); return; }
-  if (STATE.company)      { enterCompanyView(); return; }
-  if (STATE.profile === 'admin') { enterAdminView(); return; }
+  laborStopAutoTimer();
+  if (STATE.department)           { enterDeptView();    return; }
+  if (STATE.company)              { enterCompanyView(); return; }
+  if (STATE.profile === 'admin')  { enterAdminView();   return; }
   enterDeptView();
 }
 
-function laborFilterEmployees() {
-  const q = gel('laborEmpName').value.trim().toLowerCase();
-  const sug = gel('laborEmpSuggestions');
-  if (!q || q.length < 2) { sug.innerHTML = ''; return; }
-  const hits = laborEmpList.filter(d => d.name.toLowerCase().includes(q)).slice(0, 6);
-  if (!hits.length) { sug.innerHTML = ''; return; }
-  sug.innerHTML = hits.map(d =>
-    `<div class="labor-sug-item" onclick="laborSelectEmp('${encodeURIComponent(JSON.stringify({name:d.name,cpf:d.cpf}))}')">
-      <span class="labor-sug-name">${d.name}</span>
-      <span class="labor-sug-cpf">${d.cpf || 'CPF nao informado'}</span>
-    </div>`
-  ).join('');
-}
-
-function laborSelectEmp(json) {
-  const emp = JSON.parse(decodeURIComponent(json));
-  gel('laborEmpName').value = emp.name;
-  gel('laborCpf').value     = emp.cpf || '';
-  gel('laborEmpSuggestions').innerHTML = '';
-}
-
-async function laborSearch() {
-  const cpf      = gel('laborCpf').value.replace(/\D/g, '');
-  const name     = gel('laborEmpName').value.trim();
-  const tribunal = gel('laborTribunal').value;
-  if (!cpf && !name) { toast('Informe um CPF ou nome para pesquisar.'); return; }
-
-  const btn = gel('laborSearchBtn');
-  btn.disabled = true; btn.textContent = 'Consultando DataJud...';
-  gel('laborResults').innerHTML = '<div class="labor-loading"><div class="labor-spinner"></div><div>Consultando todos os TRTs no DataJud (CNJ)...</div></div>';
-
-  try {
-    const resp = await apiFetch('/api/labor/search', {
-      method: 'POST',
-      body:   JSON.stringify({ cpf, name, tribunal: tribunal || null }),
-    });
-    if (!resp) return;
-    const data = await resp.json();
-    if (!resp.ok) { gel('laborResults').innerHTML = `<div class="labor-empty">Erro: ${data.error}</div>`; return; }
-    renderLaborResults(data.processes, name || cpf);
-  } catch (e) {
-    gel('laborResults').innerHTML = `<div class="labor-empty">Erro de conexao: ${e.message}</div>`;
-  } finally {
-    btn.disabled = false; btn.textContent = '&#128269; Buscar processos';
+/* ── LOAD COLLABORATORS ── */
+async function laborLoadCollabs() {
+  if (LBR.demoMode) {
+    LBR.collaborators = LABOR_DEMO_COLLABS.map(c => ({...c, processes:[...c.processes]}));
+  } else {
+    const list = await loadDossies();
+    LBR.collaborators = list.map((d, i) => ({
+      id: d.id || 'c'+i,
+      name: d.name || 'Colaborador',
+      cpf:  d.cpf  || '',
+      cargo: d.cargo || '',
+      admissao: d.admissao || '',
+      processes: [],
+      lastCheck: null,
+      status: 'pending',
+      searching: false,
+    }));
   }
+  laborRenderCollabList();
+  laborUpdateStats();
 }
 
-function renderLaborResults(processes, searchTerm) {
-  const el = gel('laborResults');
-  if (!processes.length) {
-    el.innerHTML = `<div class="labor-empty">&#9989; Nenhum processo trabalhista encontrado para "${searchTerm}" no DataJud.</div>`;
-    return;
+/* ── RENDER COLLAB LIST ── */
+function laborRenderCollabList(filter) {
+  const q   = (filter || gel('laborCollabFilter')?.value || '').toLowerCase();
+  const list = LBR.collaborators.filter(c => !q || c.name.toLowerCase().includes(q) || (c.cpf||'').includes(q));
+  const el   = gel('laborCollabList');
+  if (!list.length) { el.innerHTML = '<div class="labor-collab-empty">Nenhum colaborador encontrado.</div>'; return; }
+  el.innerHTML = list.map(c => {
+    const bg   = laborAvatarColor(c.name);
+    const init = laborInitials(c.name);
+    const rt   = laborRelTime(c.lastCheck);
+    const sel  = LBR.selected === c.id ? ' lci-selected' : '';
+    let badge = '';
+    if (c.searching) {
+      badge = `<span class="labor-badge searching">&#128257; buscando...</span>`;
+    } else if (c.status === 'found') {
+      const n = c.processes.length;
+      const hasAlto = c.processes.some(p => p._ai?.risco === 'alto');
+      badge = `<span class="labor-badge found${hasAlto?' badge-alto':''}">${n} processo${n>1?'s':''}</span>`;
+    } else if (c.status === 'clean') {
+      badge = `<span class="labor-badge clean">&#10003; Sem processos</span>`;
+    } else {
+      badge = `<span class="labor-badge pending">Nao consultado</span>`;
+    }
+    return `<div class="labor-collab-item${sel}" id="lci_${c.id}" onclick="laborSelectCollab('${c.id}')">
+      <div class="labor-avatar" style="background:${bg}">${init}</div>
+      <div class="labor-ci-info">
+        <div class="labor-ci-name">${c.name}</div>
+        <div class="labor-ci-meta">${c.cargo || 'Cargo nao informado'} &bull; ${laborMaskCpf(c.cpf)}</div>
+        <div class="labor-ci-check">${rt}</div>
+      </div>
+      <div class="labor-ci-badge">${badge}</div>
+    </div>`;
+  }).join('');
+}
+
+function laborFilterCollab() {
+  laborRenderCollabList(gel('laborCollabFilter').value);
+}
+
+/* ── SELECT COLLABORATOR ── */
+function laborSelectCollab(id) {
+  LBR.selected = id;
+  laborRenderCollabList();
+  const c = LBR.collaborators.find(x => x.id === id);
+  if (!c) return;
+  laborRenderDetail(c);
+}
+
+/* ── RENDER DETAIL PANEL ── */
+function laborRenderDetail(c) {
+  const bg   = laborAvatarColor(c.name);
+  const init = laborInitials(c.name);
+  const rt   = laborRelTime(c.lastCheck);
+  const isSearching = c.searching;
+
+  let processesHtml = '';
+  if (isSearching) {
+    processesHtml = `<div class="labor-loading"><div class="labor-spinner"></div><div>Consultando DataJud em todos os TRTs...</div></div>`;
+  } else if (!c.lastCheck) {
+    processesHtml = `<div class="labor-detail-not-searched">
+      <div>Este colaborador ainda nao foi consultado no DataJud.</div>
+      <button class="labor-person-search-btn" onclick="laborSearchOne('${c.id}')">&#128269; Buscar agora</button>
+    </div>`;
+  } else if (c.processes.length === 0) {
+    processesHtml = `<div class="labor-detail-clean"><span>&#9989;</span> Nenhum processo trabalhista encontrado para este colaborador no DataJud.</div>`;
+  } else {
+    processesHtml = `<div class="labor-proc-header">${c.processes.length} processo${c.processes.length>1?'s':''} encontrado${c.processes.length>1?'s':''}</div>` +
+      c.processes.map((p, i) => buildLaborCard(p, `${c.id}_${i}`)).join('');
   }
-  el.innerHTML = `<div class="labor-results-header">${processes.length} processo${processes.length > 1 ? 's' : ''} encontrado${processes.length > 1 ? 's' : ''}</div>` +
-    processes.map((p, i) => buildLaborCard(p, i)).join('');
+
+  gel('laborRight').innerHTML = `
+    <div class="labor-person-card">
+      <div class="labor-person-top">
+        <div class="labor-avatar labor-avatar-lg" style="background:${bg}">${init}</div>
+        <div class="labor-person-info">
+          <div class="labor-person-name">${c.name}</div>
+          <div class="labor-person-meta">${c.cargo || 'Cargo nao informado'} ${c.admissao ? '&bull; Admissao: ' + new Date(c.admissao).toLocaleDateString('pt-BR') : ''}</div>
+          <div class="labor-person-cpf">CPF: ${c.cpf || 'nao informado'}</div>
+          <div class="labor-person-check">Ultima consulta: ${rt}</div>
+        </div>
+        <button class="labor-person-search-btn" id="lpsb_${c.id}" onclick="laborSearchOne('${c.id}')" ${isSearching?'disabled':''}>
+          ${isSearching ? '&#128257; Buscando...' : '&#128269; Buscar processos'}
+        </button>
+      </div>
+    </div>
+    <div id="laborDetailProcesses_${c.id}">${processesHtml}</div>`;
 }
 
-function buildLaborCard(p, i) {
-  const dateAj  = p.dataAjuizamento ? new Date(p.dataAjuizamento).toLocaleDateString('pt-BR') : 'nao informada';
-  const partes  = (p.partes || []);
-  const recl    = partes.find(x => /reclamante|autor/i.test(x.tipoParte?.nome || ''));
-  const recdo   = partes.find(x => /reclamado|reu/i.test(x.tipoParte?.nome || ''));
-  const lastMov = (p.movimentos || []).slice(-1)[0]?.nome || 'sem movimentos';
-  const trib    = p._tribunal || p.tribunal || '';
-  const num     = p.numeroProcesso || 'nao informado';
-  const classe  = p.classe?.nome || 'Processo Trabalhista';
-  const valor   = p.valor ? 'R$ ' + Number(p.valor).toLocaleString('pt-BR', {minimumFractionDigits:2}) : null;
+/* ── BUILD PROCESS CARD ── */
+function buildLaborCard(p, uid) {
+  const dateAj = p.dataAjuizamento ? new Date(p.dataAjuizamento).toLocaleDateString('pt-BR') : 'nao informada';
+  const partes = p.partes || [];
+  const recl   = partes.find(x => /reclamante|autor/i.test(x.tipoParte?.nome || ''));
+  const recdo  = partes.find(x => /reclamado|reu/i.test(x.tipoParte?.nome || ''));
+  const lastMov= (p.movimentos || []).slice(-1)[0]?.nome || 'sem movimentos';
+  const trib   = p._tribunal || p.tribunal || '';
+  const num    = p.numeroProcesso || 'nao informado';
+  const classe = p.classe?.nome || 'Processo Trabalhista';
+  const valor  = p.valor ? 'R$ ' + Number(p.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}) : null;
+  const ai     = p._ai || null;
+
+  const riskClass = ai ? (ai.risco==='alto'?'risk-alto':ai.risco==='medio'?'risk-medio':'risk-baixo') : '';
+  const riskLabel = ai ? (ai.risco==='alto'?'&#9940; Alto':ai.risco==='medio'?'&#9888; Medio':'&#10003; Baixo') : '';
 
   const safeP = encodeURIComponent(JSON.stringify(p));
-  return `<div class="labor-card" id="laborCard_${i}">
+  const aiExpanded = ai ? buildAiPanel(ai) : '';
+
+  return `<div class="labor-card" id="laborCard_${uid}">
     <div class="labor-card-top">
       <div class="labor-card-badge">${trib}</div>
       <div class="labor-card-num">${num}</div>
       <div class="labor-card-date">Ajuizado em ${dateAj}</div>
+      ${ai ? `<span class="labor-risk-badge ${riskClass}" style="margin-left:auto">${riskLabel}</span>` : ''}
     </div>
     <div class="labor-card-body">
       <div class="labor-card-classe">${classe}</div>
       <div class="labor-partes">
-        ${recl ? `<div class="labor-parte"><span class="labor-parte-lbl recl">Reclamante</span><span class="labor-parte-nome">${recl.nome}</span></div>` : ''}
+        ${recl  ? `<div class="labor-parte"><span class="labor-parte-lbl recl">Reclamante</span><span class="labor-parte-nome">${recl.nome}</span></div>` : ''}
         ${recdo ? `<div class="labor-parte"><span class="labor-parte-lbl recdo">Reclamado</span><span class="labor-parte-nome">${recdo.nome}</span></div>` : ''}
       </div>
       <div class="labor-last-mov"><span>Ultimo mov.:</span> ${lastMov}</div>
       ${valor ? `<div class="labor-valor">Valor da causa: <strong>${valor}</strong></div>` : ''}
     </div>
+    ${ai ? aiExpanded : `
     <div class="labor-card-footer">
-      <button class="labor-analyze-btn" id="laborAnalyzeBtn_${i}" onclick="laborAnalyze(${i}, decodeURIComponent('${safeP}'))">&#128161; Analisar com IA</button>
+      <button class="labor-analyze-btn" id="laborAnalyzeBtn_${uid}" onclick="laborAnalyzeCard('${uid}', decodeURIComponent('${safeP}'))">&#128161; Analisar com IA</button>
     </div>
-    <div class="labor-analysis hidden" id="laborAnalysis_${i}"></div>
+    <div class="labor-analysis hidden" id="laborAnalysis_${uid}"></div>`}
   </div>`;
 }
 
-async function laborAnalyze(idx, processoJson) {
+function buildAiPanel(ai) {
+  const riskClass = ai.risco==='alto'?'risk-alto':ai.risco==='medio'?'risk-medio':'risk-baixo';
+  const riskLabel = ai.risco==='alto'?'&#9940; Risco Alto':ai.risco==='medio'?'&#9888; Risco Medio':'&#10003; Risco Baixo';
+  const pedidos   = (ai.pedidos_provaveis||[]).map(p=>`<li>${p}</li>`).join('');
+  const atencao   = (ai.pontos_atencao||[]).map(p=>`<li>${p}</li>`).join('');
+  return `<div class="labor-analysis">
+    <div class="labor-ai-result">
+      <div class="labor-ai-header">
+        <div class="labor-ai-title">&#128161; Analise da IA</div>
+        <span class="labor-risk-badge ${riskClass}">${riskLabel}</span>
+      </div>
+      <div class="labor-ai-two-col">
+        <div class="labor-ai-section"><div class="labor-ai-label">Tipo de acao</div><div class="labor-ai-value">${ai.tipo_acao||'nao identificado'}</div></div>
+        <div class="labor-ai-section"><div class="labor-ai-label">Fase atual</div><div class="labor-ai-value">${ai.fase_atual||ai.status_resumido||'nao informado'}</div></div>
+      </div>
+      <div class="labor-ai-section"><div class="labor-ai-label">Resumo da inicial</div><div class="labor-ai-value labor-ai-resumo">${ai.resumo_inicial||'sem resumo'}</div></div>
+      ${pedidos ? `<div class="labor-ai-section"><div class="labor-ai-label">Principais pedidos provaveis</div><ul class="labor-ai-list">${pedidos}</ul></div>` : ''}
+      ${atencao ? `<div class="labor-ai-section"><div class="labor-ai-label">Pontos de atencao para o RH</div><ul class="labor-ai-list labor-ai-atencao">${atencao}</ul></div>` : ''}
+      ${ai.valor_causa&&ai.valor_causa!=='nao informado'?`<div class="labor-ai-section"><div class="labor-ai-label">Valor da causa</div><div class="labor-ai-value">${ai.valor_causa}</div></div>`:''}
+    </div>
+  </div>`;
+}
+
+/* ── SEARCH: ONE PERSON ── */
+async function laborSearchOne(id) {
+  const c = LBR.collaborators.find(x => x.id === id);
+  if (!c || c.searching) return;
+  c.searching = true;
+  laborRenderCollabList();
+  if (LBR.selected === id) laborRenderDetail(c);
+
+  if (!LBR.demoMode) {
+    try {
+      const resp = await apiFetch('/api/labor/search', {
+        method:'POST',
+        body:  JSON.stringify({ cpf: c.cpf, name: c.name }),
+      });
+      if (resp && resp.ok) {
+        const data = await resp.json();
+        c.processes  = data.processes || [];
+        c.status     = c.processes.length ? 'found' : 'clean';
+      } else { c.status = 'pending'; }
+    } catch { c.status = 'pending'; }
+  } else {
+    // demo: already loaded
+    await new Promise(r => setTimeout(r, 1200));
+  }
+  c.lastCheck = new Date().toISOString();
+  c.searching  = false;
+  laborRenderCollabList();
+  if (LBR.selected === id) laborRenderDetail(c);
+  laborUpdateStats();
+}
+
+/* ── SEARCH: ALL (queue) ── */
+async function laborScanAll() {
+  const btn = gel('laborScanAllBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  for (const c of LBR.collaborators) {
+    await laborSearchOne(c.id);
+    await new Promise(r => setTimeout(r, 400));
+  }
+  btn.disabled = false;
+  laborResetTimer();
+  toast('Varredura completa.');
+}
+
+/* ── ANALYZE: API call for cards without pre-loaded AI ── */
+async function laborAnalyzeCard(uid, processoJson) {
   const processo = JSON.parse(processoJson);
-  const btn      = gel(`laborAnalyzeBtn_${idx}`);
-  const panel    = gel(`laborAnalysis_${idx}`);
+  const btn   = gel(`laborAnalyzeBtn_${uid}`);
+  const panel = gel(`laborAnalysis_${uid}`);
   btn.disabled = true; btn.textContent = 'Analisando...';
   panel.classList.remove('hidden');
   panel.innerHTML = '<div class="labor-ai-loading">&#129302; A IA esta analisando o processo...</div>';
 
   try {
     const resp = await apiFetch('/api/labor/analyze', {
-      method: 'POST',
-      body:   JSON.stringify({ processo }),
+      method:'POST', body:JSON.stringify({ processo }),
     });
     if (!resp) return;
     const ai = await resp.json();
-    if (!resp.ok) { panel.innerHTML = `<div class="labor-ai-error">Erro na analise: ${ai.error}</div>`; return; }
-
-    const riskClass = ai.risco === 'alto' ? 'risk-alto' : ai.risco === 'medio' ? 'risk-medio' : 'risk-baixo';
-    const riskLabel = ai.risco === 'alto' ? '&#9940; Risco Alto' : ai.risco === 'medio' ? '&#9888; Risco Medio' : '&#10003; Risco Baixo';
-    const pedidos   = (ai.pedidos_provaveis || []).map(p => `<li>${p}</li>`).join('');
-    const atencao   = (ai.pontos_atencao   || []).map(p => `<li>${p}</li>`).join('');
-
-    panel.innerHTML = `
-      <div class="labor-ai-result">
-        <div class="labor-ai-header">
-          <div class="labor-ai-title">&#128161; Analise da IA</div>
-          <span class="labor-risk-badge ${riskClass}">${riskLabel}</span>
-        </div>
-        <div class="labor-ai-section">
-          <div class="labor-ai-label">Tipo de acao</div>
-          <div class="labor-ai-value">${ai.tipo_acao || 'nao identificado'}</div>
-        </div>
-        <div class="labor-ai-section">
-          <div class="labor-ai-label">Fase atual</div>
-          <div class="labor-ai-value">${ai.fase_atual || ai.status_resumido || 'nao informado'}</div>
-        </div>
-        <div class="labor-ai-section">
-          <div class="labor-ai-label">Resumo da inicial</div>
-          <div class="labor-ai-value labor-ai-resumo">${ai.resumo_inicial || 'sem resumo disponivel'}</div>
-        </div>
-        ${pedidos ? `<div class="labor-ai-section"><div class="labor-ai-label">Principais pedidos provaveis</div><ul class="labor-ai-list">${pedidos}</ul></div>` : ''}
-        ${atencao ? `<div class="labor-ai-section"><div class="labor-ai-label">Pontos de atencao para o RH</div><ul class="labor-ai-list labor-ai-atencao">${atencao}</ul></div>` : ''}
-        ${ai.valor_causa && ai.valor_causa !== 'nao informado' ? `<div class="labor-ai-section"><div class="labor-ai-label">Valor da causa</div><div class="labor-ai-value">${ai.valor_causa}</div></div>` : ''}
-      </div>`;
+    if (!resp.ok) { panel.innerHTML = `<div class="labor-ai-error">Erro: ${ai.error}</div>`; return; }
+    panel.innerHTML = buildAiPanel(ai);
   } catch (e) {
     panel.innerHTML = `<div class="labor-ai-error">Erro: ${e.message}</div>`;
   } finally {
-    btn.disabled = false; btn.textContent = '&#128161; Reanalisar';
+    if (btn) { btn.disabled = false; btn.textContent = '&#128161; Reanalisar'; }
   }
+}
+
+/* ── STATS BAR ── */
+function laborUpdateStats() {
+  const total    = LBR.collaborators.length;
+  const comProc  = LBR.collaborators.filter(c => c.status==='found').length;
+  const totalP   = LBR.collaborators.reduce((a,c)=>a+c.processes.length,0);
+  const altoRisk = LBR.collaborators.reduce((a,c)=>a+c.processes.filter(p=>p._ai?.risco==='alto').length,0);
+  gel('laborStatsBar').innerHTML = `
+    <div class="labor-stat"><div class="labor-sv">${total}</div><div class="labor-sl">Colaboradores</div></div>
+    <div class="labor-stat"><div class="labor-sv ${comProc?'sv-warn':''}">${comProc}</div><div class="labor-sl">Com processos</div></div>
+    <div class="labor-stat"><div class="labor-sv">${totalP}</div><div class="labor-sl">Processos ativos</div></div>
+    <div class="labor-stat"><div class="labor-sv ${altoRisk?'sv-danger':''}">${altoRisk}</div><div class="labor-sl">Risco alto</div></div>`;
+}
+
+/* ── AUTO-TIMER (10 min) ── */
+function laborStartAutoTimer() {
+  laborStopAutoTimer();
+  LBR.nextScanAt = Date.now() + 10 * 60 * 1000;
+  LBR.countdownTimer = setInterval(laborTickTimer, 1000);
+  LBR.autoTimer = setTimeout(() => { laborScanAll(); }, 10 * 60 * 1000);
+  laborTickTimer();
+}
+
+function laborStopAutoTimer() {
+  if (LBR.autoTimer)      { clearTimeout(LBR.autoTimer);      LBR.autoTimer = null; }
+  if (LBR.countdownTimer) { clearInterval(LBR.countdownTimer); LBR.countdownTimer = null; }
+}
+
+function laborResetTimer() {
+  laborStopAutoTimer();
+  laborStartAutoTimer();
+}
+
+function laborTickTimer() {
+  const label = gel('laborTimerLabel');
+  const dot   = gel('laborTimerDot');
+  if (!label || !LBR.nextScanAt) return;
+  const rem = Math.max(0, Math.floor((LBR.nextScanAt - Date.now()) / 1000));
+  const m   = String(Math.floor(rem / 60)).padStart(2,'0');
+  const s   = String(rem % 60).padStart(2,'0');
+  label.textContent = `Proxima varredura em ${m}:${s}`;
+  if (dot) dot.classList.toggle('dot-active', rem > 0);
+}
+
+/* ── DEMO MODE ── */
+function laborToggleDemo() {
+  LBR.demoMode = !LBR.demoMode;
+  const btn = gel('laborDemoBtn');
+  if (btn) {
+    btn.textContent = LBR.demoMode ? '&#127926; Sair do demo' : '&#127926; Demo';
+    btn.classList.toggle('demo-active', LBR.demoMode);
+  }
+  laborLoadCollabs();
+  gel('laborRight').innerHTML = `<div class="labor-detail-empty">
+    <div class="labor-detail-empty-icon">&#128101;</div>
+    <div>Selecione um colaborador</div>
+    <div class="labor-detail-empty-sub">${LBR.demoMode ? 'Modo demo ativo com dados ficticioss' : ''}</div>
+  </div>`;
 }
 
 /* ── INIT ────────────────────────────────────────────────────────── */
