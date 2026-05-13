@@ -2317,8 +2317,9 @@ function laborToggleDemo() {
 
 const NF = {
   list:     [],
-  selected: null,  // id da NF selecionada para edicao
+  selected: null,
   editing:  false,
+  queue:    [],  // { id, name, status:'pending'|'reading'|'ok'|'err'|'review', data, error }
 };
 
 /* ── ENTRY ── */
@@ -2465,34 +2466,20 @@ function nfShowForm(nf) {
 }
 
 /* ── AI INTERPRET ── */
+/* ── SINGLE FILE INTERPRET (form panel) ── */
 async function nfInterpret(input) {
   const file = input.files[0];
   if (!file) return;
   const status = gel('nfAiStatus');
   status.className = 'nf-ai-status nf-ai-loading';
   status.textContent = 'Interpretando NF...';
-
   try {
-    const ext = file.name.split('.').pop().toLowerCase();
-    const mt  = ext === 'pdf' ? 'application/pdf' : (ext === 'png' ? 'image/png' : 'image/jpeg');
-    const b64 = await fileToBase64(file);
-
-    const r = await apiFetch('/api/nf/interpret', {
-      method: 'POST',
-      body:   JSON.stringify({ fileData: b64, mediaType: mt }),
-    });
-    if (!r || !r.ok) {
-      const err = r ? await r.json().catch(() => ({})) : {};
-      throw new Error(err.error || `HTTP ${r?.status || 0}`);
-    }
-    const data = await r.json();
-
-    if (data.cnpj)        { gel('nfCnpj').value       = data.cnpj;        }
-    if (data.numero)      { gel('nfNumero').value      = data.numero;      }
-    if (data.dataEmissao) { gel('nfData').value        = data.dataEmissao; }
-    if (data.fornecedor)  { gel('nfFornecedor').value  = data.fornecedor;  }
-    if (data.valor)       { gel('nfValor').value       = data.valor;       }
-
+    const data = await nfCallInterpret(file);
+    if (data.cnpj)        gel('nfCnpj').value      = data.cnpj;
+    if (data.numero)      gel('nfNumero').value     = data.numero;
+    if (data.dataEmissao) gel('nfData').value       = data.dataEmissao;
+    if (data.fornecedor)  gel('nfFornecedor').value = data.fornecedor;
+    if (data.valor)       gel('nfValor').value      = data.valor;
     const obs = data.observacao ? ` — ${data.observacao}` : '';
     status.className = 'nf-ai-status nf-ai-ok';
     status.textContent = `Preenchido com confianca ${data.confianca || '?'}${obs}. Revise os campos antes de salvar.`;
@@ -2501,6 +2488,181 @@ async function nfInterpret(input) {
     status.textContent = 'Erro na interpretacao: ' + e.message;
   }
   input.value = '';
+}
+
+/* ── SHARED: call /api/nf/interpret ── */
+async function nfCallInterpret(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const mt  = ext === 'pdf' ? 'application/pdf' : (ext === 'png' ? 'image/png' : 'image/jpeg');
+  const b64 = await fileToBase64(file);
+  const r   = await apiFetch('/api/nf/interpret', {
+    method: 'POST',
+    body:   JSON.stringify({ fileData: b64, mediaType: mt }),
+  });
+  if (!r || !r.ok) {
+    const err = r ? await r.json().catch(() => ({})) : {};
+    throw new Error(err.error || `HTTP ${r?.status || 0}`);
+  }
+  return r.json();
+}
+
+/* ── BULK IMPORT ── */
+function nfBulkDrop(e) {
+  e.preventDefault();
+  gel('nfBulkZone').classList.remove('nf-bulk-drag');
+  const files = Array.from(e.dataTransfer.files).filter(f =>
+    /\.(jpg|jpeg|png|pdf)$/i.test(f.name)
+  );
+  if (files.length) nfBulkImport(files);
+}
+
+async function nfBulkImport(filesRaw) {
+  const files = Array.from(filesRaw);
+  if (!files.length) return;
+
+  // Add new items to queue
+  const newItems = files.map(f => ({
+    id:     'q_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+    name:   f.name,
+    file:   f,
+    status: 'pending',
+    data:   null,
+    error:  null,
+  }));
+  NF.queue.push(...newItems);
+  nfQueueShow();
+
+  // Process up to 3 in parallel
+  const CONCURRENCY = 3;
+  const pending = newItems.slice();
+
+  async function processOne(item) {
+    item.status = 'reading';
+    nfQueueRender();
+    try {
+      const data = await nfCallInterpret(item.file);
+      item.data  = data;
+      // Auto-register if confidence is alta or media
+      if (data.confianca === 'alta' || data.confianca === 'media') {
+        await nfAutoRegister(item);
+      } else {
+        item.status = 'review';
+      }
+    } catch (e) {
+      item.status = 'err';
+      item.error  = e.message.substring(0, 80);
+    }
+    nfQueueRender();
+    nfRenderStats();
+    nfRenderList();
+  }
+
+  // Semaphore-style concurrency
+  const pool = [];
+  for (const item of pending) {
+    const p = processOne(item).then(() => pool.splice(pool.indexOf(p), 1));
+    pool.push(p);
+    if (pool.length >= CONCURRENCY) await Promise.race(pool);
+  }
+  await Promise.all(pool);
+
+  // Reset file input
+  const inp = gel('nfBulkInput');
+  if (inp) inp.value = '';
+}
+
+async function nfAutoRegister(item) {
+  const d = item.data;
+  if (!d.cnpj || !d.numero || !d.fornecedor) {
+    item.status = 'review'; return;
+  }
+  const r = await apiFetch('/api/nf', {
+    method: 'POST',
+    body:   JSON.stringify({
+      cnpj:        d.cnpj,
+      numero:      d.numero,
+      dataEmissao: d.dataEmissao || '',
+      fornecedor:  d.fornecedor,
+      valor:       d.valor || null,
+      companyId:   STATE.company?.id || null,
+    }),
+  });
+  if (r && r.ok) {
+    const saved  = await r.json();
+    NF.list.unshift(saved);
+    item.status = 'ok';
+    item.nfId   = saved.id;
+  } else {
+    item.status = 'err';
+    item.error  = `HTTP ${r?.status}`;
+  }
+}
+
+/* ── QUEUE UI ── */
+function nfQueueShow() {
+  const el = gel('nfQueue');
+  if (el) el.classList.remove('hidden');
+  nfQueueRender();
+}
+
+function nfQueueClear() {
+  NF.queue = [];
+  const el = gel('nfQueue');
+  if (el) el.classList.add('hidden');
+}
+
+function nfQueueRender() {
+  const listEl = gel('nfQueueList');
+  const progEl = gel('nfQueueProgress');
+  if (!listEl) return;
+
+  const done  = NF.queue.filter(i => i.status === 'ok').length;
+  const total = NF.queue.length;
+  if (progEl) progEl.textContent = `${done} de ${total} cadastradas`;
+
+  listEl.innerHTML = NF.queue.map(item => {
+    const icons = { pending:'&#9711;', reading:'&#128257;', ok:'&#10003;', err:'&#9888;', review:'&#9998;' };
+    const cls   = { pending:'qi-pend', reading:'qi-read', ok:'qi-ok', err:'qi-err', review:'qi-rev' };
+    const icon  = icons[item.status] || '?';
+    const extra = item.status === 'ok'
+      ? `<span class="qi-meta">${item.data?.fornecedor || ''} ${item.data?.numero ? '· NF '+item.data.numero : ''}</span>`
+      : item.status === 'review'
+      ? `<span class="qi-meta qi-rev-txt">Confianca baixa — <a href="#" onclick="nfQueueReview('${item.id}');return false;">revisar</a></span>`
+      : item.status === 'err'
+      ? `<span class="qi-meta qi-err-txt">${item.error}</span>`
+      : item.status === 'reading'
+      ? `<span class="qi-meta">Interpretando...</span>`
+      : '';
+    return `<div class="nf-queue-item ${cls[item.status] || ''}">
+      <span class="qi-icon">${icon}</span>
+      <span class="qi-name">${item.name}</span>
+      ${extra}
+    </div>`;
+  }).join('');
+}
+
+function nfQueueReview(qid) {
+  const item = NF.queue.find(i => i.id === qid);
+  if (!item?.data) return;
+  nfOpenForm();
+  // Pre-fill the form with the interpreted data
+  requestAnimationFrame(() => {
+    if (item.data.cnpj)        gel('nfCnpj')?.setAttribute('value', item.data.cnpj);
+    if (item.data.numero)      gel('nfNumero')?.setAttribute('value', item.data.numero);
+    if (item.data.dataEmissao) gel('nfData')?.setAttribute('value', item.data.dataEmissao);
+    if (item.data.fornecedor)  gel('nfFornecedor')?.setAttribute('value', item.data.fornecedor);
+    if (item.data.valor)       gel('nfValor')?.setAttribute('value', item.data.valor);
+    // Trigger re-render from DOM values
+    ['nfCnpj','nfNumero','nfData','nfFornecedor','nfValor'].forEach(id => {
+      const el = gel(id); if (el) el.value = el.getAttribute('value') || '';
+    });
+    const obs = item.data.observacao ? ` — ${item.data.observacao}` : '';
+    const s = gel('nfAiStatus');
+    if (s) { s.className = 'nf-ai-status nf-ai-err'; s.textContent = `Confianca baixa${obs}. Verifique os campos.`; }
+    item.status = 'pending'; // remove from review so it doesn't re-appear as review
+    NF.queue = NF.queue.filter(i => i.id !== qid);
+    nfQueueRender();
+  });
 }
 
 /* ── MASK HELPERS ── */
