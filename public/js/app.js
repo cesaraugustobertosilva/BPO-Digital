@@ -79,6 +79,7 @@ async function setupFromUser(user) {
   gel('userAvatar').textContent = user.name.charAt(0).toUpperCase();
   gel('userWidget').classList.remove('hidden');
   gel('incHeaderBtn').classList.remove('hidden');
+  setupNavModules();
 
   STATE.profile = user.role;
 
@@ -105,6 +106,21 @@ async function setupFromUser(user) {
 
   if (user.role === 'company')    { enterCompanyView(); return; }
   if (user.role === 'department') { enterDeptView();    return; }
+}
+
+/* ── MODULE NAV FILTER ───────────────────────────────────────────── */
+const ALL_MODULES = ['rh','trabalhista','nf','contratos','documentos'];
+
+function setupNavModules() {
+  const mods = AUTH.user?.modules;
+  // empty or undefined = all modules allowed
+  if (!mods || !mods.length) {
+    document.querySelectorAll('.nt[data-mod]').forEach(el => el.classList.remove('hidden'));
+    return;
+  }
+  document.querySelectorAll('.nt[data-mod]').forEach(el => {
+    el.classList.toggle('hidden', !mods.includes(el.dataset.mod));
+  });
 }
 
 async function initApp() {
@@ -342,11 +358,13 @@ async function apiGetCompanies() {
   try { const r = await apiFetch('/api/companies'); if (!r) return []; return r.ok ? r.json() : []; } catch { return []; }
 }
 async function apiPostCompany(name) {
-  try {
-    const r = await apiFetch('/api/companies', { method:'POST', body:JSON.stringify({name}) });
-    if (!r) return null;
-    return r.ok ? r.json() : null;
-  } catch { return null; }
+  const r = await apiFetch('/api/companies', { method:'POST', body:JSON.stringify({name}) });
+  if (!r) throw new Error('Sem resposta do servidor.');
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${r.status}`);
+  }
+  return r.json();
 }
 async function apiPostDept(companyId, name) {
   try {
@@ -419,8 +437,12 @@ function renderAdminDepts(company) {
 
 function adminNewCompany() {
   openPrompt('Nome da empresa', 'Ex.: Acme Legal', async name => {
-    const c = await apiPostCompany(name);
-    if (c?.id) { toast('Empresa criada.'); renderAdminPanel(); }
+    try {
+      const c = await apiPostCompany(name);
+      if (c?.id) { toast('Empresa criada.'); renderAdminPanel(); }
+    } catch (e) {
+      toast('Erro ao criar empresa: ' + (e.message || 'tente novamente.'));
+    }
   });
 }
 
@@ -1256,20 +1278,25 @@ async function renderUserList() {
   if (!users.length) { list.innerHTML = '<div class="adm-empty">Nenhum usuario cadastrado.</div>'; return; }
 
   const roleLbl = { admin:'Administrador', company:'Gestao de Empresa', department:'Departamental' };
+  const modLabels = { rh:'RH', trabalhista:'Trabalhista', nf:'NF', contratos:'Contratos', documentos:'Docs' };
   list.innerHTML = `<table class="user-list-table">
     <thead><tr>
-      <th>Nome</th><th>Usuario</th><th>Perfil</th><th>Empresa / Departamento</th><th></th>
+      <th>Nome</th><th>Usuario</th><th>Perfil</th><th>Empresa / Departamento</th><th>Modulos</th><th></th>
     </tr></thead>
     <tbody>${users.map(u => {
       const co   = companies.find(c => c.id === u.companyId);
       const dept = co?.departments?.find(d => d.id === u.departmentId);
       const scope = u.role === 'admin' ? 'Todos' : (co?.name || '') + (dept ? ' / ' + dept.name : '');
-      const safe = encodeURIComponent(JSON.stringify(u));
+      const safe  = encodeURIComponent(JSON.stringify(u));
+      const mods  = u.modules?.length
+        ? u.modules.map(m => `<span class="mod-chip">${modLabels[m]||m}</span>`).join('')
+        : '<span style="font-size:11px;color:#94a3b8">Todos</span>';
       return `<tr>
         <td>${u.name}</td>
         <td style="color:var(--sbk-slate)">@${u.username}</td>
         <td><span class="role-badge ${u.role}">${roleLbl[u.role]||u.role}</span></td>
         <td style="font-size:12px;color:var(--sbk-slate)">${scope}</td>
+        <td>${mods}</td>
         <td><div class="user-actions">
           <button class="user-edit-btn" onclick="openUserForm(decodeURIComponent('${safe}'))">Editar</button>
           <button class="user-del-btn"  onclick="deleteUser('${u.id}','${u.name}')">Excluir</button>
@@ -1302,6 +1329,7 @@ async function openUserForm(userJson) {
       ufCompanyChange();
       setTimeout(() => { gel('ufDept').value = u.departmentId; }, 50);
     }
+    ufSetModules(u.modules || []);
   } else {
     editingUserId = null;
     gel('userFormTitle').textContent = 'Novo usuario';
@@ -1309,6 +1337,7 @@ async function openUserForm(userJson) {
     gel('ufName').value = gel('ufUsername').value = gel('ufPassword').value = '';
     gel('ufRole').value = 'department';
     ufRoleChange();
+    ufSetModules([]);
   }
 
   gel('ufError').classList.add('hidden');
@@ -1316,6 +1345,12 @@ async function openUserForm(userJson) {
 }
 
 function closeUserForm() { gel('userFormOverlay').classList.add('hidden'); }
+
+function ufSetModules(mods) {
+  document.querySelectorAll('.uf-mod-cb').forEach(cb => {
+    cb.checked = mods.includes(cb.value);
+  });
+}
 
 function ufRoleChange() {
   const role = gel('ufRole').value;
@@ -1345,7 +1380,8 @@ async function saveUserForm() {
   if (!editingUserId && !password) { errEl.textContent = 'Senha obrigatoria para novo usuario.'; errEl.classList.remove('hidden'); return; }
   if (password && password.length < 6) { errEl.textContent = 'Senha deve ter ao menos 6 caracteres.'; errEl.classList.remove('hidden'); return; }
 
-  const payload = { name, username, role, companyId: coId, departmentId: deptId };
+  const modules = Array.from(document.querySelectorAll('.uf-mod-cb:checked')).map(cb => cb.value);
+  const payload = { name, username, role, companyId: coId, departmentId: deptId, modules };
   if (password) payload.password = password;
 
   const url  = editingUserId ? '/api/users/' + editingUserId : '/api/users';
@@ -1383,7 +1419,7 @@ async function renderIndexedDossies() {
       : '<span class="inc-severity sev-ok" style="font-size:10px;">&#10003; Completo</span>';
     const date = new Date(d.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
     const initials = d.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
-    return `<div class="idx-dossie-row" onclick="loadDossie('${d.id}'); window.scrollTo({top:0,behavior:'smooth'});">
+    return `<div class="idx-dossie-row" onclick="showDossierModal('${d.id}')">
       <div class="idx-avatar">${initials}</div>
       <div class="idx-meta">
         <div class="idx-name">${d.name}</div>
@@ -1395,6 +1431,47 @@ async function renderIndexedDossies() {
     </div>`;
   }).join('');
 }
+
+/* ── DOSSIER DETAIL MODAL ────────────────────────────────────────── */
+const CHECKLIST_DEF = [
+  { id:'cnh',    name:'CNH / RG / Documento de Identidade', req:true  },
+  { id:'cpf',    name:'CPF',                                req:true  },
+  { id:'ctrato', name:'Contrato de Trabalho',               req:true  },
+  { id:'admiss', name:'Ficha de Admissao',                  req:true  },
+  { id:'exame',  name:'Exame Admissional',                  req:true  },
+  { id:'resid',  name:'Comprovante de Residencia',          req:false },
+  { id:'foto',   name:'Foto 3x4',                           req:false },
+];
+
+async function showDossierModal(dossieId) {
+  const resp = await apiFetch('/api/dossies/' + dossieId);
+  if (!resp || !resp.ok) { toast('Erro ao carregar prontuario.'); return; }
+  const d = await resp.json();
+
+  const docsSet = new Set((d.docs || []).map(s => s.toLowerCase()));
+
+  gel('dmName').textContent = d.name;
+  gel('dmMeta').textContent =
+    'CPF: ' + (d.cpf || 'nao informado') +
+    ' · Mat.: ' + (d.mat || 'nao informada') +
+    ' · Indexado em ' + new Date(d.ts).toLocaleDateString('pt-BR');
+
+  const buildItems = items => items.map(item => {
+    const present = docsSet.has(item.name.toLowerCase());
+    return `<div class="dm-item ${present ? 'dm-ok' : 'dm-miss'}">
+      <span class="dm-icon">${present ? '&#10003;' : '&#9711;'}</span>
+      <span class="dm-item-name">${item.name}</span>
+    </div>`;
+  }).join('');
+
+  gel('dmRequired').innerHTML = buildItems(CHECKLIST_DEF.filter(i => i.req));
+  gel('dmOptional').innerHTML = buildItems(CHECKLIST_DEF.filter(i => !i.req));
+
+  gel('dmEditBtn').onclick = () => { closeDossierModal(); loadDossie(d.id); window.scrollTo({top:0,behavior:'smooth'}); };
+  gel('dossierModal').classList.remove('hidden');
+}
+
+function closeDossierModal() { gel('dossierModal').classList.add('hidden'); }
 
 /* ── TRABALHISTA VIEW ────────────────────────────────────────────── */
 
@@ -1441,12 +1518,30 @@ const LABOR_DEMO_COLLABS = [
         pontos_atencao:['Processo em fase de sentenca com valor expressivo','Alegacao de dano moral aumenta exposicao financeira','Verificar controle de ponto do periodo reclamado','Revisar documentacao da rescisao contratual'],
       },
     }],
+    _demoRhDocs:{status:'Atencao',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'4821 7733 SP/DETRAN',  validade:'15/03/2028',emissao:'08/07/2020'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'342.891.074-55',       validade:null,        emissao:'12/01/2015'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2019/0041',         validade:null,        emissao:'15/03/2019'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2019/0041',         validade:null,        emissao:'15/03/2019'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:true, num:'Conta de Luz - Enel',  validade:'30/06/2025',emissao:'10/05/2025'},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:false,num:null,                   validade:null,        emissao:null},
+    ]},
   },
   {
     id:'d2', name:'Aline Cristina Fonseca', cpf:'521.047.389-81',
     cargo:'Auxiliar Administrativo', admissao:'2021-01-20',
     status:'clean', lastCheck: new Date(Date.now()-7*60000).toISOString(),
     processes:[],
+    _demoRhDocs:{status:'Completo',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'7714 8822 SP/SSP',     validade:'22/01/2027',emissao:'10/01/2022'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'521.047.389-81',       validade:null,        emissao:'03/05/2018'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2021/0007',         validade:null,        emissao:'20/01/2021'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2021/0007',         validade:null,        emissao:'20/01/2021'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2021/0007',         validade:'20/01/2026',emissao:'18/01/2021'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:true, num:'Conta de Agua - Sabesp',validade:'31/05/2025',emissao:'05/05/2025'},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'18/01/2021'},
+    ]},
   },
   {
     id:'d3', name:'Ricardo Viana Barbosa', cpf:'089.345.671-22',
@@ -1505,12 +1600,30 @@ const LABOR_DEMO_COLLABS = [
         },
       },
     ],
+    _demoRhDocs:{status:'Critico',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'3390 5512 MG/DETRAN',  validade:'01/06/2026',emissao:'14/02/2021'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'089.345.671-22',       validade:null,        emissao:'07/08/2010'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2017/0031',         validade:'01/06/2022',emissao:'28/05/2017'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'28/05/2017'},
+    ]},
   },
   {
     id:'d4', name:'Fernanda Lima Carvalho', cpf:'673.890.234-09',
     cargo:'Coordenadora de RH', admissao:'2020-08-10',
     status:'clean', lastCheck: new Date(Date.now()-5*60000).toISOString(),
     processes:[],
+    _demoRhDocs:{status:'Completo',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'2204 9951 SP/SSP',     validade:'10/08/2029',emissao:'03/07/2024'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'673.890.234-09',       validade:null,        emissao:'16/11/2012'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2020/0082',         validade:null,        emissao:'10/08/2020'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2020/0082',         validade:null,        emissao:'10/08/2020'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2020/0082',         validade:'10/08/2025',emissao:'07/08/2020'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:true, num:'Fatura Internet - Vivo',validade:'30/06/2025',emissao:'01/06/2025'},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'07/08/2020'},
+    ]},
   },
   {
     id:'d5', name:'Marcelo dos Santos Pereira', cpf:'815.234.067-44',
@@ -1540,11 +1653,29 @@ const LABOR_DEMO_COLLABS = [
         pontos_atencao:['Verificar natureza juridica do contrato do motorista','Levantar registros de ponto e rotas do periodo','Consultar juridico sobre risco de vinculo informal reconhecido'],
       },
     }],
+    _demoRhDocs:{status:'Atencao',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'5593 1182 SP/DETRAN',  validade:'22/04/2024',emissao:'10/03/2019',alerta:'CNH VENCIDA - renovar urgente'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'815.234.067-44',       validade:null,        emissao:'20/02/2014'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2018/0023',         validade:null,        emissao:'22/04/2018'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2018/0023',         validade:null,        emissao:'22/04/2018'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2018/0023',         validade:'22/04/2023',emissao:'19/04/2018',alerta:'Exame VENCIDO - agendar periodico'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:false,num:null,                   validade:null,        emissao:null},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'19/04/2018'},
+    ]},
   },
   {
     id:'d6', name:'Patricia Gomes Alves', cpf:'198.076.523-37',
     cargo:'Assistente Fiscal', admissao:'2022-03-01',
     status:'pending', lastCheck:null, processes:[],
+    _demoRhDocs:{status:'Completo',docs:[
+      {id:'cnh',    name:'CNH / RG / Documento de Identidade',req:true, ok:true, num:'9012 3344 SP/SSP',     validade:'01/03/2030',emissao:'20/02/2025'},
+      {id:'cpf',    name:'CPF',                               req:true, ok:true, num:'198.076.523-37',       validade:null,        emissao:'14/09/2016'},
+      {id:'ctrato', name:'Contrato de Trabalho',              req:true, ok:true, num:'CT-2022/0019',         validade:null,        emissao:'01/03/2022'},
+      {id:'admiss', name:'Ficha de Admissao',                 req:true, ok:true, num:'FA-2022/0019',         validade:null,        emissao:'01/03/2022'},
+      {id:'exame',  name:'Exame Admissional',                 req:true, ok:true, num:'EX-2022/0019',         validade:'01/03/2027',emissao:'25/02/2022'},
+      {id:'resid',  name:'Comprovante de Residencia',         req:false,ok:true, num:'Conta de Luz - Enel',  validade:'30/06/2025',emissao:'12/05/2025'},
+      {id:'foto',   name:'Foto 3x4',                         req:false,ok:true, num:'Arquivo digital',      validade:null,        emissao:'25/02/2022'},
+    ]},
   },
 ];
 
@@ -1697,10 +1828,115 @@ function laborRenderDetail(c) {
         </button>
       </div>
     </div>
-    <div id="laborDetailProcesses_${c.id}">${processesHtml}</div>`;
+    <div id="laborDetailProcesses_${c.id}">${processesHtml}</div>
+    <div id="laborRhDocs_${c.id}" class="labor-rh-docs-wrap"></div>`;
+  laborLoadRhDocs(c);
 }
 
 /* ── BUILD PROCESS CARD ── */
+/* ── LABOR + RH DOCS ─────────────────────────────────────────────── */
+async function laborLoadRhDocs(c) {
+  const el = gel(`laborRhDocs_${c.id}`);
+  if (!el) return;
+
+  if (LBR.demoMode && c._demoRhDocs) {
+    laborRenderDemoRhDocs(el, c);
+    return;
+  }
+
+  el.innerHTML = '<div class="labor-rh-loading">Buscando documentacao no RH...</div>';
+
+  const list = await loadDossies();
+  const cpfClean = (c.cpf || '').replace(/\D/g, '');
+  const dossie = list.find(d => {
+    if (cpfClean && d.cpf) return d.cpf.replace(/\D/g,'') === cpfClean;
+    return d.name.trim().toLowerCase() === c.name.trim().toLowerCase();
+  });
+
+  if (!dossie) {
+    el.innerHTML = `<div class="labor-rh-empty">
+      <span>&#128196;</span> Colaborador nao localizado no modulo RH deste departamento.
+    </div>`;
+    return;
+  }
+
+  const docsSet = new Set((dossie.docs || []).map(s => s.toLowerCase()));
+  const items   = CHECKLIST_DEF.map(item => {
+    const ok = docsSet.has(item.name.toLowerCase());
+    return `<div class="dm-item ${ok?'dm-ok':'dm-miss'} dm-compact">
+      <span class="dm-icon">${ok?'&#10003;':'&#9711;'}</span>
+      <span class="dm-item-name">${item.name}${item.req?'':' <em>(opc.)</em>'}</span>
+    </div>`;
+  }).join('');
+
+  const sev = (dossie.missing_req||[]).length >= 2 ? 'Critico'
+            : (dossie.missing_req||[]).length === 1 ? 'Atencao'
+            : 'Completo';
+  const sevClass = sev === 'Critico' ? 'sev-critical' : sev === 'Atencao' ? 'sev-warning' : 'sev-ok';
+
+  el.innerHTML = `<div class="labor-rh-docs">
+    <div class="labor-rh-docs-header">
+      <div class="labor-rh-docs-title">&#128196; Documentacao no RH</div>
+      <span class="inc-severity ${sevClass}" style="font-size:10px;">${sev}</span>
+    </div>
+    <div class="dm-checklist dm-two-col">${items}</div>
+    <button class="labor-rh-view-btn" onclick="showDossierModal('${dossie.id}')">Ver prontuario completo</button>
+  </div>`;
+}
+
+function laborRenderDemoRhDocs(el, c) {
+  const rh = c._demoRhDocs;
+  const sevClass = rh.status === 'Critico' ? 'sev-critical' : rh.status === 'Atencao' ? 'sev-warning' : 'sev-ok';
+  const docIcons  = { cnh:'&#128467;', cpf:'&#128196;', ctrato:'&#128221;', admiss:'&#128203;', exame:'&#9877;', resid:'&#127968;', foto:'&#128247;' };
+  const docColors = { cnh:'#1a3a5c', cpf:'#065f46', ctrato:'#7c3aed', admiss:'#0e7490', exame:'#166534', resid:'#b45309', foto:'#be185d' };
+
+  const cards = rh.docs.map(doc => {
+    const icon  = docIcons[doc.id]  || '&#128196;';
+    const color = docColors[doc.id] || '#334155';
+    if (!doc.ok) {
+      return `<div class="rh-doc-card rh-doc-miss">
+        <div class="rh-doc-header" style="background:${color}22;border-color:${color}44;">
+          <span class="rh-doc-icon" style="color:${color};filter:none;">${icon}</span>
+          <div class="rh-doc-title" style="color:#64748b;">${doc.name}</div>
+          <span class="rh-doc-badge rh-doc-badge-miss">${doc.req ? 'AUSENTE' : 'NAO ENTREGUE'}</span>
+        </div>
+        <div class="rh-doc-body rh-doc-body-miss">
+          <span style="color:#94a3b8;">Documento nao localizado no prontuario</span>
+          ${doc.req ? '<span class="rh-doc-alert">Obrigatorio - regularizar</span>' : ''}
+        </div>
+      </div>`;
+    }
+    const alertHtml = doc.alerta ? `<div class="rh-doc-alerta">&#9888; ${doc.alerta}</div>` : '';
+    return `<div class="rh-doc-card rh-doc-ok">
+      <div class="rh-doc-header" style="background:${color};border-color:${color};">
+        <span class="rh-doc-icon" style="filter:brightness(0) invert(1);">${icon}</span>
+        <div class="rh-doc-title">${doc.name}</div>
+        <span class="rh-doc-badge rh-doc-badge-ok">&#10003; OK</span>
+      </div>
+      <div class="rh-doc-body">
+        ${doc.num    ? `<div class="rh-doc-field"><span class="rh-doc-lbl">Numero/Ref.:</span><span class="rh-doc-val">${doc.num}</span></div>` : ''}
+        ${doc.emissao? `<div class="rh-doc-field"><span class="rh-doc-lbl">Emissao:</span><span class="rh-doc-val">${doc.emissao}</span></div>` : ''}
+        ${doc.validade?`<div class="rh-doc-field"><span class="rh-doc-lbl">Validade:</span><span class="rh-doc-val">${doc.validade}</span></div>` : ''}
+        ${alertHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  const missing = rh.docs.filter(d => !d.ok && d.req).length;
+  const present = rh.docs.filter(d => d.ok).length;
+  const total   = rh.docs.length;
+
+  el.innerHTML = `<div class="labor-rh-docs labor-rh-docs-rich">
+    <div class="labor-rh-docs-header">
+      <div class="labor-rh-docs-title">&#128196; Prontuario RH</div>
+      <span class="inc-severity ${sevClass}">${rh.status}</span>
+      <span class="rh-doc-count">${present}/${total} documentos</span>
+    </div>
+    ${missing > 0 ? `<div class="rh-doc-missing-alert">&#9888; ${missing} documento${missing>1?'s':''} obrigatorio${missing>1?'s':''} ausente${missing>1?'s':''}</div>` : ''}
+    <div class="rh-doc-grid">${cards}</div>
+  </div>`;
+}
+
 function buildLaborCard(p, uid) {
   const dateAj = p.dataAjuizamento ? new Date(p.dataAjuizamento).toLocaleDateString('pt-BR') : 'nao informada';
   const partes = p.partes || [];
