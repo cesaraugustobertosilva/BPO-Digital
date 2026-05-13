@@ -1915,6 +1915,22 @@ async function laborLoadRhDocs(c) {
 function laborRenderDemoRhDocs(el, c) {
   const rh = c._demoRhDocs;
   const sevClass = rh.status === 'Critico' ? 'sev-critical' : rh.status === 'Atencao' ? 'sev-warning' : 'sev-ok';
+
+  const missing = rh.docs.filter(d => !d.ok && d.req).length;
+  const present = rh.docs.filter(d => d.ok).length;
+  const total   = rh.docs.length;
+
+  // Checklist view (matches screenshot style)
+  const checkItems = rh.docs.map(doc => {
+    const nameHtml = doc.name + (doc.req ? '' : ' <em>(opc.)</em>');
+    const alertHtml = doc.alerta ? `<div class="rh-chk-alerta">&#9888; ${doc.alerta}</div>` : '';
+    return `<div class="dm-item dm-compact ${doc.ok ? 'dm-ok' : 'dm-miss'}">
+      <span class="dm-icon">${doc.ok ? '&#10003;' : '&#9711;'}</span>
+      <span class="dm-item-name">${nameHtml}${alertHtml}</span>
+    </div>`;
+  }).join('');
+
+  // Detail cards (colored headers with metadata)
   const docIcons  = { cnh:'&#128467;', cpf:'&#128196;', ctrato:'&#128221;', admiss:'&#128203;', exame:'&#9877;', resid:'&#127968;', foto:'&#128247;' };
   const docColors = { cnh:'#1a3a5c', cpf:'#065f46', ctrato:'#7c3aed', admiss:'#0e7490', exame:'#166534', resid:'#b45309', foto:'#be185d' };
 
@@ -1950,18 +1966,20 @@ function laborRenderDemoRhDocs(el, c) {
     </div>`;
   }).join('');
 
-  const missing = rh.docs.filter(d => !d.ok && d.req).length;
-  const present = rh.docs.filter(d => d.ok).length;
-  const total   = rh.docs.length;
-
-  el.innerHTML = `<div class="labor-rh-docs labor-rh-docs-rich">
+  el.innerHTML = `<div class="labor-rh-docs">
     <div class="labor-rh-docs-header">
-      <div class="labor-rh-docs-title">&#128196; Prontuario RH</div>
+      <div class="labor-rh-docs-title">&#128196; Documentacao no RH</div>
       <span class="inc-severity ${sevClass}">${rh.status}</span>
-      <span class="rh-doc-count">${present}/${total} documentos</span>
     </div>
     ${missing > 0 ? `<div class="rh-doc-missing-alert">&#9888; ${missing} documento${missing>1?'s':''} obrigatorio${missing>1?'s':''} ausente${missing>1?'s':''}</div>` : ''}
-    <div class="rh-doc-grid">${cards}</div>
+    <div class="dm-checklist dm-two-col">${checkItems}</div>
+    <button class="labor-rh-view-btn" onclick="this.closest('.labor-rh-docs').querySelector('.rh-demo-detail').classList.toggle('hidden')">
+      &#128196; Ver detalhes dos documentos
+    </button>
+    <div class="rh-demo-detail hidden">
+      <div class="rh-doc-count" style="margin:12px 0 8px;font-size:11px;color:#64748b;">${present} de ${total} documentos presentes no prontuario</div>
+      <div class="rh-doc-grid">${cards}</div>
+    </div>
   </div>`;
 }
 
