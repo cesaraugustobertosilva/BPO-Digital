@@ -10,10 +10,21 @@ const ALLOWED = (process.env.ALLOWED_IPS || '')
   .map(s => s.trim())
   .filter(Boolean);
 
+const CONFIGURED = ALLOWED.length > 0;
+
+if (!CONFIGURED) {
+  console.warn('[ipFilter] ALLOWED_IPS nao configurado - acesso liberado para todos os IPs.');
+} else {
+  console.log('[ipFilter] IPs/ranges permitidos:', ALLOWED.join(', '));
+}
+
 function getClientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  const raw = fwd ? fwd.split(',')[0].trim()
-                  : (req.socket?.remoteAddress || req.ip || '');
+  // Vercel / proxies: primeiro IP do X-Forwarded-For eh o cliente real
+  const fwd   = req.headers['x-forwarded-for'];
+  const xreal = req.headers['x-real-ip'];
+  const raw   = fwd  ? fwd.split(',')[0].trim()
+              : xreal ? xreal.trim()
+              : (req.socket?.remoteAddress || req.ip || '');
   return raw.replace(/^::ffff:/, '');
 }
 
@@ -23,13 +34,13 @@ function ipToInt(ip) {
 
 function ipInCidr(ip, cidr) {
   const [base, bits] = cidr.split('/');
-  const mask   = ~((1 << (32 - parseInt(bits, 10))) - 1) >>> 0;
+  const mask = ~((1 << (32 - parseInt(bits, 10))) - 1) >>> 0;
   return (ipToInt(ip) & mask) === (ipToInt(base) & mask);
 }
 
 function isAllowed(ip) {
   if (ALWAYS_ALLOWED.includes(ip)) return true;
-  if (!ALLOWED.length) return true; // no restriction configured
+  if (!CONFIGURED)                 return true; // sem restricao configurada
 
   return ALLOWED.some(entry =>
     entry.includes('/') ? ipInCidr(ip, entry) : ip === entry
@@ -64,6 +75,23 @@ const DENIED_HTML = `<!DOCTYPE html>
 
 module.exports = function ipFilter(req, res, next) {
   const ip = getClientIp(req);
+
+  // Rota de diagnostico: /api/myip retorna o IP detectado (util para configurar allowlist)
+  if (req.path === '/api/myip') {
+    return res.json({
+      ip,
+      allowed:    isAllowed(ip),
+      configured: CONFIGURED,
+      allowlist:  CONFIGURED ? ALLOWED : 'nao configurado',
+      headers: {
+        'x-forwarded-for': req.headers['x-forwarded-for'] || null,
+        'x-real-ip':       req.headers['x-real-ip']       || null,
+      },
+    });
+  }
+
   if (isAllowed(ip)) return next();
+
+  console.warn('[ipFilter] Acesso negado para IP:', ip);
   res.status(403).send(DENIED_HTML);
 };
