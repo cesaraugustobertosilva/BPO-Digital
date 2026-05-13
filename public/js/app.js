@@ -79,6 +79,7 @@ async function setupFromUser(user) {
   gel('userAvatar').textContent = user.name.charAt(0).toUpperCase();
   gel('userWidget').classList.remove('hidden');
   gel('incHeaderBtn').classList.remove('hidden');
+  setupNavModules();
 
   STATE.profile = user.role;
 
@@ -105,6 +106,21 @@ async function setupFromUser(user) {
 
   if (user.role === 'company')    { enterCompanyView(); return; }
   if (user.role === 'department') { enterDeptView();    return; }
+}
+
+/* ── MODULE NAV FILTER ───────────────────────────────────────────── */
+const ALL_MODULES = ['rh','trabalhista','nf','contratos','documentos'];
+
+function setupNavModules() {
+  const mods = AUTH.user?.modules;
+  // empty or undefined = all modules allowed
+  if (!mods || !mods.length) {
+    document.querySelectorAll('.nt[data-mod]').forEach(el => el.classList.remove('hidden'));
+    return;
+  }
+  document.querySelectorAll('.nt[data-mod]').forEach(el => {
+    el.classList.toggle('hidden', !mods.includes(el.dataset.mod));
+  });
 }
 
 async function initApp() {
@@ -1256,20 +1272,25 @@ async function renderUserList() {
   if (!users.length) { list.innerHTML = '<div class="adm-empty">Nenhum usuario cadastrado.</div>'; return; }
 
   const roleLbl = { admin:'Administrador', company:'Gestao de Empresa', department:'Departamental' };
+  const modLabels = { rh:'RH', trabalhista:'Trabalhista', nf:'NF', contratos:'Contratos', documentos:'Docs' };
   list.innerHTML = `<table class="user-list-table">
     <thead><tr>
-      <th>Nome</th><th>Usuario</th><th>Perfil</th><th>Empresa / Departamento</th><th></th>
+      <th>Nome</th><th>Usuario</th><th>Perfil</th><th>Empresa / Departamento</th><th>Modulos</th><th></th>
     </tr></thead>
     <tbody>${users.map(u => {
       const co   = companies.find(c => c.id === u.companyId);
       const dept = co?.departments?.find(d => d.id === u.departmentId);
       const scope = u.role === 'admin' ? 'Todos' : (co?.name || '') + (dept ? ' / ' + dept.name : '');
-      const safe = encodeURIComponent(JSON.stringify(u));
+      const safe  = encodeURIComponent(JSON.stringify(u));
+      const mods  = u.modules?.length
+        ? u.modules.map(m => `<span class="mod-chip">${modLabels[m]||m}</span>`).join('')
+        : '<span style="font-size:11px;color:#94a3b8">Todos</span>';
       return `<tr>
         <td>${u.name}</td>
         <td style="color:var(--sbk-slate)">@${u.username}</td>
         <td><span class="role-badge ${u.role}">${roleLbl[u.role]||u.role}</span></td>
         <td style="font-size:12px;color:var(--sbk-slate)">${scope}</td>
+        <td>${mods}</td>
         <td><div class="user-actions">
           <button class="user-edit-btn" onclick="openUserForm(decodeURIComponent('${safe}'))">Editar</button>
           <button class="user-del-btn"  onclick="deleteUser('${u.id}','${u.name}')">Excluir</button>
@@ -1302,6 +1323,7 @@ async function openUserForm(userJson) {
       ufCompanyChange();
       setTimeout(() => { gel('ufDept').value = u.departmentId; }, 50);
     }
+    ufSetModules(u.modules || []);
   } else {
     editingUserId = null;
     gel('userFormTitle').textContent = 'Novo usuario';
@@ -1309,6 +1331,7 @@ async function openUserForm(userJson) {
     gel('ufName').value = gel('ufUsername').value = gel('ufPassword').value = '';
     gel('ufRole').value = 'department';
     ufRoleChange();
+    ufSetModules([]);
   }
 
   gel('ufError').classList.add('hidden');
@@ -1316,6 +1339,12 @@ async function openUserForm(userJson) {
 }
 
 function closeUserForm() { gel('userFormOverlay').classList.add('hidden'); }
+
+function ufSetModules(mods) {
+  document.querySelectorAll('.uf-mod-cb').forEach(cb => {
+    cb.checked = mods.includes(cb.value);
+  });
+}
 
 function ufRoleChange() {
   const role = gel('ufRole').value;
@@ -1345,7 +1374,8 @@ async function saveUserForm() {
   if (!editingUserId && !password) { errEl.textContent = 'Senha obrigatoria para novo usuario.'; errEl.classList.remove('hidden'); return; }
   if (password && password.length < 6) { errEl.textContent = 'Senha deve ter ao menos 6 caracteres.'; errEl.classList.remove('hidden'); return; }
 
-  const payload = { name, username, role, companyId: coId, departmentId: deptId };
+  const modules = Array.from(document.querySelectorAll('.uf-mod-cb:checked')).map(cb => cb.value);
+  const payload = { name, username, role, companyId: coId, departmentId: deptId, modules };
   if (password) payload.password = password;
 
   const url  = editingUserId ? '/api/users/' + editingUserId : '/api/users';
@@ -1383,7 +1413,7 @@ async function renderIndexedDossies() {
       : '<span class="inc-severity sev-ok" style="font-size:10px;">&#10003; Completo</span>';
     const date = new Date(d.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
     const initials = d.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
-    return `<div class="idx-dossie-row" onclick="loadDossie('${d.id}'); window.scrollTo({top:0,behavior:'smooth'});">
+    return `<div class="idx-dossie-row" onclick="showDossierModal('${d.id}')">
       <div class="idx-avatar">${initials}</div>
       <div class="idx-meta">
         <div class="idx-name">${d.name}</div>
@@ -1395,6 +1425,47 @@ async function renderIndexedDossies() {
     </div>`;
   }).join('');
 }
+
+/* ── DOSSIER DETAIL MODAL ────────────────────────────────────────── */
+const CHECKLIST_DEF = [
+  { id:'cnh',    name:'CNH / RG / Documento de Identidade', req:true  },
+  { id:'cpf',    name:'CPF',                                req:true  },
+  { id:'ctrato', name:'Contrato de Trabalho',               req:true  },
+  { id:'admiss', name:'Ficha de Admissao',                  req:true  },
+  { id:'exame',  name:'Exame Admissional',                  req:true  },
+  { id:'resid',  name:'Comprovante de Residencia',          req:false },
+  { id:'foto',   name:'Foto 3x4',                           req:false },
+];
+
+async function showDossierModal(dossieId) {
+  const resp = await apiFetch('/api/dossies/' + dossieId);
+  if (!resp || !resp.ok) { toast('Erro ao carregar prontuario.'); return; }
+  const d = await resp.json();
+
+  const docsSet = new Set((d.docs || []).map(s => s.toLowerCase()));
+
+  gel('dmName').textContent = d.name;
+  gel('dmMeta').textContent =
+    'CPF: ' + (d.cpf || 'nao informado') +
+    ' · Mat.: ' + (d.mat || 'nao informada') +
+    ' · Indexado em ' + new Date(d.ts).toLocaleDateString('pt-BR');
+
+  const buildItems = items => items.map(item => {
+    const present = docsSet.has(item.name.toLowerCase());
+    return `<div class="dm-item ${present ? 'dm-ok' : 'dm-miss'}">
+      <span class="dm-icon">${present ? '&#10003;' : '&#9711;'}</span>
+      <span class="dm-item-name">${item.name}</span>
+    </div>`;
+  }).join('');
+
+  gel('dmRequired').innerHTML = buildItems(CHECKLIST_DEF.filter(i => i.req));
+  gel('dmOptional').innerHTML = buildItems(CHECKLIST_DEF.filter(i => !i.req));
+
+  gel('dmEditBtn').onclick = () => { closeDossierModal(); loadDossie(d.id); window.scrollTo({top:0,behavior:'smooth'}); };
+  gel('dossierModal').classList.remove('hidden');
+}
+
+function closeDossierModal() { gel('dossierModal').classList.add('hidden'); }
 
 /* ── TRABALHISTA VIEW ────────────────────────────────────────────── */
 
@@ -1697,10 +1768,56 @@ function laborRenderDetail(c) {
         </button>
       </div>
     </div>
-    <div id="laborDetailProcesses_${c.id}">${processesHtml}</div>`;
+    <div id="laborDetailProcesses_${c.id}">${processesHtml}</div>
+    <div id="laborRhDocs_${c.id}" class="labor-rh-docs-wrap"></div>`;
+  laborLoadRhDocs(c);
 }
 
 /* ── BUILD PROCESS CARD ── */
+/* ── LABOR + RH DOCS ─────────────────────────────────────────────── */
+async function laborLoadRhDocs(c) {
+  const el = gel(`laborRhDocs_${c.id}`);
+  if (!el) return;
+  el.innerHTML = '<div class="labor-rh-loading">Buscando documentacao no RH...</div>';
+
+  const list = await loadDossies();
+  const cpfClean = (c.cpf || '').replace(/\D/g, '');
+  const dossie = list.find(d => {
+    if (cpfClean && d.cpf) return d.cpf.replace(/\D/g,'') === cpfClean;
+    return d.name.trim().toLowerCase() === c.name.trim().toLowerCase();
+  });
+
+  if (!dossie) {
+    el.innerHTML = `<div class="labor-rh-empty">
+      <span>&#128196;</span> Colaborador nao localizado no modulo RH deste departamento.
+    </div>`;
+    return;
+  }
+
+  const docsSet = new Set((dossie.docs || []).map(s => s.toLowerCase()));
+  const items   = CHECKLIST_DEF.map(item => {
+    const ok = docsSet.has(item.name.toLowerCase());
+    return `<div class="dm-item ${ok?'dm-ok':'dm-miss'} dm-compact">
+      <span class="dm-icon">${ok?'&#10003;':'&#9711;'}</span>
+      <span class="dm-item-name">${item.name}${item.req?'':' <em>(opc.)</em>'}</span>
+    </div>`;
+  }).join('');
+
+  const sev = (dossie.missing_req||[]).length >= 2 ? 'Critico'
+            : (dossie.missing_req||[]).length === 1 ? 'Atencao'
+            : 'Completo';
+  const sevClass = sev === 'Critico' ? 'sev-critical' : sev === 'Atencao' ? 'sev-warning' : 'sev-ok';
+
+  el.innerHTML = `<div class="labor-rh-docs">
+    <div class="labor-rh-docs-header">
+      <div class="labor-rh-docs-title">&#128196; Documentacao no RH</div>
+      <span class="inc-severity ${sevClass}" style="font-size:10px;">${sev}</span>
+    </div>
+    <div class="dm-checklist dm-two-col">${items}</div>
+    <button class="labor-rh-view-btn" onclick="showDossierModal('${dossie.id}')">Ver prontuario completo</button>
+  </div>`;
+}
+
 function buildLaborCard(p, uid) {
   const dateAj = p.dataAjuizamento ? new Date(p.dataAjuizamento).toLocaleDateString('pt-BR') : 'nao informada';
   const partes = p.partes || [];

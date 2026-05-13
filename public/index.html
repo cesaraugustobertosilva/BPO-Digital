@@ -89,11 +89,11 @@
 
   <!-- NAV -->
   <nav class="nav" id="mainNav">
-    <div class="nt active" id="ntRH" onclick="switchTabRH(this)">&#128101; RH</div>
-    <div class="nt" onclick="switchTab(this)">&#129534; Notas Fiscais</div>
-    <div class="nt" onclick="switchTab(this)">&#128203; Contratos</div>
-    <div class="nt" onclick="switchTab(this)">&#128194; Documentos Variados</div>
-    <div class="nt nt-labor" id="ntLabor" onclick="enterTrabalhistaView()">&#9878; Trabalhista</div>
+    <div class="nt active" id="ntRH"        data-mod="rh"          onclick="switchTabRH(this)">&#128101; RH</div>
+    <div class="nt"        id="ntNF"         data-mod="nf"          onclick="switchTab(this)">&#129534; Notas Fiscais</div>
+    <div class="nt"        id="ntContratos"  data-mod="contratos"   onclick="switchTab(this)">&#128203; Contratos</div>
+    <div class="nt"        id="ntDocs"       data-mod="documentos"  onclick="switchTab(this)">&#128194; Documentos Variados</div>
+    <div class="nt nt-labor" id="ntLabor"   data-mod="trabalhista"  onclick="enterTrabalhistaView()">&#9878; Trabalhista</div>
   </nav>
 
   <!-- ── ADMIN VIEW ──────────────────────────────────────────────── -->
@@ -565,11 +565,46 @@
           </select>
         </div>
       </div>
+      <!-- Modules -->
+      <div class="uf-modules-wrap">
+        <div class="uf-modules-title">Modulos permitidos</div>
+        <div class="uf-modules-hint">Deixe em branco para liberar todos os modulos.</div>
+        <div class="uf-modules-grid">
+          <label class="uf-mod-item"><input type="checkbox" class="uf-mod-cb" value="rh">&#128101; RH</label>
+          <label class="uf-mod-item"><input type="checkbox" class="uf-mod-cb" value="trabalhista">&#9878; Trabalhista</label>
+          <label class="uf-mod-item"><input type="checkbox" class="uf-mod-cb" value="nf">&#129534; Notas Fiscais</label>
+          <label class="uf-mod-item"><input type="checkbox" class="uf-mod-cb" value="contratos">&#128203; Contratos</label>
+          <label class="uf-mod-item"><input type="checkbox" class="uf-mod-cb" value="documentos">&#128194; Documentos Variados</label>
+        </div>
+      </div>
       <div class="login-error hidden" id="ufError">Erro ao salvar</div>
     </div>
     <div class="user-form-foot">
       <button class="ibtn-sec" onclick="closeUserForm()">Cancelar</button>
       <button class="ibtn-pri" onclick="saveUserForm()">&#10003; Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DOSSIER DETAIL MODAL -->
+<div class="dossier-modal-overlay hidden" id="dossierModal">
+  <div class="dossier-modal">
+    <div class="dossier-modal-head">
+      <div>
+        <div class="dossier-modal-name" id="dmName"></div>
+        <div class="dossier-modal-meta" id="dmMeta"></div>
+      </div>
+      <button class="imodal-close" onclick="closeDossierModal()">&#10005;</button>
+    </div>
+    <div class="dossier-modal-body">
+      <div class="dm-section-title">Documentos Obrigatorios</div>
+      <div class="dm-checklist" id="dmRequired"></div>
+      <div class="dm-section-title" style="margin-top:18px;">Documentos Opcionais</div>
+      <div class="dm-checklist" id="dmOptional"></div>
+    </div>
+    <div class="dossier-modal-foot">
+      <button class="ibtn-sec" onclick="closeDossierModal()">Fechar</button>
+      <button class="ibtn-pri" id="dmEditBtn">&#128393; Editar prontuario</button>
     </div>
   </div>
 </div>

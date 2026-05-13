@@ -1774,3 +1774,84 @@ html, body {
 .risk-alto   { background: #fce4ec; color: #c62828; }
 .risk-medio  { background: #fff8e1; color: #e65100; }
 .risk-baixo  { background: #e8f5e9; color: #2e7d32; }
+
+/* ── DOSSIER MODAL ──────────────────────────────────────────────── */
+.dossier-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10,20,35,.55); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.dossier-modal-overlay.hidden { display: none; }
+.dossier-modal {
+  background: white; border-radius: 14px; width: 100%; max-width: 560px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3); overflow: hidden;
+  animation: fadeUp .2s ease both;
+}
+.dossier-modal-head {
+  background: var(--sbk-dark); padding: 20px 22px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+}
+.dossier-modal-name { color: white; font-size: 17px; font-weight: 700; }
+.dossier-modal-meta { color: rgba(255,255,255,.45); font-size: 11px; font-weight: 300; margin-top: 4px; }
+.dossier-modal-body { padding: 22px; max-height: 55vh; overflow-y: auto; }
+.dossier-modal-foot { padding: 14px 22px; border-top: .5px solid #eef2f7; display: flex; gap: 10px; justify-content: flex-end; }
+.dm-section-title   { font-size: 11px; font-weight: 600; color: var(--sbk-slate); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+.dm-checklist       { display: flex; flex-direction: column; gap: 6px; }
+.dm-two-col         { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dm-item            { display: flex; align-items: center; gap: 9px; padding: 8px 12px; border-radius: 8px; }
+.dm-item.dm-ok      { background: #f0fdf4; }
+.dm-item.dm-miss    { background: #fafafa; }
+.dm-item.dm-compact { padding: 6px 10px; border-radius: 6px; }
+.dm-icon { font-size: 13px; flex-shrink: 0; }
+.dm-item.dm-ok   .dm-icon { color: #16a34a; }
+.dm-item.dm-miss .dm-icon { color: #cbd5e1; }
+.dm-item-name { font-size: 12px; color: var(--sbk-dark); }
+.dm-item.dm-miss .dm-item-name { color: #94a3b8; }
+.dm-item-name em { font-style: normal; color: #94a3b8; font-size: 10px; }
+
+/* ── MODULE CHECKBOXES IN USER FORM ─────────────────────────────── */
+.uf-modules-wrap {
+  margin-top: 18px; padding-top: 16px; border-top: .5px solid #eef2f7;
+}
+.uf-modules-title { font-size: 12px; font-weight: 600; color: var(--sbk-dark); margin-bottom: 3px; }
+.uf-modules-hint  { font-size: 11px; color: #94a3b8; margin-bottom: 12px; }
+.uf-modules-grid  { display: flex; flex-wrap: wrap; gap: 8px; }
+.uf-mod-item {
+  display: flex; align-items: center; gap: 7px;
+  background: #f8fafc; border: .5px solid #e2e8f0;
+  border-radius: 8px; padding: 8px 14px;
+  font-size: 12px; color: var(--sbk-dark);
+  cursor: pointer; transition: all .15s; user-select: none;
+}
+.uf-mod-item:hover { border-color: var(--sbk-cyan); background: #e0f7fa; }
+.uf-mod-item input[type="checkbox"] { accent-color: var(--sbk-cyan); width: 14px; height: 14px; }
+.uf-mod-item:has(input:checked) { border-color: var(--sbk-cyan); background: #e0f7fa; font-weight: 600; }
+
+/* ── MODULE CHIPS IN USER LIST ───────────────────────────────────── */
+.mod-chip {
+  display: inline-block; background: #e0f2fe; color: #0369a1;
+  font-size: 10px; font-weight: 600; padding: 2px 7px;
+  border-radius: 20px; margin: 1px; letter-spacing: .2px;
+}
+
+/* ── LABOR RH DOCS PANEL ─────────────────────────────────────────── */
+.labor-rh-docs-wrap { flex-shrink: 0; }
+.labor-rh-docs {
+  background: white; border: .5px solid #d0d8e0; border-radius: var(--r);
+  padding: 16px 18px;
+}
+.labor-rh-docs-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+}
+.labor-rh-docs-title { font-size: 13px; font-weight: 700; color: var(--sbk-dark); }
+.labor-rh-loading { padding: 14px; font-size: 12px; color: var(--sbk-slate); }
+.labor-rh-empty   {
+  background: white; border: .5px dashed #d0d8e0; border-radius: var(--r);
+  padding: 16px; font-size: 12px; color: #94a3b8; text-align: center;
+}
+.labor-rh-view-btn {
+  margin-top: 14px; background: transparent; border: .5px solid #d0d8e0;
+  color: var(--sbk-slate); border-radius: 7px; padding: 7px 14px;
+  font-size: 11px; cursor: pointer; transition: all .2s;
+}
+.labor-rh-view-btn:hover { border-color: var(--sbk-cyan); color: var(--sbk-cyan); }
