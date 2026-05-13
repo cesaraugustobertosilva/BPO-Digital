@@ -2174,6 +2174,43 @@ function laborUpdateStats() {
     <div class="labor-stat"><div class="labor-sv ${comProc?'sv-warn':''}">${comProc}</div><div class="labor-sl">Com processos</div></div>
     <div class="labor-stat"><div class="labor-sv">${totalP}</div><div class="labor-sl">Processos ativos</div></div>
     <div class="labor-stat"><div class="labor-sv ${altoRisk?'sv-danger':''}">${altoRisk}</div><div class="labor-sl">Risco alto</div></div>`;
+
+  const alto  = LBR.collaborators.reduce((a,c)=>a+c.processes.filter(p=>p._ai?.risco==='alto').length,0);
+  const medio = LBR.collaborators.reduce((a,c)=>a+c.processes.filter(p=>p._ai?.risco==='medio').length,0);
+  const baixo = LBR.collaborators.reduce((a,c)=>a+c.processes.filter(p=>p._ai?.risco==='baixo').length,0);
+  const semAi = totalP - alto - medio - baixo;
+  const pct   = v => totalP > 0 ? Math.round(v / totalP * 100) : 0;
+
+  const barEl = gel('laborPriorityBar');
+  if (!barEl) return;
+
+  if (totalP === 0) {
+    barEl.innerHTML = '';
+    return;
+  }
+
+  const segments = [
+    { label:'Risco alto',  count:alto,  pct:pct(alto),  cls:'prio-alto'  },
+    { label:'Risco medio', count:medio, pct:pct(medio), cls:'prio-medio' },
+    { label:'Risco baixo', count:baixo, pct:pct(baixo), cls:'prio-baixo' },
+    { label:'Nao analisado', count:semAi, pct:pct(semAi), cls:'prio-na'  },
+  ].filter(s => s.count > 0);
+
+  const bars = segments.map(s =>
+    `<div class="prio-seg ${s.cls}" style="flex:${s.count}" title="${s.label}: ${s.count} processo${s.count>1?'s':''}"></div>`
+  ).join('');
+
+  const legend = segments.map(s =>
+    `<div class="prio-leg-item">
+      <span class="prio-leg-dot ${s.cls}"></span>
+      <span class="prio-leg-label">${s.label}</span>
+      <span class="prio-leg-count">${s.count}</span>
+    </div>`
+  ).join('');
+
+  barEl.innerHTML = `
+    <div class="prio-track">${bars}</div>
+    <div class="prio-legend">${legend}</div>`;
 }
 
 /* ── AUTO-TIMER (10 min) ── */
