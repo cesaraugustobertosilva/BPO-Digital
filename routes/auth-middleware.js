@@ -1,23 +1,7 @@
 const { scryptSync, randomBytes, timingSafeEqual, createHmac } = require('crypto');
-const fs   = require('fs');
-const path = require('path');
+const { readData, writeData } = require('./db');
 
-const SECRET    = process.env.SESSION_SECRET || 'sbk-portal-secret-change-in-production';
-const DATA_DIR  = process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data');
-const DATA_FILE = path.join(DATA_DIR, 'users.json');
-
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-function readUsers() {
-  ensureDir();
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-  catch { return []; }
-}
-function writeUsers(list) {
-  ensureDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
-}
+const SECRET = process.env.SESSION_SECRET || 'sbk-portal-secret-change-in-production';
 
 function hashPassword(pw) {
   const salt = randomBytes(16).toString('hex');
@@ -39,9 +23,9 @@ function generateToken(userId) {
 }
 function verifyToken(token) {
   try {
-    const dot     = token.lastIndexOf('.');
-    const payload = token.substring(0, dot);
-    const sig     = token.substring(dot + 1);
+    const dot      = token.lastIndexOf('.');
+    const payload  = token.substring(0, dot);
+    const sig      = token.substring(dot + 1);
     const expected = createHmac('sha256', SECRET).update(payload).digest('hex');
     if (!timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'))) return null;
     const { userId, exp } = JSON.parse(Buffer.from(payload, 'base64').toString());
@@ -57,20 +41,25 @@ function seedUsers() {
       passwordHash: hashPassword('admin123'),
     },
     {
-      id: 'user_gest', username: 'gestor', name: 'Gestor SBK',
+      id: 'user_gest',  username: 'gestor', name: 'Gestor SBK',
       role: 'company',    companyId: 'comp_demo', departmentId: null,
       passwordHash: hashPassword('gestor123'),
     },
     {
-      id: 'user_rh', username: 'rh', name: 'Analista RH',
+      id: 'user_rh',    username: 'rh',     name: 'Analista RH',
       role: 'department', companyId: 'comp_demo', departmentId: 'dept_rh',
       passwordHash: hashPassword('rh123'),
     },
   ];
 }
-function getOrSeedUsers() {
-  const list = readUsers();
-  if (!list.length) { const s = seedUsers(); writeUsers(s); return s; }
+
+async function getOrSeedUsers() {
+  const list = await readData('users');
+  if (!list || !list.length) {
+    const s = seedUsers();
+    await writeData('users', s);
+    return s;
+  }
   return list;
 }
 
@@ -79,21 +68,25 @@ function safeUser(u) {
   return safe;
 }
 
-function requireAuth(req, res, next) {
-  const raw   = req.headers.authorization || '';
-  const token = raw.startsWith('Bearer ') ? raw.slice(7) : raw;
-  if (!token) return res.status(401).json({ error: 'Nao autenticado.' });
-  const userId = verifyToken(token);
-  if (!userId)  return res.status(401).json({ error: 'Sessao expirada. Faca login novamente.' });
-  const user = getOrSeedUsers().find(u => u.id === userId);
-  if (!user)    return res.status(401).json({ error: 'Usuario nao encontrado.' });
-  req.user = user;
-  next();
+async function requireAuth(req, res, next) {
+  try {
+    const raw   = req.headers.authorization || '';
+    const token = raw.startsWith('Bearer ') ? raw.slice(7) : raw;
+    if (!token) return res.status(401).json({ error: 'Nao autenticado.' });
+    const userId = verifyToken(token);
+    if (!userId) return res.status(401).json({ error: 'Sessao expirada. Faca login novamente.' });
+    const users = await getOrSeedUsers();
+    const user  = users.find(u => u.id === userId);
+    if (!user) return res.status(401).json({ error: 'Usuario nao encontrado.' });
+    req.user = user;
+    next();
+  } catch (err) { next(err); }
 }
+
 function requireAdmin(req, res, next) {
   if (req.user?.role !== 'admin')
     return res.status(403).json({ error: 'Acesso restrito ao administrador.' });
   next();
 }
 
-module.exports = { hashPassword, verifyPassword, generateToken, readUsers, writeUsers, getOrSeedUsers, safeUser, requireAuth, requireAdmin };
+module.exports = { hashPassword, verifyPassword, generateToken, getOrSeedUsers, safeUser, requireAuth, requireAdmin };

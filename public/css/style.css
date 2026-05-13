@@ -250,12 +250,12 @@ html, body {
   background: var(--sbk-dark);
   margin: 12px;
   border-radius: var(--r);
-  padding: 26px 22px;
+  padding: 16px 22px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   cursor: pointer;
   transition: background .2s, border-color .2s;
-  min-height: 160px;
+  min-height: 110px;
   border: 2px dashed rgba(255,255,255,.12);
   position: relative; overflow: hidden;
   user-select: none;
@@ -272,13 +272,13 @@ html, body {
   pointer-events: none;
 }
 .uiw {
-  width: 52px; height: 52px;
-  border-radius: 12px;
+  width: 36px; height: 36px;
+  border-radius: 8px;
   background: rgba(255,255,255,.1);
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 12px; font-size: 22px;
+  margin-bottom: 8px; font-size: 16px;
 }
-.ucta  { color: white; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.ucta  { color: white; font-size: 14px; font-weight: 700; margin-bottom: 2px; }
 .usub  { color: rgba(255,255,255,.45); font-size: 11px; font-weight: 300; }
 .upills { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; justify-content: center; }
 .upill {
@@ -1384,3 +1384,188 @@ html, body {
   display: flex; justify-content: flex-end; gap: 10px;
   padding: 16px 24px; border-top: 1px solid #e0e8ef;
 }
+
+/* ADMIN VIEW BUTTON */
+.adm-view-btn {
+  background: rgba(42,124,121,.12);
+  border: none; border-radius: 6px;
+  color: var(--sbk-cyan);
+  font-size: 13px; padding: 3px 8px;
+  cursor: pointer; transition: background .15s;
+  margin-right: 4px;
+}
+.adm-view-btn:hover { background: rgba(42,124,121,.25); }
+
+/* INDEXED DOSSIE SECTION */
+.indexed-section {
+  background: white;
+  border: .5px solid #d0d8e0;
+  border-radius: var(--r);
+  margin-top: 20px;
+  overflow: hidden;
+  animation: fadeUp .4s .2s ease both;
+}
+.indexed-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #edf0f4;
+}
+.indexed-title { font-size: 13px; font-weight: 600; color: var(--sbk-dark); }
+.indexed-count { font-size: 11px; color: var(--sbk-slate); font-weight: 300; }
+.idx-dossie-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 18px;
+  border-bottom: .5px solid #f0f3f7;
+  cursor: pointer; transition: background .15s;
+}
+.idx-dossie-row:last-child { border-bottom: none; }
+.idx-dossie-row:hover { background: #f6f9fc; }
+.idx-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--sbk-dark);
+  color: white; font-size: 11px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.idx-meta { flex: 1; min-width: 0; }
+.idx-name { font-size: 13px; font-weight: 500; color: var(--sbk-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.idx-sub  { font-size: 11px; color: var(--sbk-slate); font-weight: 300; }
+.idx-date { font-size: 11px; color: var(--sbk-slate); font-weight: 300; white-space: nowrap; }
+.idx-arrow { color: var(--sbk-slate); font-size: 16px; }
+
+/* TRABALHISTA NAV TAB */
+.nt-labor { border-left: 1px solid rgba(255,255,255,.1); margin-left: auto; }
+
+/* TRABALHISTA VIEW */
+.labor-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 22px;
+}
+.labor-title { font-size: 20px; font-weight: 700; color: var(--sbk-dark); }
+.labor-sub   { font-size: 12px; color: var(--sbk-slate); font-weight: 300; margin-top: 3px; }
+
+.labor-search-card {
+  background: white;
+  border: .5px solid #d0d8e0;
+  border-radius: var(--r);
+  padding: 18px 20px;
+  margin-bottom: 24px;
+}
+.labor-search-row {
+  display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;
+}
+.labor-suggestions {
+  margin-top: 8px;
+  border: .5px solid #d0d8e0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: none;
+}
+.labor-suggestions:not(:empty) { display: block; }
+.labor-sug-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px;
+  cursor: pointer;
+  border-bottom: .5px solid #f0f3f7;
+  transition: background .15s;
+}
+.labor-sug-item:last-child { border-bottom: none; }
+.labor-sug-item:hover { background: #f6f9fc; }
+.labor-sug-name { font-size: 13px; font-weight: 500; color: var(--sbk-dark); }
+.labor-sug-cpf  { font-size: 11px; color: var(--sbk-slate); }
+
+.labor-loading {
+  display: flex; align-items: center; gap: 14px;
+  padding: 32px; color: var(--sbk-slate); font-size: 13px;
+}
+.labor-spinner {
+  width: 20px; height: 20px;
+  border: 2px solid #d0d8e0;
+  border-top-color: var(--sbk-cyan);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.labor-empty {
+  background: white; border: .5px solid #d0d8e0;
+  border-radius: var(--r); padding: 32px;
+  text-align: center; color: var(--sbk-slate); font-size: 13px;
+}
+.labor-results-header {
+  font-size: 12px; font-weight: 600; color: var(--sbk-slate);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 12px;
+}
+
+/* PROCESS CARD */
+.labor-card {
+  background: white;
+  border: .5px solid #d0d8e0;
+  border-radius: var(--r);
+  margin-bottom: 14px;
+  overflow: hidden;
+  animation: fadeUp .3s ease both;
+}
+.labor-card-top {
+  background: var(--sbk-dark);
+  padding: 12px 18px;
+  display: flex; align-items: center; gap: 14px;
+}
+.labor-card-badge {
+  background: var(--sbk-cyan);
+  color: white; font-size: 10px; font-weight: 700;
+  padding: 3px 8px; border-radius: 4px; letter-spacing: .5px;
+  flex-shrink: 0;
+}
+.labor-card-num  { color: rgba(255,255,255,.85); font-size: 12px; font-weight: 300; flex: 1; font-family: monospace; letter-spacing: .5px; }
+.labor-card-date { color: rgba(255,255,255,.4); font-size: 11px; white-space: nowrap; }
+.labor-card-body { padding: 16px 18px; }
+.labor-card-classe { font-size: 14px; font-weight: 600; color: var(--sbk-dark); margin-bottom: 12px; }
+.labor-partes { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.labor-parte  { display: flex; align-items: center; gap: 10px; }
+.labor-parte-lbl {
+  font-size: 10px; font-weight: 600; padding: 2px 7px;
+  border-radius: 4px; text-transform: uppercase; letter-spacing: .3px; flex-shrink: 0;
+}
+.labor-parte-lbl.recl  { background: #e8f5e9; color: #2e7d32; }
+.labor-parte-lbl.recdo { background: #fce4ec; color: #c62828; }
+.labor-parte-nome { font-size: 13px; color: var(--sbk-dark); }
+.labor-last-mov { font-size: 11px; color: var(--sbk-slate); font-weight: 300; }
+.labor-last-mov span { font-weight: 500; }
+.labor-valor    { font-size: 12px; color: var(--sbk-slate); margin-top: 6px; }
+.labor-card-footer {
+  padding: 10px 18px 14px;
+  border-top: .5px solid #f0f3f7;
+}
+.labor-analyze-btn {
+  background: var(--sbk-dark);
+  color: white; border: none; border-radius: 7px;
+  padding: 8px 16px; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: background .2s;
+}
+.labor-analyze-btn:hover { background: var(--sbk-mid); }
+.labor-analyze-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* AI ANALYSIS PANEL */
+.labor-analysis { border-top: .5px solid #f0f3f7; }
+.labor-analysis.hidden { display: none; }
+.labor-ai-loading { padding: 18px; color: var(--sbk-slate); font-size: 12px; }
+.labor-ai-error   { padding: 14px 18px; color: #c62828; font-size: 12px; }
+.labor-ai-result  { padding: 18px; }
+.labor-ai-header  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.labor-ai-title   { font-size: 13px; font-weight: 700; color: var(--sbk-dark); }
+.labor-risk-badge {
+  font-size: 10px; font-weight: 600; padding: 3px 10px;
+  border-radius: 20px; text-transform: uppercase; letter-spacing: .3px;
+}
+.risk-alto   { background: #fce4ec; color: #c62828; }
+.risk-medio  { background: #fff8e1; color: #e65100; }
+.risk-baixo  { background: #e8f5e9; color: #2e7d32; }
+.labor-ai-section { margin-bottom: 12px; }
+.labor-ai-label   { font-size: 10px; font-weight: 600; color: var(--sbk-slate); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.labor-ai-value   { font-size: 13px; color: var(--sbk-dark); }
+.labor-ai-resumo  { line-height: 1.6; color: #3a4550; }
+.labor-ai-list    { padding-left: 18px; font-size: 12px; color: var(--sbk-dark); line-height: 1.8; }
+.labor-ai-atencao li { color: #c62828; }

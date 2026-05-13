@@ -1,11 +1,7 @@
 const express = require('express');
-const fs      = require('fs');
-const path    = require('path');
 const router  = express.Router();
 const { requireAuth, requireAdmin } = require('./auth-middleware');
-
-const DATA_DIR  = process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data');
-const DATA_FILE = path.join(DATA_DIR, 'companies.json');
+const { readData, writeData } = require('./db');
 
 const DEFAULT_CHECKLIST = [
   { id: 'cnh',    name: 'CNH / RG / Documento de Identidade', req: true },
@@ -17,18 +13,6 @@ const DEFAULT_CHECKLIST = [
   { id: 'foto',   name: 'Foto 3x4',                           req: false },
 ];
 
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-function readCompanies() {
-  ensureDir();
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-  catch { return []; }
-}
-function writeCompanies(list) {
-  ensureDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
-}
 function seed() {
   return [{
     id: 'comp_demo',
@@ -39,98 +23,104 @@ function seed() {
     ],
   }];
 }
-function getOrSeed() {
-  const list = readCompanies();
-  if (!list.length) { const s = seed(); writeCompanies(s); return s; }
+
+async function getOrSeed() {
+  const list = await readData('companies');
+  if (!list || !list.length) {
+    const s = seed();
+    await writeData('companies', s);
+    return s;
+  }
   return list;
 }
 
-router.get('/', requireAuth, (_req, res) => {
-  try { res.json(getOrSeed()); }
+router.get('/', requireAuth, async (_req, res) => {
+  try { res.json(await getOrSeed()); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/', requireAuth, requireAdmin, (req, res) => {
+router.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'Nome obrigatorio.' });
-    const list = getOrSeed();
+    const list = await getOrSeed();
     const item = { id: 'comp_' + Date.now(), name, departments: [] };
     list.push(item);
-    writeCompanies(list);
+    await writeData('companies', list);
     res.json(item);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.put('/:id', requireAuth, requireAdmin, (req, res) => {
+router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const list = getOrSeed();
+    const list = await getOrSeed();
     const idx  = list.findIndex(c => c.id === req.params.id);
     if (idx < 0) return res.status(404).json({ error: 'Empresa nao encontrada.' });
     list[idx] = { ...list[idx], name: req.body.name || list[idx].name };
-    writeCompanies(list);
+    await writeData('companies', list);
     res.json(list[idx]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/:id', requireAuth, requireAdmin, (req, res) => {
+router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    writeCompanies(getOrSeed().filter(c => c.id !== req.params.id));
+    const list = await getOrSeed();
+    await writeData('companies', list.filter(c => c.id !== req.params.id));
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/:id/departments', requireAuth, (req, res) => {
+router.get('/:id/departments', requireAuth, async (req, res) => {
   try {
-    const co = getOrSeed().find(c => c.id === req.params.id);
+    const co = (await getOrSeed()).find(c => c.id === req.params.id);
     if (!co) return res.status(404).json({ error: 'Empresa nao encontrada.' });
     res.json(co.departments);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/:id/departments', requireAuth, (req, res) => {
+router.post('/:id/departments', requireAuth, async (req, res) => {
   try {
     const { role, companyId: uCo } = req.user;
     if (role !== 'admin' && !(role === 'company' && uCo === req.params.id))
       return res.status(403).json({ error: 'Acesso negado.' });
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'Nome obrigatorio.' });
-    const list = getOrSeed();
+    const list = await getOrSeed();
     const co   = list.find(c => c.id === req.params.id);
     if (!co) return res.status(404).json({ error: 'Empresa nao encontrada.' });
     const dept = { id: 'dept_' + Date.now(), name, checklist: DEFAULT_CHECKLIST.map(c => ({...c})) };
     co.departments.push(dept);
-    writeCompanies(list);
+    await writeData('companies', list);
     res.json(dept);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.put('/:id/departments/:deptId', requireAuth, (req, res) => {
+router.put('/:id/departments/:deptId', requireAuth, async (req, res) => {
   try {
     const { role, companyId: uCo, departmentId: uDept } = req.user;
-    const isAdmin = role === 'admin';
-    const isCoMgr = role === 'company' && uCo === req.params.id;
-    const isDeptMgr = role === 'department' && uCo === req.params.id && uDept === req.params.deptId;
+    const isAdmin   = role === 'admin';
+    const isCoMgr   = role === 'company'    && uCo   === req.params.id;
+    const isDeptMgr = role === 'department' && uCo   === req.params.id && uDept === req.params.deptId;
     if (!isAdmin && !isCoMgr && !isDeptMgr)
       return res.status(403).json({ error: 'Acesso negado.' });
-    const list = getOrSeed();
+    const list = await getOrSeed();
     const co   = list.find(c => c.id === req.params.id);
     if (!co) return res.status(404).json({ error: 'Empresa nao encontrada.' });
     const idx  = co.departments.findIndex(d => d.id === req.params.deptId);
     if (idx < 0) return res.status(404).json({ error: 'Departamento nao encontrado.' });
     co.departments[idx] = { ...co.departments[idx], ...req.body, id: co.departments[idx].id };
-    writeCompanies(list);
+    await writeData('companies', list);
     res.json(co.departments[idx]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/:id/departments/:deptId', requireAuth, requireAdmin, (req, res) => {
+router.delete('/:id/departments/:deptId', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const list = getOrSeed();
+    const list = await getOrSeed();
     const co   = list.find(c => c.id === req.params.id);
     if (!co) return res.status(404).json({ error: 'Empresa nao encontrada.' });
     co.departments = co.departments.filter(d => d.id !== req.params.deptId);
-    writeCompanies(list);
+    await writeData('companies', list);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

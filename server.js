@@ -14,6 +14,7 @@ app.use('/api/users',     require('./routes/users'));
 app.use('/api/analyze',   requireAuth, require('./routes/analyze'));
 app.use('/api/companies', requireAuth, require('./routes/companies'));
 app.use('/api/dossies',   requireAuth, require('./routes/dossies'));
+app.use('/api/labor',     requireAuth, require('./routes/labor'));
 
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
