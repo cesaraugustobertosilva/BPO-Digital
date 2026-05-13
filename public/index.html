@@ -90,11 +90,48 @@
   <!-- NAV -->
   <nav class="nav" id="mainNav">
     <div class="nt active" id="ntRH" onclick="switchTabRH(this)">&#128101; RH</div>
-    <div class="nt" onclick="switchTab(this)">&#129534; Notas Fiscais</div>
+    <div class="nt" id="ntNF" onclick="enterNfView(this)">&#129534; Notas Fiscais</div>
     <div class="nt" onclick="switchTab(this)">&#128203; Contratos</div>
     <div class="nt" onclick="switchTab(this)">&#128194; Documentos Variados</div>
     <div class="nt nt-labor" id="ntLabor" onclick="enterTrabalhistaView()">&#9878; Trabalhista</div>
   </nav>
+
+  <!-- ── NF VIEW ──────────────────────────────────────────────────── -->
+  <div id="nfView" class="hidden body">
+    <div class="nf-header">
+      <div>
+        <div class="nf-title">&#129534; Notas Fiscais</div>
+        <div class="nf-sub">Cadastro e interpretacao de NFs por IA</div>
+      </div>
+      <div class="nf-header-actions">
+        <button class="nf-btn-primary" onclick="nfOpenForm()">&#43; Nova NF</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="nf-stats" id="nfStats"></div>
+
+    <!-- Layout -->
+    <div class="nf-layout">
+
+      <!-- LEFT: list -->
+      <div class="nf-left">
+        <div class="nf-search-row">
+          <input class="nf-search" id="nfSearch" type="text" placeholder="Buscar por fornecedor, CNPJ ou NF..." oninput="nfRenderList()">
+        </div>
+        <div class="nf-list" id="nfList"></div>
+      </div>
+
+      <!-- RIGHT: form / AI panel -->
+      <div class="nf-right" id="nfRight">
+        <div class="nf-empty" id="nfEmpty">
+          <div class="nf-empty-icon">&#129534;</div>
+          <div>Selecione uma NF ao lado ou clique em <strong>+ Nova NF</strong></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
 
   <!-- ── ADMIN VIEW ──────────────────────────────────────────────── -->
   <div id="adminView" class="hidden body">

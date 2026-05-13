@@ -2035,3 +2035,81 @@ html, body {
   transition: background .15s;
 }
 .dm-open-btn:hover { background: #bae6fd; }
+
+/* ═══════════════════════════════════════
+   MÓDULO NOTAS FISCAIS
+   ═══════════════════════════════════════ */
+#nfView { display: flex; flex-direction: column; height: calc(100vh - 60px); overflow: hidden; padding: 20px 24px; box-sizing: border-box; }
+
+.nf-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.nf-title  { font-size: 18px; font-weight: 700; color: var(--sbk-dark); }
+.nf-sub    { font-size: 12px; color: var(--sbk-slate); margin-top: 2px; }
+.nf-header-actions { display: flex; gap: 8px; }
+
+/* Stats */
+.nf-stats { display: flex; gap: 12px; margin-bottom: 16px; }
+.nf-stat  { background: white; border: .5px solid #d0d8e0; border-radius: var(--r); padding: 12px 18px; flex: 1; text-align: center; }
+.nf-sv    { font-size: 22px; font-weight: 700; color: var(--sbk-dark); line-height: 1; }
+.nf-sv-valor { font-size: 16px; }
+.nf-sl    { font-size: 11px; color: var(--sbk-slate); margin-top: 4px; }
+
+/* Layout */
+.nf-layout { display: flex; gap: 16px; flex: 1; overflow: hidden; }
+.nf-left   { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+.nf-right  { flex: 1; overflow-y: auto; }
+
+/* Search */
+.nf-search-row { flex-shrink: 0; }
+.nf-search { width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid #d0d8e0; border-radius: 8px; font-size: 13px; outline: none; }
+.nf-search:focus { border-color: var(--sbk-blue); }
+
+/* List */
+.nf-list       { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.nf-list-empty { font-size: 12px; color: var(--sbk-slate); text-align: center; padding: 24px 0; }
+.nf-item       { background: white; border: .5px solid #d0d8e0; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.nf-item:hover { border-color: var(--sbk-blue); box-shadow: 0 0 0 2px #dbeafe; }
+.nf-item-sel   { border-color: var(--sbk-blue); background: #eff6ff; }
+.nf-item-top   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.nf-item-num   { font-size: 12px; font-weight: 700; color: var(--sbk-dark); }
+.nf-item-date  { font-size: 10px; color: var(--sbk-slate); }
+.nf-item-forn  { font-size: 12px; color: var(--sbk-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nf-item-cnpj  { font-size: 10px; color: var(--sbk-slate); font-family: monospace; margin-top: 2px; }
+.nf-item-valor { font-size: 11px; font-weight: 600; color: #16a34a; margin-top: 4px; }
+
+/* Empty state */
+.nf-empty      { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 10px; color: var(--sbk-slate); font-size: 13px; text-align: center; }
+.nf-empty-icon { font-size: 40px; opacity: .3; }
+
+/* Panel */
+.nf-panel { max-width: 640px; display: flex; flex-direction: column; gap: 20px; }
+
+/* AI Zone */
+.nf-ai-zone     { background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border: 1.5px dashed #93c5fd; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+.nf-ai-title    { font-size: 13px; font-weight: 600; color: var(--sbk-dark); }
+.nf-ai-desc     { font-size: 12px; color: var(--sbk-slate); }
+.nf-ai-upload-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--sbk-blue); color: white; border-radius: 7px; padding: 8px 14px; font-size: 12px; font-weight: 500; cursor: pointer; align-self: flex-start; transition: opacity .15s; }
+.nf-ai-upload-btn:hover { opacity: .85; }
+.nf-ai-status   { font-size: 11px; padding: 6px 10px; border-radius: 6px; }
+.nf-ai-status.hidden   { display: none; }
+.nf-ai-loading  { background: #fefce8; color: #92400e; }
+.nf-ai-ok       { background: #f0fdf4; color: #166534; }
+.nf-ai-err      { background: #fef2f2; color: #991b1b; }
+
+/* Form */
+.nf-form-title { font-size: 14px; font-weight: 600; color: var(--sbk-dark); }
+.nf-form       { display: flex; flex-direction: column; gap: 14px; }
+.nf-form-row   { display: flex; gap: 12px; }
+.nf-field      { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.nf-label      { font-size: 11px; font-weight: 600; color: var(--sbk-slate); text-transform: uppercase; letter-spacing: .03em; }
+.nf-req        { color: #dc2626; }
+.nf-input      { padding: 9px 12px; border: 1px solid #d0d8e0; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; }
+.nf-input:focus { border-color: var(--sbk-blue); box-shadow: 0 0 0 2px #dbeafe; }
+.nf-form-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; padding-top: 4px; }
+
+/* Buttons */
+.nf-btn-primary { background: var(--sbk-blue); color: white; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+.nf-btn-primary:hover { opacity: .85; }
+.nf-btn-sec  { background: white; color: var(--sbk-slate); border: 1px solid #d0d8e0; border-radius: 8px; padding: 9px 14px; font-size: 13px; cursor: pointer; }
+.nf-btn-sec:hover { background: #f8fafc; }
+.nf-btn-del  { background: white; color: #dc2626; border: 1px solid #fca5a5; border-radius: 8px; padding: 9px 14px; font-size: 13px; cursor: pointer; margin-right: auto; }
+.nf-btn-del:hover { background: #fef2f2; }

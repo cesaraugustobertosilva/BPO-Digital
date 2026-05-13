@@ -197,19 +197,18 @@ function resetChecklistFromDept() {
 
 /* ── VIEW CONTROL ────────────────────────────────────────────────── */
 function showView(name) {
-  ['mainView','incView','adminView','companyView','trabalhistaView'].forEach(id => {
+  ['mainView','incView','adminView','companyView','trabalhistaView','nfView'].forEach(id => {
     const e = gel(id);
     if (e) { e.classList.add('hidden'); e.classList.remove('active'); }
   });
   const nav = gel('mainNav');
-  if (name === 'main' || name === 'inc' || name === 'trabalhista') nav?.classList.remove('hidden');
+  if (['main','inc','trabalhista','nf'].includes(name)) nav?.classList.remove('hidden');
   else nav?.classList.add('hidden');
 
-  const idMap = { main:'mainView', inc:'incView', admin:'adminView', trabalhista:'trabalhistaView' };
+  const idMap = { main:'mainView', inc:'incView', admin:'adminView', trabalhista:'trabalhistaView', nf:'nfView' };
   const target = gel(idMap[name] || 'companyView');
   if (target) { target.classList.remove('hidden'); if (name === 'inc') target.classList.add('active'); }
 
-  // Highlight the trabalhista nav tab only when in that view
   gel('ntLabor')?.classList.toggle('active', name === 'trabalhista');
   gel('ntRH')?.classList.toggle('active', name === 'main');
 }
@@ -2309,6 +2308,262 @@ function laborToggleDemo() {
     <div class="labor-detail-empty-icon">&#128101;</div>
     <div>Selecione um colaborador</div>
     <div class="labor-detail-empty-sub">${LBR.demoMode ? 'Modo demo ativo com dados ficticioss' : ''}</div>
+  </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MÓDULO: NOTAS FISCAIS
+   ════════════════════════════════════════════════════════════════════ */
+
+const NF = {
+  list:     [],
+  selected: null,  // id da NF selecionada para edicao
+  editing:  false,
+};
+
+/* ── ENTRY ── */
+function enterNfView(tabEl) {
+  document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+  showView('nf');
+  nfLoad();
+}
+
+/* ── LOAD ── */
+async function nfLoad() {
+  const companyId = STATE.company?.id;
+  const r = await apiFetch('/api/nf' + (companyId ? '?companyId=' + companyId : ''));
+  NF.list = (r && r.ok) ? await r.json() : [];
+  nfRenderStats();
+  nfRenderList();
+}
+
+/* ── STATS ── */
+function nfRenderStats() {
+  const total       = NF.list.length;
+  const fornecedores = new Set(NF.list.map(n => n.cnpj)).size;
+  const comValor    = NF.list.filter(n => n.valor).length;
+  const valorTotal  = NF.list.reduce((acc, n) => {
+    if (!n.valor) return acc;
+    const v = parseFloat(n.valor.replace(/[^\d,]/g,'').replace(',','.')) || 0;
+    return acc + v;
+  }, 0);
+  const el = gel('nfStats');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="nf-stat"><div class="nf-sv">${total}</div><div class="nf-sl">NFs cadastradas</div></div>
+    <div class="nf-stat"><div class="nf-sv">${fornecedores}</div><div class="nf-sl">Fornecedores</div></div>
+    <div class="nf-stat"><div class="nf-sv">${comValor}</div><div class="nf-sl">Com valor</div></div>
+    ${valorTotal > 0 ? `<div class="nf-stat"><div class="nf-sv nf-sv-valor">R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div><div class="nf-sl">Valor total</div></div>` : ''}`;
+}
+
+/* ── LIST ── */
+function nfRenderList() {
+  const q   = (gel('nfSearch')?.value || '').toLowerCase();
+  const el  = gel('nfList');
+  if (!el) return;
+  const list = NF.list.filter(n =>
+    !q ||
+    (n.fornecedor || '').toLowerCase().includes(q) ||
+    (n.cnpj       || '').includes(q) ||
+    (n.numero     || '').includes(q)
+  );
+  if (!list.length) {
+    el.innerHTML = `<div class="nf-list-empty">${NF.list.length ? 'Nenhuma NF encontrada.' : 'Nenhuma NF cadastrada.'}</div>`;
+    return;
+  }
+  el.innerHTML = list.map(n => {
+    const sel = NF.selected === n.id ? ' nf-item-sel' : '';
+    const date = n.dataEmissao ? n.dataEmissao : 'Data nao informada';
+    return `<div class="nf-item${sel}" onclick="nfSelect('${n.id}')">
+      <div class="nf-item-top">
+        <span class="nf-item-num">NF ${n.numero || '???'}</span>
+        <span class="nf-item-date">${date}</span>
+      </div>
+      <div class="nf-item-forn">${n.fornecedor}</div>
+      <div class="nf-item-cnpj">${n.cnpj}</div>
+      ${n.valor ? `<div class="nf-item-valor">${n.valor}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+/* ── SELECT ── */
+function nfSelect(id) {
+  NF.selected = id;
+  NF.editing  = true;
+  nfRenderList();
+  const n = NF.list.find(x => x.id === id);
+  if (n) nfShowForm(n);
+}
+
+/* ── OPEN BLANK FORM ── */
+function nfOpenForm() {
+  NF.selected = null;
+  NF.editing  = false;
+  nfShowForm(null);
+}
+
+/* ── RENDER RIGHT PANEL ── */
+function nfShowForm(nf) {
+  const right = gel('nfRight');
+  if (!right) return;
+  const isEdit = !!nf;
+  right.innerHTML = `
+    <div class="nf-panel">
+
+      <!-- AI ZONE -->
+      <div class="nf-ai-zone" id="nfAiZone">
+        <div class="nf-ai-title">&#128161; Interpretar NF com IA</div>
+        <div class="nf-ai-desc">Envie uma imagem ou PDF da nota fiscal e a IA preenchera os campos automaticamente.</div>
+        <label class="nf-ai-upload-btn" for="nfFileInput">
+          &#128196; Selecionar arquivo (JPG, PNG, PDF)
+        </label>
+        <input type="file" id="nfFileInput" accept=".jpg,.jpeg,.png,.pdf"
+          style="display:none" onchange="nfInterpret(this)">
+        <div class="nf-ai-status hidden" id="nfAiStatus"></div>
+      </div>
+
+      <!-- FORM -->
+      <div class="nf-form-title">${isEdit ? '&#9998; Editar NF' : '&#43; Cadastrar NF'}</div>
+      <form class="nf-form" onsubmit="nfSubmit(event)">
+        <div class="nf-form-row">
+          <div class="nf-field">
+            <label class="nf-label">CNPJ <span class="nf-req">*</span></label>
+            <input class="nf-input" id="nfCnpj" type="text" placeholder="00.000.000/0001-00"
+              value="${nf?.cnpj || ''}" oninput="nfMaskCnpj(this)" maxlength="18" required>
+          </div>
+          <div class="nf-field">
+            <label class="nf-label">N&#186; da NF <span class="nf-req">*</span></label>
+            <input class="nf-input" id="nfNumero" type="text" placeholder="000001"
+              value="${nf?.numero || ''}" required>
+          </div>
+        </div>
+        <div class="nf-form-row">
+          <div class="nf-field">
+            <label class="nf-label">Data de Emissao</label>
+            <input class="nf-input" id="nfData" type="text" placeholder="DD/MM/AAAA"
+              value="${nf?.dataEmissao || ''}" oninput="nfMaskDate(this)" maxlength="10">
+          </div>
+          <div class="nf-field">
+            <label class="nf-label">Valor Total</label>
+            <input class="nf-input" id="nfValor" type="text" placeholder="R$ 0,00"
+              value="${nf?.valor || ''}">
+          </div>
+        </div>
+        <div class="nf-field">
+          <label class="nf-label">Nome do Fornecedor <span class="nf-req">*</span></label>
+          <input class="nf-input" id="nfFornecedor" type="text" placeholder="Razao social do emitente"
+            value="${nf?.fornecedor || ''}" required>
+        </div>
+        <div class="nf-form-actions">
+          ${isEdit ? `<button type="button" class="nf-btn-del" onclick="nfDelete('${nf.id}')">&#128465; Excluir</button>` : ''}
+          <button type="button" class="nf-btn-sec" onclick="nfCancelForm()">Cancelar</button>
+          <button type="submit" class="nf-btn-primary">${isEdit ? 'Salvar alteracoes' : 'Cadastrar NF'}</button>
+        </div>
+      </form>
+    </div>`;
+}
+
+/* ── AI INTERPRET ── */
+async function nfInterpret(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = gel('nfAiStatus');
+  status.className = 'nf-ai-status nf-ai-loading';
+  status.textContent = 'Interpretando NF...';
+
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const mt  = ext === 'pdf' ? 'application/pdf' : (ext === 'png' ? 'image/png' : 'image/jpeg');
+    const b64 = await fileToBase64(file);
+
+    const r = await apiFetch('/api/nf/interpret', {
+      method: 'POST',
+      body:   JSON.stringify({ fileData: b64, mediaType: mt }),
+    });
+    if (!r || !r.ok) {
+      const err = r ? await r.json().catch(() => ({})) : {};
+      throw new Error(err.error || `HTTP ${r?.status || 0}`);
+    }
+    const data = await r.json();
+
+    if (data.cnpj)        { gel('nfCnpj').value       = data.cnpj;        }
+    if (data.numero)      { gel('nfNumero').value      = data.numero;      }
+    if (data.dataEmissao) { gel('nfData').value        = data.dataEmissao; }
+    if (data.fornecedor)  { gel('nfFornecedor').value  = data.fornecedor;  }
+    if (data.valor)       { gel('nfValor').value       = data.valor;       }
+
+    const obs = data.observacao ? ` — ${data.observacao}` : '';
+    status.className = 'nf-ai-status nf-ai-ok';
+    status.textContent = `Preenchido com confianca ${data.confianca || '?'}${obs}. Revise os campos antes de salvar.`;
+  } catch (e) {
+    status.className = 'nf-ai-status nf-ai-err';
+    status.textContent = 'Erro na interpretacao: ' + e.message;
+  }
+  input.value = '';
+}
+
+/* ── MASK HELPERS ── */
+function nfMaskCnpj(input) {
+  let v = input.value.replace(/\D/g,'').substring(0,14);
+  if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/,'$1.$2.$3/$4-$5');
+  else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4}).*/,'$1.$2.$3/$4');
+  else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{0,3}).*/,'$1.$2.$3');
+  else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,3}).*/,'$1.$2');
+  input.value = v;
+}
+function nfMaskDate(input) {
+  let v = input.value.replace(/\D/g,'').substring(0,8);
+  if (v.length > 4) v = v.replace(/^(\d{2})(\d{2})(\d{0,4}).*/,'$1/$2/$3');
+  else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,2}).*/,'$1/$2');
+  input.value = v;
+}
+
+/* ── SUBMIT ── */
+async function nfSubmit(e) {
+  e.preventDefault();
+  const payload = {
+    cnpj:        gel('nfCnpj').value.trim(),
+    numero:      gel('nfNumero').value.trim(),
+    dataEmissao: gel('nfData').value.trim(),
+    fornecedor:  gel('nfFornecedor').value.trim(),
+    valor:       gel('nfValor').value.trim() || null,
+    companyId:   STATE.company?.id || null,
+  };
+
+  const isEdit  = !!NF.selected;
+  const url     = isEdit ? `/api/nf/${NF.selected}` : '/api/nf';
+  const method  = isEdit ? 'PUT' : 'POST';
+
+  const r = await apiFetch(url, { method, body: JSON.stringify(payload) });
+  if (!r || !r.ok) {
+    const err = r ? await r.json().catch(() => ({})) : {};
+    toast('Erro: ' + (err.error || `HTTP ${r?.status}`)); return;
+  }
+  toast(isEdit ? 'NF atualizada.' : 'NF cadastrada.');
+  nfCancelForm();
+  await nfLoad();
+}
+
+/* ── DELETE ── */
+async function nfDelete(id) {
+  if (!confirm('Excluir esta nota fiscal?')) return;
+  const r = await apiFetch(`/api/nf/${id}`, { method: 'DELETE' });
+  if (!r || !r.ok) { toast('Erro ao excluir.'); return; }
+  toast('NF excluida.');
+  nfCancelForm();
+  await nfLoad();
+}
+
+/* ── CANCEL ── */
+function nfCancelForm() {
+  NF.selected = null;
+  NF.editing  = false;
+  nfRenderList();
+  const right = gel('nfRight');
+  if (right) right.innerHTML = `<div class="nf-empty" id="nfEmpty">
+    <div class="nf-empty-icon">&#129534;</div>
+    <div>Selecione uma NF ao lado ou clique em <strong>+ Nova NF</strong></div>
   </div>`;
 }
 
