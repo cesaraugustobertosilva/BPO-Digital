@@ -933,12 +933,13 @@ function switchTab(tabEl) {
 }
 
 function switchTabRH(tabEl) {
-  // If currently in trabalhista view, go back to main dept view
   if (gel('trabalhistaView') && !gel('trabalhistaView').classList.contains('hidden')) {
     exitTrabalhistaView();
     return;
   }
-  switchTab(tabEl);
+  document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  showView('main');
 }
 
 /* ── API: DOSSIES ────────────────────────────────────────────────── */
