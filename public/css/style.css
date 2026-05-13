@@ -1616,6 +1616,41 @@ html, body {
 .sv-warn       { color: #d97706; }
 .sv-danger     { color: #dc2626; }
 
+/* PRIORITY BREAKDOWN BAR */
+.labor-priority-bar {
+  margin-bottom: 16px;
+}
+.prio-track {
+  display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px;
+}
+.prio-seg {
+  border-radius: 4px; transition: opacity .15s;
+  cursor: default; min-width: 4px;
+}
+.prio-seg:hover { opacity: .75; }
+.prio-seg.prio-alto  { background: #dc2626; }
+.prio-seg.prio-medio { background: #d97706; }
+.prio-seg.prio-baixo { background: #16a34a; }
+.prio-seg.prio-na    { background: #cbd5e1; }
+.prio-legend {
+  display: flex; gap: 16px; margin-top: 7px; flex-wrap: wrap;
+}
+.prio-leg-item {
+  display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--sbk-slate);
+}
+.prio-leg-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.prio-leg-dot.prio-alto  { background: #dc2626; }
+.prio-leg-dot.prio-medio { background: #d97706; }
+.prio-leg-dot.prio-baixo { background: #16a34a; }
+.prio-leg-dot.prio-na    { background: #cbd5e1; }
+.prio-leg-label { font-weight: 500; }
+.prio-leg-count {
+  background: #f1f5f9; border-radius: 10px;
+  padding: 1px 6px; font-weight: 600; color: var(--sbk-dark);
+}
+
 /* 2-COLUMN LAYOUT */
 .labor-layout {
   display: flex; gap: 16px; align-items: flex-start;
