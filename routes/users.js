@@ -13,7 +13,7 @@ router.get('/', async (_req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { username, name, role, companyId, departmentId, password } = req.body;
+    const { username, name, role, companyId, departmentId, password, modules } = req.body;
     if (!username || !name || !role || !password)
       return res.status(400).json({ error: 'Campos obrigatorios: username, name, role, password.' });
     const list = await getOrSeedUsers();
@@ -23,6 +23,7 @@ router.post('/', async (req, res) => {
       id: 'user_' + Date.now(), username, name, role,
       companyId:    companyId    || null,
       departmentId: departmentId || null,
+      modules:      Array.isArray(modules) ? modules : [],
       passwordHash: hashPassword(password),
     };
     list.push(user);
