@@ -1448,7 +1448,9 @@ async function showDossierModal(dossieId) {
   if (!resp || !resp.ok) { toast('Erro ao carregar prontuario.'); return; }
   const d = await resp.json();
 
-  const docsSet = new Set((d.docs || []).map(s => s.toLowerCase()));
+  const docsSet  = new Set((d.docs  || []).map(s => s.toLowerCase()));
+  const filesMap = {};
+  (d.files || []).forEach(f => { filesMap[f.name.toLowerCase()] = f; });
 
   gel('dmName').textContent = d.name;
   gel('dmMeta').textContent =
@@ -1458,9 +1460,14 @@ async function showDossierModal(dossieId) {
 
   const buildItems = items => items.map(item => {
     const present = docsSet.has(item.name.toLowerCase());
+    const file    = filesMap[item.name.toLowerCase()];
+    const openBtn = (present && file?.previewUrl)
+      ? `<a class="dm-open-btn" href="${file.previewUrl}" target="_blank" rel="noopener" title="Abrir documento">&#128065; Abrir</a>`
+      : '';
     return `<div class="dm-item ${present ? 'dm-ok' : 'dm-miss'}">
       <span class="dm-icon">${present ? '&#10003;' : '&#9711;'}</span>
-      <span class="dm-item-name">${item.name}</span>
+      <span class="dm-item-name" style="flex:1;">${item.name}</span>
+      ${openBtn}
     </div>`;
   }).join('');
 
@@ -1866,12 +1873,6 @@ function laborRenderDetail(c) {
 async function laborLoadRhDocs(c) {
   const el = gel(`laborRhDocs_${c.id}`);
   if (!el) return;
-
-  if (LBR.demoMode && c._demoRhDocs) {
-    laborRenderDemoRhDocs(el, c);
-    return;
-  }
-
   el.innerHTML = '<div class="labor-rh-loading">Buscando documentacao no RH...</div>';
 
   const list = await loadDossies();
@@ -1882,18 +1883,29 @@ async function laborLoadRhDocs(c) {
   });
 
   if (!dossie) {
-    el.innerHTML = `<div class="labor-rh-empty">
-      <span>&#128196;</span> Colaborador nao localizado no modulo RH deste departamento.
-    </div>`;
+    if (LBR.demoMode && c._demoRhDocs) { laborRenderDemoRhDocs(el, c); return; }
+    el.innerHTML = `<div class="labor-rh-empty"><span>&#128196;</span> Colaborador nao localizado no modulo RH.</div>`;
     return;
   }
 
-  const docsSet = new Set((dossie.docs || []).map(s => s.toLowerCase()));
-  const items   = CHECKLIST_DEF.map(item => {
-    const ok = docsSet.has(item.name.toLowerCase());
-    return `<div class="dm-item ${ok?'dm-ok':'dm-miss'} dm-compact">
+  laborRenderRhChecklist(el, dossie);
+}
+
+function laborRenderRhChecklist(el, dossie) {
+  const docsSet  = new Set((dossie.docs  || []).map(s => s.toLowerCase()));
+  const filesMap = {};
+  (dossie.files || []).forEach(f => { filesMap[f.name.toLowerCase()] = f; });
+
+  const items = CHECKLIST_DEF.map(item => {
+    const ok   = docsSet.has(item.name.toLowerCase());
+    const file = filesMap[item.name.toLowerCase()];
+    const openBtn = (ok && file?.previewUrl)
+      ? `<a class="dm-open-btn" href="${file.previewUrl}" target="_blank" rel="noopener">&#128065; Abrir</a>`
+      : '';
+    return `<div class="dm-item dm-compact ${ok?'dm-ok':'dm-miss'}">
       <span class="dm-icon">${ok?'&#10003;':'&#9711;'}</span>
-      <span class="dm-item-name">${item.name}${item.req?'':' <em>(opc.)</em>'}</span>
+      <span class="dm-item-name" style="flex:1;">${item.name}${item.req?'':' <em>(opc.)</em>'}</span>
+      ${openBtn}
     </div>`;
   }).join('');
 
@@ -1905,7 +1917,7 @@ async function laborLoadRhDocs(c) {
   el.innerHTML = `<div class="labor-rh-docs">
     <div class="labor-rh-docs-header">
       <div class="labor-rh-docs-title">&#128196; Documentacao no RH</div>
-      <span class="inc-severity ${sevClass}" style="font-size:10px;">${sev}</span>
+      <span class="inc-severity ${sevClass}">${sev}</span>
     </div>
     <div class="dm-checklist dm-two-col">${items}</div>
     <button class="labor-rh-view-btn" onclick="showDossierModal('${dossie.id}')">Ver prontuario completo</button>

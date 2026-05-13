@@ -1939,3 +1939,12 @@ html, body {
   border-radius: 4px; padding: 2px 6px; margin-top: 3px; display: inline-block;
 }
 .rh-demo-detail { margin-top: 14px; }
+
+/* ── BOTAO ABRIR DOCUMENTO ───────────────────────────────────────── */
+.dm-open-btn {
+  font-size: 10px; font-weight: 600; color: #0369a1;
+  background: #e0f2fe; border-radius: 5px; padding: 2px 8px;
+  text-decoration: none; white-space: nowrap; flex-shrink: 0;
+  transition: background .15s;
+}
+.dm-open-btn:hover { background: #bae6fd; }

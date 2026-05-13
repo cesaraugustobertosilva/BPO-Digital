@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visualizacao de Documento</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 24px 16px; }
+    .top-bar { width: 100%; max-width: 640px; display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .top-bar-badge { background: #fef9c3; border: 1px solid #fde68a; color: #854d0e; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+    .top-bar-title { font-size: 13px; color: #475569; }
+    .doc-wrap { width: 100%; max-width: 640px; }
+
+    /* ── CNH ── */
+    .cnh-card { background: linear-gradient(135deg, #0f2744 0%, #1a3a5c 60%, #0e7490 100%); border-radius: 16px; padding: 28px 28px 24px; color: white; box-shadow: 0 8px 32px rgba(0,0,0,.3); }
+    .cnh-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,.2); padding-bottom: 16px; margin-bottom: 20px; }
+    .cnh-gov { display: flex; flex-direction: column; }
+    .cnh-gov-top { font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,.6); text-transform: uppercase; }
+    .cnh-gov-name { font-size: 13px; font-weight: 700; letter-spacing: .5px; }
+    .cnh-seal { width: 48px; height: 48px; border: 2px solid rgba(255,255,255,.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .cnh-title { font-size: 18px; font-weight: 800; letter-spacing: 1px; text-align: center; margin-bottom: 20px; color: #7dd3fc; }
+    .cnh-body { display: grid; grid-template-columns: 100px 1fr; gap: 20px; }
+    .cnh-photo { background: rgba(255,255,255,.1); border: 1.5px dashed rgba(255,255,255,.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; color: rgba(255,255,255,.4); font-size: 11px; height: 130px; }
+    .cnh-photo-icon { font-size: 36px; }
+    .cnh-fields { display: flex; flex-direction: column; gap: 10px; }
+    .cnh-field { display: flex; flex-direction: column; gap: 2px; }
+    .cnh-lbl { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,.5); }
+    .cnh-val { font-size: 13px; font-weight: 600; }
+    .cnh-val.big { font-size: 16px; font-weight: 800; letter-spacing: 1px; color: #7dd3fc; }
+    .cnh-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.15); }
+    .cnh-footer { margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.15); display: flex; justify-content: space-between; align-items: center; }
+    .cnh-barcode { display: flex; gap: 2px; align-items: flex-end; }
+    .cnh-bar { background: rgba(255,255,255,.8); width: 2px; }
+    .cnh-cat { background: #0e7490; border: 1.5px solid #7dd3fc; border-radius: 6px; padding: 6px 14px; font-size: 18px; font-weight: 900; color: #7dd3fc; }
+
+    /* ── CPF ── */
+    .cpf-doc { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.1); overflow: hidden; }
+    .cpf-header { background: #1a3a5c; color: white; padding: 20px 28px; display: flex; align-items: center; gap: 16px; }
+    .cpf-header-seal { font-size: 40px; }
+    .cpf-header-text { flex: 1; }
+    .cpf-header-gov { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,.6); }
+    .cpf-header-title { font-size: 14px; font-weight: 700; }
+    .cpf-header-sub { font-size: 11px; color: rgba(255,255,255,.7); margin-top: 2px; }
+    .cpf-body { padding: 28px; }
+    .cpf-number-area { background: #f0f9ff; border: 1.5px solid #bae6fd; border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 24px; }
+    .cpf-number-lbl { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #0369a1; font-weight: 600; margin-bottom: 8px; }
+    .cpf-number { font-size: 28px; font-weight: 800; letter-spacing: 4px; color: #0f172a; font-family: 'Courier New', monospace; }
+    .cpf-situacao { display: inline-block; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 20px; margin-top: 10px; }
+    .cpf-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .cpf-field { display: flex; flex-direction: column; gap: 4px; }
+    .cpf-field-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; font-weight: 600; }
+    .cpf-field-val { font-size: 14px; font-weight: 600; color: #0f172a; }
+    .cpf-footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
+
+    /* ── CONTRATO ── */
+    .ctrato-doc { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+    .ctrato-header { padding: 28px 32px 20px; border-bottom: 2px solid #0f2744; }
+    .ctrato-company { font-size: 18px; font-weight: 800; color: #0f2744; letter-spacing: .5px; }
+    .ctrato-company-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .ctrato-title-area { text-align: center; padding: 24px 32px 0; }
+    .ctrato-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #0f2744; }
+    .ctrato-num { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+    .ctrato-body { padding: 24px 32px; }
+    .ctrato-clause { font-size: 12px; color: #334155; line-height: 1.7; margin-bottom: 14px; }
+    .ctrato-clause strong { color: #0f2744; }
+    .ctrato-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
+    .ctrato-table td { padding: 8px 12px; border: 1px solid #e2e8f0; }
+    .ctrato-table td:first-child { background: #f8fafc; font-weight: 600; color: #475569; width: 40%; }
+    .ctrato-sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding: 24px 32px; border-top: 1px solid #e2e8f0; }
+    .ctrato-sig { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .ctrato-sig-line { width: 100%; border-top: 1px solid #334155; padding-top: 6px; text-align: center; font-size: 11px; color: #475569; }
+
+    /* ── FICHA ADMISSAO ── */
+    .admiss-doc { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+    .admiss-header { background: #0e7490; color: white; padding: 18px 28px; display: flex; justify-content: space-between; align-items: center; }
+    .admiss-header-title { font-size: 15px; font-weight: 800; letter-spacing: .5px; }
+    .admiss-header-num { font-size: 12px; color: rgba(255,255,255,.7); }
+    .admiss-body { padding: 24px 28px; }
+    .admiss-section { margin-bottom: 20px; }
+    .admiss-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #0e7490; font-weight: 700; border-bottom: 1.5px solid #bae6fd; padding-bottom: 6px; margin-bottom: 12px; }
+    .admiss-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .admiss-field { display: flex; flex-direction: column; gap: 4px; }
+    .admiss-lbl { font-size: 10px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .admiss-val { font-size: 13px; color: #0f172a; font-weight: 500; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+    .admiss-footer { background: #f0f9ff; padding: 16px 28px; display: flex; justify-content: space-between; font-size: 11px; color: #0e7490; border-top: 1px solid #bae6fd; }
+
+    /* ── EXAME ADMISSIONAL ── */
+    .exame-doc { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+    .exame-header { background: #065f46; color: white; padding: 20px 28px; }
+    .exame-clinic { font-size: 15px; font-weight: 800; }
+    .exame-clinic-sub { font-size: 11px; color: rgba(255,255,255,.7); margin-top: 2px; }
+    .exame-title { text-align: center; padding: 20px 28px 0; }
+    .exame-title h2 { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #065f46; }
+    .exame-title p { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+    .exame-body { padding: 20px 28px; }
+    .exame-result { text-align: center; background: #f0fdf4; border: 2px solid #86efac; border-radius: 12px; padding: 16px; margin: 16px 0; }
+    .exame-result-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #166534; }
+    .exame-result-val { font-size: 24px; font-weight: 900; color: #16a34a; letter-spacing: 3px; }
+    .exame-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 12px 0; }
+    .exame-table td { padding: 8px 10px; border: 1px solid #e2e8f0; }
+    .exame-table td:first-child { background: #f8fafc; font-weight: 600; color: #475569; width: 45%; }
+    .exame-footer { border-top: 1px solid #e2e8f0; padding: 16px 28px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 11px; color: #94a3b8; }
+    .exame-medico { text-align: right; }
+    .exame-medico-name { font-weight: 700; color: #0f172a; font-size: 13px; }
+    .exame-crm { font-size: 10px; color: #94a3b8; }
+
+    /* ── RESIDENCIA ── */
+    .resid-doc { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+    .resid-header { background: #b45309; color: white; padding: 18px 28px; display: flex; justify-content: space-between; align-items: center; }
+    .resid-company { font-size: 16px; font-weight: 800; }
+    .resid-company-tipo { font-size: 10px; color: rgba(255,255,255,.7); text-transform: uppercase; letter-spacing: 1px; }
+    .resid-conta { font-size: 12px; text-align: right; color: rgba(255,255,255,.8); }
+    .resid-body { padding: 20px 28px; }
+    .resid-cliente { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; }
+    .resid-cliente-name { font-size: 15px; font-weight: 700; color: #0f172a; }
+    .resid-cliente-end { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .resid-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+    .resid-table td { padding: 8px 12px; border: 1px solid #e2e8f0; }
+    .resid-table td:first-child { background: #f8fafc; font-weight: 600; color: #475569; width: 45%; }
+    .resid-total { background: #b45309; color: white; border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+    .resid-total-lbl { font-size: 12px; font-weight: 600; }
+    .resid-total-val { font-size: 20px; font-weight: 900; }
+    .resid-barcode { display: flex; gap: 1px; align-items: flex-end; height: 40px; margin: 14px 0 0; }
+    .resid-bar { background: #334155; }
+
+    /* ── FOTO ── */
+    .foto-doc { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.1); padding: 32px; text-align: center; }
+    .foto-frame { width: 120px; height: 160px; margin: 0 auto 20px; border: 3px solid #334155; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; flex-direction: column; gap: 8px; }
+    .foto-initials { font-size: 42px; font-weight: 900; color: #475569; }
+    .foto-sub { font-size: 10px; color: #94a3b8; }
+    .foto-name { font-size: 16px; font-weight: 700; color: #0f172a; }
+    .foto-meta { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .foto-dim { font-size: 10px; color: #94a3b8; margin-top: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; display: inline-block; }
+  </style>
+</head>
+<body>
+<div class="top-bar">
+  <span style="font-size:22px;">&#128196;</span>
+  <span class="top-bar-title" id="topTitle"></span>
+  <span class="top-bar-badge">Documento Demo</span>
+</div>
+<div class="doc-wrap" id="docWrap"></div>
+
+<script>
+const p = new URLSearchParams(location.search);
+const type     = p.get('type')    || 'cnh';
+const nome     = p.get('nome')    || 'Nome nao informado';
+const cpf      = p.get('cpf')     || '000.000.000-00';
+const num      = p.get('num')     || '';
+const emissao  = p.get('emissao') || '';
+const validade = p.get('validade')|| '';
+const cargo    = p.get('cargo')   || '';
+const mat      = p.get('mat')     || '';
+const empresa  = p.get('empresa') || 'SBK Legal Operations';
+
+function initials(n) {
+  const parts = n.trim().split(' ');
+  return (parts[0][0] + (parts[parts.length-1]?.[0] || '')).toUpperCase();
+}
+
+function barcode(seed, count, minH, maxH) {
+  let html = '';
+  let s = seed;
+  for (let i = 0; i < count; i++) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    const h = minH + Math.abs(s % (maxH - minH));
+    const w = 1 + Math.abs((s >> 8) % 3);
+    html += `<div class="resid-bar" style="width:${w}px;height:${h}px"></div>`;
+  }
+  return html;
+}
+
+function cnhBars() {
+  let html = '';
+  const heights = [20,14,28,12,24,18,30,10,22,16,28,14,20,26,12,18,24,10,28,16];
+  heights.forEach(h => {
+    html += `<div class="cnh-bar" style="height:${h}px"></div>`;
+  });
+  return html;
+}
+
+const renders = {
+  cnh: () => `
+    <div class="cnh-card">
+      <div class="cnh-header">
+        <div class="cnh-gov">
+          <div class="cnh-gov-top">Republica Federativa do Brasil</div>
+          <div class="cnh-gov-name">SENATRAN / DETRAN</div>
+        </div>
+        <div class="cnh-seal">&#127959;</div>
+      </div>
+      <div class="cnh-title">CARTEIRA NACIONAL DE HABILITACAO</div>
+      <div class="cnh-body">
+        <div class="cnh-photo">
+          <div class="cnh-photo-icon">&#128100;</div>
+          <div>Foto do<br>Condutor</div>
+        </div>
+        <div class="cnh-fields">
+          <div class="cnh-field"><div class="cnh-lbl">Nome</div><div class="cnh-val">${nome}</div></div>
+          <div class="cnh-field"><div class="cnh-lbl">CPF</div><div class="cnh-val big">${cpf}</div></div>
+          <div class="cnh-field"><div class="cnh-lbl">N. Registro</div><div class="cnh-val">${num}</div></div>
+        </div>
+      </div>
+      <div class="cnh-row">
+        <div class="cnh-field"><div class="cnh-lbl">Data de Emissao</div><div class="cnh-val">${emissao}</div></div>
+        <div class="cnh-field"><div class="cnh-lbl">Validade</div><div class="cnh-val">${validade}</div></div>
+        <div class="cnh-field"><div class="cnh-lbl">1a Habilitacao</div><div class="cnh-val">${emissao}</div></div>
+        <div class="cnh-field"><div class="cnh-lbl">Categoria</div><div class="cnh-cat">B</div></div>
+      </div>
+      <div class="cnh-footer">
+        <div class="cnh-barcode">${cnhBars()}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.4);text-align:right;">Documento de uso pessoal e intransferivel<br>Valido em todo territorio nacional</div>
+      </div>
+    </div>`,
+
+  cpf: () => `
+    <div class="cpf-doc">
+      <div class="cpf-header">
+        <div class="cpf-header-seal">&#127981;</div>
+        <div class="cpf-header-text">
+          <div class="cpf-header-gov">Ministerio da Fazenda &bull; Receita Federal do Brasil</div>
+          <div class="cpf-header-title">COMPROVANTE DE SITUACAO CADASTRAL NO CPF</div>
+          <div class="cpf-header-sub">Emitido via internet &bull; Documento valido para fins legais</div>
+        </div>
+      </div>
+      <div class="cpf-body">
+        <div class="cpf-number-area">
+          <div class="cpf-number-lbl">Numero de Inscricao</div>
+          <div class="cpf-number">${cpf}</div>
+          <div class="cpf-situacao">&#10003; Situacao Regular</div>
+        </div>
+        <div class="cpf-fields">
+          <div class="cpf-field"><div class="cpf-field-lbl">Nome</div><div class="cpf-field-val">${nome}</div></div>
+          <div class="cpf-field"><div class="cpf-field-lbl">Data de Nascimento</div><div class="cpf-field-val">${emissao}</div></div>
+          <div class="cpf-field"><div class="cpf-field-lbl">Inscricao</div><div class="cpf-field-val">${emissao}</div></div>
+          <div class="cpf-field"><div class="cpf-field-lbl">Digito verificador</div><div class="cpf-field-val">${cpf.split('-')[1]||'--'}</div></div>
+        </div>
+      </div>
+      <div class="cpf-footer">
+        <span>Data da consulta: ${new Date().toLocaleDateString('pt-BR')}</span>
+        <span>Autenticidade verificavel no site da Receita Federal</span>
+      </div>
+    </div>`,
+
+  ctrato: () => `
+    <div class="ctrato-doc">
+      <div class="ctrato-header">
+        <div class="ctrato-company">${empresa}</div>
+        <div class="ctrato-company-sub">CNPJ: 12.345.678/0001-90 &bull; Sao Paulo, SP</div>
+      </div>
+      <div class="ctrato-title-area">
+        <div class="ctrato-title">Contrato de Trabalho por Prazo Indeterminado</div>
+        <div class="ctrato-num">N. ${num}</div>
+      </div>
+      <div class="ctrato-body">
+        <p class="ctrato-clause">Pelo presente instrumento particular, de um lado <strong>${empresa}</strong>, pessoa juridica de direito privado, inscrita no CNPJ sob n. 12.345.678/0001-90, com sede em Sao Paulo/SP, doravante denominada <strong>CONTRATANTE</strong>;</p>
+        <p class="ctrato-clause">E de outro lado <strong>${nome}</strong>, portador do CPF n. ${cpf}, doravante denominado <strong>CONTRATADO</strong>;</p>
+        <p class="ctrato-clause">Tem entre si justo e acertado o presente contrato de trabalho por prazo indeterminado, que se rege pelas seguintes clausulas:</p>
+        <table class="ctrato-table">
+          <tr><td>Cargo</td><td>${cargo || 'Conforme acordado'}</td></tr>
+          <tr><td>Data de admissao</td><td>${emissao}</td></tr>
+          <tr><td>Jornada de trabalho</td><td>44 horas semanais, de segunda a sexta-feira</td></tr>
+          <tr><td>Remuneracao</td><td>Conforme politica salarial vigente</td></tr>
+          <tr><td>Local de trabalho</td><td>Sao Paulo/SP e onde a empresa determinar</td></tr>
+          <tr><td>Periodo de experiencia</td><td>90 dias a partir da admissao</td></tr>
+        </table>
+      </div>
+      <div class="ctrato-sigs">
+        <div class="ctrato-sig">
+          <div style="height:40px"></div>
+          <div class="ctrato-sig-line">${empresa}<br>CONTRATANTE</div>
+        </div>
+        <div class="ctrato-sig">
+          <div style="height:40px"></div>
+          <div class="ctrato-sig-line">${nome}<br>CONTRATADO(A)</div>
+        </div>
+      </div>
+    </div>`,
+
+  admiss: () => `
+    <div class="admiss-doc">
+      <div class="admiss-header">
+        <div class="admiss-header-title">FICHA DE ADMISSAO</div>
+        <div class="admiss-header-num">${num}</div>
+      </div>
+      <div class="admiss-body">
+        <div class="admiss-section">
+          <div class="admiss-section-title">Dados Pessoais</div>
+          <div class="admiss-grid">
+            <div class="admiss-field"><div class="admiss-lbl">Nome completo</div><div class="admiss-val">${nome}</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">CPF</div><div class="admiss-val">${cpf}</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">RG / Documento</div><div class="admiss-val">${num}</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">Data de nascimento</div><div class="admiss-val">${emissao}</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">Estado civil</div><div class="admiss-val">Nao informado</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">Escolaridade</div><div class="admiss-val">Ensino Superior</div></div>
+          </div>
+        </div>
+        <div class="admiss-section">
+          <div class="admiss-section-title">Dados Profissionais</div>
+          <div class="admiss-grid">
+            <div class="admiss-field"><div class="admiss-lbl">Cargo</div><div class="admiss-val">${cargo}</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">Empresa</div><div class="admiss-val">${empresa}</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">Data de admissao</div><div class="admiss-val">${emissao}</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">Matricula</div><div class="admiss-val">${mat}</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">Departamento</div><div class="admiss-val">Recursos Humanos</div></div>
+            <div class="admiss-field"><div class="admiss-lbl">Regime</div><div class="admiss-val">CLT - Prazo Indeterminado</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="admiss-footer">
+        <span>Preenchido em: ${emissao}</span>
+        <span>Assinatura do colaborador e departamento de RH</span>
+      </div>
+    </div>`,
+
+  exame: () => `
+    <div class="exame-doc">
+      <div class="exame-header">
+        <div class="exame-clinic">CLINICA DE MEDICINA DO TRABALHO</div>
+        <div class="exame-clinic-sub">CNPJ: 98.765.432/0001-10 &bull; CRM-SP &bull; Sao Paulo, SP</div>
+      </div>
+      <div class="exame-title">
+        <h2>Atestado de Saude Ocupacional (ASO)</h2>
+        <p>Exame Admissional &bull; Protocolo ${num || 'ASO-' + cpf.replace(/\D/g,'').slice(-4)}</p>
+      </div>
+      <div class="exame-body">
+        <table class="exame-table">
+          <tr><td>Empregado(a)</td><td>${nome}</td></tr>
+          <tr><td>CPF</td><td>${cpf}</td></tr>
+          <tr><td>Empresa</td><td>${empresa}</td></tr>
+          <tr><td>Cargo</td><td>${cargo}</td></tr>
+          <tr><td>Tipo de exame</td><td>ADMISSIONAL</td></tr>
+          <tr><td>Data do exame</td><td>${emissao}</td></tr>
+          <tr><td>Validade do ASO</td><td>${validade}</td></tr>
+        </table>
+        <div class="exame-result">
+          <div class="exame-result-lbl">Resultado</div>
+          <div class="exame-result-val">APTO</div>
+        </div>
+        <p style="font-size:11px;color:#475569;line-height:1.6;">O(A) trabalhador(a) acima identificado(a) foi submetido(a) aos exames clinicos e complementares conforme PCMSO, encontrando-se APTO(A) para o exercicio das funcoes do cargo acima especificado, sem restricoes.</p>
+      </div>
+      <div class="exame-footer">
+        <div>${emissao}</div>
+        <div class="exame-medico">
+          <div class="exame-medico-name">Dr. Paulo Henrique Souza</div>
+          <div class="exame-crm">CRM-SP 88.234 &bull; Medico do Trabalho</div>
+        </div>
+      </div>
+    </div>`,
+
+  resid: () => {
+    const bars = barcode(cpf.replace(/\D/g,'').split('').reduce((a,c)=>a*10+parseInt(c),0) || 12345, 60, 20, 40);
+    const ref  = emissao ? emissao.split('/').slice(0,2).join('/') : 'Mai/2025';
+    const src  = num || 'Conta de Luz';
+    return `
+    <div class="resid-doc">
+      <div class="resid-header">
+        <div>
+          <div class="resid-company-tipo">Companhia Energetica</div>
+          <div class="resid-company">${src}</div>
+        </div>
+        <div class="resid-conta">2a via &bull; ${validade || 'Venc: ' + emissao}</div>
+      </div>
+      <div class="resid-body">
+        <div class="resid-cliente">
+          <div class="resid-cliente-name">${nome}</div>
+          <div class="resid-cliente-end">Rua das Flores, 421 &bull; Sao Paulo/SP &bull; CEP 01310-100</div>
+        </div>
+        <table class="resid-table">
+          <tr><td>CPF / CNPJ</td><td>${cpf}</td></tr>
+          <tr><td>Referencia</td><td>${ref}</td></tr>
+          <tr><td>Consumo do mes</td><td>287 kWh</td></tr>
+          <tr><td>Periodo</td><td>01/${ref} a 30/${ref}</td></tr>
+          <tr><td>Leitura anterior</td><td>4.821 kWh</td></tr>
+          <tr><td>Leitura atual</td><td>5.108 kWh</td></tr>
+        </table>
+        <div class="resid-total">
+          <div class="resid-total-lbl">Total a pagar</div>
+          <div class="resid-total-val">R$ 287,50</div>
+        </div>
+        <div class="resid-barcode">${bars}</div>
+      </div>
+    </div>`;
+  },
+
+  foto: () => `
+    <div class="foto-doc">
+      <div class="foto-frame">
+        <div class="foto-initials">${initials(nome)}</div>
+        <div class="foto-sub">Foto 3x4</div>
+      </div>
+      <div class="foto-name">${nome}</div>
+      <div class="foto-meta">CPF: ${cpf} &bull; ${cargo}</div>
+      <div class="foto-dim">Dimensoes padrao: 3cm x 4cm &bull; Fundo branco</div>
+    </div>`,
+};
+
+const render = renders[type] || renders['cnh'];
+document.getElementById('docWrap').innerHTML = render();
+document.getElementById('topTitle').textContent = {
+  cnh: 'CNH / RG / Documento de Identidade',
+  cpf: 'Cadastro de Pessoas Fisicas (CPF)',
+  ctrato: 'Contrato de Trabalho',
+  admiss: 'Ficha de Admissao',
+  exame: 'Exame Admissional (ASO)',
+  resid: 'Comprovante de Residencia',
+  foto: 'Foto 3x4',
+}[type] || 'Documento';
+</script>
+</body>
+</html>
