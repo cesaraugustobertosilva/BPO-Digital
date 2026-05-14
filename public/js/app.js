@@ -2928,9 +2928,21 @@ async function ctSubmit(e) {
     const err = r ? await r.json().catch(() => ({})) : {};
     toast('Erro: ' + (err.error || `HTTP ${r?.status}`)); return;
   }
-  toast(isEdit ? 'Contrato atualizado.' : 'Contrato cadastrado.');
-  ctCloseForm();
+  const saved = await r.json();
   await ctLoad();
+  if (isEdit) {
+    toast('Contrato atualizado.');
+    ctCloseForm();
+  } else {
+    // Apos criar, transiciona para edicao para permitir anexar arquivos
+    toast('Contrato cadastrado. Adicione arquivos se necessario.');
+    CT.editingId = saved.id;
+    gel('ctModalTitle').textContent = 'Editar Contrato';
+    gel('ctBtnSave').textContent    = 'Salvar alteracoes';
+    gel('ctBtnDel').classList.remove('hidden');
+    const filesSection = gel('ctFilesSection');
+    if (filesSection) { filesSection.classList.remove('hidden'); ctRenderFiles(); }
+  }
 }
 
 /* ── DELETE ── */
