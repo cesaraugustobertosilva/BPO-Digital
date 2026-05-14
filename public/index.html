@@ -93,7 +93,7 @@
     <div class="nt" id="ntNF" onclick="enterNfView(this)">&#129534; Notas Fiscais</div>
     <div class="nt" id="ntContratos" onclick="enterContratosView(this)">&#128203; Contratos</div>
     <div class="nt" onclick="switchTab(this)">&#128194; Documentos Variados</div>
-    <div class="nt nt-labor" id="ntLabor" onclick="enterTrabalhistaView()">&#9878; Trabalhista</div>
+    <div class="nt nt-labor" id="ntLabor" onclick="enterTrabalhistaView(this)">&#9878; Trabalhista</div>
   </nav>
 
   <!-- ── NF VIEW ──────────────────────────────────────────────────── -->
@@ -776,6 +776,30 @@
 
 <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.docx" onchange="handleFiles(event)" style="display:none">
 <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" onchange="handleXlsx(event)" style="display:none">
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mob-nav" id="mobNav">
+  <div class="mob-nt nt active" id="mobNtRH" onclick="switchTabRH(this)">
+    <span class="mob-nt-ico">&#128101;</span>
+    <span>RH</span>
+  </div>
+  <div class="mob-nt nt" id="mobNtNF" onclick="enterNfView(this)">
+    <span class="mob-nt-ico">&#129534;</span>
+    <span>NF</span>
+  </div>
+  <div class="mob-nt nt" id="mobNtContratos" onclick="enterContratosView(this)">
+    <span class="mob-nt-ico">&#128203;</span>
+    <span>Contratos</span>
+  </div>
+  <div class="mob-nt nt" id="mobNtDocs" onclick="switchTab(this)">
+    <span class="mob-nt-ico">&#128194;</span>
+    <span>Docs</span>
+  </div>
+  <div class="mob-nt nt" id="mobNtLabor" onclick="enterTrabalhistaView(this)">
+    <span class="mob-nt-ico">&#9878;</span>
+    <span>Trabalhista</span>
+  </div>
+</nav>
 
 <script src="/js/app.js"></script>
 </body>

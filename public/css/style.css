@@ -2244,3 +2244,154 @@ html, body {
 .ct-file-open:hover { background: #dcfce7; }
 .ct-file-del       { background: none; border: none; font-size: 13px; color: #94a3b8; cursor: pointer; padding: 3px 6px; border-radius: 5px; flex-shrink: 0; }
 .ct-file-del:hover { color: #dc2626; background: #fef2f2; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE BOTTOM NAV
+═══════════════════════════════════════════════════════════════════ */
+.mob-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 300;
+  background: var(--sbk-dark);
+  border-top: 1px solid rgba(255,255,255,.08);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.mob-nt {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 10px 4px 12px;
+  color: rgba(255,255,255,.38);
+  font-size: 9px; font-weight: 600;
+  cursor: pointer; gap: 4px;
+  transition: color .15s;
+  user-select: none;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  -webkit-tap-highlight-color: transparent;
+}
+.mob-nt:hover  { color: rgba(255,255,255,.7); }
+.mob-nt.active { color: var(--sbk-cyan); }
+.mob-nt-ico { font-size: 20px; line-height: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE  (max-width: 768px)
+═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── NAV: troca top bar por bottom bar ── */
+  .nav { display: none !important; }
+  .mob-nav { display: flex !important; }
+
+  /* ── Conteudo: espaco para o bottom nav ── */
+  .body { padding: 16px 14px 80px; }
+
+  /* ── HEADER ── */
+  .header { padding: 10px 14px; gap: 8px; }
+  .htag { display: none; }
+  .logo-sub { display: none; }
+  .logo-txt { font-size: 16px; letter-spacing: 2px; }
+  .lc1 { height: 13px; } .lc2 { height: 9px; } .lc3 { height: 16px; }
+  .header-right { gap: 8px; }
+  .user-name, .user-role { display: none; }
+  .user-widget { padding: 4px 8px 4px 6px; gap: 6px; }
+  .ctx-bar { padding: 5px 10px; gap: 6px; }
+  .ctx-item { font-size: 11px; }
+  .ctx-dept { font-size: 11px; }
+  .inc-btn { padding: 6px 10px; font-size: 11px; }
+
+  /* ── STEP BAR ── */
+  .slbl { display: none; }
+  .sc { width: 16px; margin: 0 3px; }
+  .sn { width: 22px; height: 22px; font-size: 10px; }
+
+  /* ── SEARCH ROW ── */
+  .search-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .search-row .sbtn { grid-column: span 2; width: 100%; }
+
+  /* ── TABELAS: scroll horizontal ── */
+  .user-list-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  .user-list-table th,
+  .user-list-table td { white-space: nowrap; }
+  .inc-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .inc-table { min-width: 560px; }
+
+  /* ── LABOR: layout de 2 colunas vira coluna unica ── */
+  .labor-layout {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  .labor-left {
+    width: 100%;
+    height: 220px;
+    flex-shrink: 0;
+  }
+  #laborCollabList { max-height: 160px; overflow-y: auto; }
+  .labor-right {
+    height: auto;
+    overflow-y: visible;
+  }
+  .labor-topbar { flex-direction: column; gap: 8px; align-items: flex-start; }
+  .labor-topbar-right { flex-wrap: wrap; gap: 6px; }
+  .labor-statsbar { flex-wrap: wrap; }
+  .labor-stat { min-width: 80px; }
+
+  /* ── NF ── */
+  .nf-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+  .nf-stats  { flex-wrap: wrap; }
+  .nf-header-actions { width: 100%; }
+  .nf-header-actions .nf-btn-primary { width: 100%; }
+
+  /* ── CONTRATOS ── */
+  .ct-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+  .ct-header-actions { flex-wrap: wrap; }
+
+  /* ── ADMIN ── */
+  .adm-header { flex-direction: column; gap: 10px; }
+  .adm-tabs-row { flex-wrap: wrap; }
+  .adm-tab { font-size: 11px; padding: 7px 12px; }
+
+  /* ── COMPANY VIEW ── */
+  .cv-header { flex-direction: column; gap: 10px; }
+
+  /* ── MODAIS ── */
+  .su-box { padding: 24px 16px 20px; }
+  .login-box { padding: 28px 20px; }
+  .cle-modal { max-height: 90vh; }
+  .cle-head, .cle-foot { padding: 16px 18px; }
+  .cle-body { padding: 16px 18px; }
+  .prompt-modal { padding: 20px; }
+
+  /* ── EMPLOYEE CARD ── */
+  .ecard { padding: 16px; }
+
+  /* ── SEARCH PANEL ── */
+  .search-panel { padding: 14px 16px; }
+
+  /* ── IMODAL (documento) ── */
+  .imodal { width: 98vw; max-height: 92vh; }
+  .imodal-head { padding: 14px 16px; }
+  .imodal-body { padding: 14px 16px; }
+
+  /* ── DOSSIER MODAL ── */
+  .dossier-modal { max-height: 90vh; }
+
+  /* ── INCONSISTENCIAS ── */
+  .inc-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+
+  /* ── MISC ── */
+  .nf-bulk-zone { padding: 22px 16px; }
+  .nf-bulk-icon { font-size: 28px; }
+  .nf-bulk-text { font-size: 13px; }
+  .labor-search-card { padding: 14px; }
+  .labor-search-row { flex-direction: column; gap: 8px; }
+}

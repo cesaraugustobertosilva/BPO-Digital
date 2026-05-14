@@ -201,9 +201,9 @@ function showView(name) {
     const e = gel(id);
     if (e) { e.classList.add('hidden'); e.classList.remove('active'); }
   });
-  const nav = gel('mainNav');
-  if (['main','inc','trabalhista','nf','contratos'].includes(name)) nav?.classList.remove('hidden');
-  else nav?.classList.add('hidden');
+  const showTabBar = ['main','inc','trabalhista','nf','contratos'].includes(name);
+  gel('mainNav')?.classList.toggle('hidden', !showTabBar);
+  gel('mobNav')?.classList.toggle('hidden', !showTabBar);
 
   const idMap = { main:'mainView', inc:'incView', admin:'adminView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView' };
   const target = gel(idMap[name] || 'companyView');
@@ -211,6 +211,8 @@ function showView(name) {
 
   gel('ntLabor')?.classList.toggle('active', name === 'trabalhista');
   gel('ntRH')?.classList.toggle('active', name === 'main');
+  gel('mobNtLabor')?.classList.toggle('active', name === 'trabalhista');
+  gel('mobNtRH')?.classList.toggle('active', name === 'main');
 }
 
 function updateContextBar() {
@@ -1741,7 +1743,11 @@ function laborMaskCpf(cpf) {
 }
 
 /* ── ENTRY / EXIT ── */
-function enterTrabalhistaView() {
+function enterTrabalhistaView(tabEl) {
+  if (tabEl) {
+    document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
+    tabEl.classList.add('active');
+  }
   showView('trabalhista');
   LBR.selected = null;
   gel('laborRight').innerHTML = `<div class="labor-detail-empty" id="laborDetailEmpty">
