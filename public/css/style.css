@@ -1070,7 +1070,8 @@ html, body {
   background: rgba(255,255,255,.08);
   border-radius: 8px; padding: 6px 14px;
 }
-.ctx-item { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.9); }
+.ctx-item { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.9); transition: color .15s; }
+.ctx-item[onclick]:hover { color: white; text-decoration: underline; }
 .ctx-dept { color: rgba(255,255,255,.6); font-weight: 300; }
 .ctx-sep  { color: rgba(255,255,255,.3); font-size: 16px; }
 .ctx-switch {

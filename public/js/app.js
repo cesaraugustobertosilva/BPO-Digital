@@ -229,8 +229,15 @@ function updateContextBar() {
   if (STATE.department) {
     sepEl.classList.remove('hidden'); deptEl.classList.remove('hidden');
     deptEl.textContent = STATE.department.name;
+    // Nome da empresa vira link de volta ao painel de departamentos
+    compEl.style.cursor = 'pointer';
+    compEl.title = 'Voltar a visao da empresa';
+    compEl.onclick = () => { STATE.department = null; updateContextBar(); enterCompanyView(); };
   } else {
     sepEl.classList.add('hidden'); deptEl.classList.add('hidden');
+    compEl.style.cursor = '';
+    compEl.title = '';
+    compEl.onclick = null;
   }
 }
 
@@ -340,13 +347,18 @@ function enterDeptView() {
   showView('main');
   const cfgBtn = gel('cfgClBtn');
   if (cfgBtn) cfgBtn.classList.remove('hidden');
-  // Update context bar switch button for admin
   const ctxSwitch = gel('ctxSwitch');
   if (ctxSwitch) {
-    ctxSwitch.textContent = AUTH.user?.role === 'admin' ? '← Painel Admin' : 'Sair';
-    ctxSwitch.onclick = AUTH.user?.role === 'admin'
-      ? () => { STATE.department = null; STATE.company = null; updateContextBar(); enterAdminView(); }
-      : () => doLogout();
+    if (AUTH.user?.role === 'admin') {
+      ctxSwitch.textContent = '← Painel Admin';
+      ctxSwitch.onclick = () => { STATE.department = null; STATE.company = null; updateContextBar(); enterAdminView(); };
+    } else if (STATE.company) {
+      ctxSwitch.textContent = '← Trocar departamento';
+      ctxSwitch.onclick = () => { STATE.department = null; updateContextBar(); enterCompanyView(); };
+    } else {
+      ctxSwitch.textContent = 'Sair';
+      ctxSwitch.onclick = () => doLogout();
+    }
   }
   renderChecklist(); renderDocs(); updateIncBadge();
   renderIndexedDossies();
