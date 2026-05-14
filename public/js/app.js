@@ -407,6 +407,24 @@ async function renderAdminPanel() {
   adminSelCompany = null;
   gel('adminDeptList').innerHTML = '<div class="adm-empty">Selecione uma empresa</div>';
   gel('adminNewDeptBtn').disabled = true;
+  renderStorageStatus();
+}
+
+async function renderStorageStatus() {
+  const el = gel('admStorageStatus');
+  if (!el) return;
+  try {
+    const r = await apiFetch('/api/status');
+    if (!r || !r.ok) { el.innerHTML = ''; return; }
+    const { storage } = await r.json();
+    const icons = { upstash: '&#9729;', github: '&#128200;', local: '&#128193;' };
+    const labels = { upstash: 'Upstash Redis', github: 'GitHub Contents', local: 'Filesystem local' };
+    const ok = !storage.volatile;
+    el.innerHTML = `<div class="adm-storage-badge ${ok ? 'adm-storage-ok' : 'adm-storage-warn'}">
+      ${icons[storage.backend] || ''} Storage: <strong>${labels[storage.backend] || storage.backend}</strong>
+      ${storage.volatile ? ' &mdash; DADOS NAO PERSISTIDOS (configure Upstash no Vercel)' : ' &mdash; Persistencia ativa'}
+    </div>`;
+  } catch { el.innerHTML = ''; }
 }
 
 function renderAdminCompanies(companies) {

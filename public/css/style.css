@@ -1312,6 +1312,14 @@ html, body {
 .logout-btn:hover { color: white; }
 
 /* ── ADMIN TABS ───────────────────────────────────────────────────── */
+.adm-storage-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px; font-size: 12px;
+  margin-bottom: 14px;
+}
+.adm-storage-ok   { background: #e6f4ee; color: #1a7a45; border: 1px solid #b2dfc4; }
+.adm-storage-warn { background: #fff4e0; color: #a05c00; border: 1px solid #f5d08a; }
+
 .adm-tabs-row {
   display: flex; gap: 6px; margin-bottom: 20px;
 }
