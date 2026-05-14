@@ -141,13 +141,19 @@ if (BACKEND === 'local' && process.env.VERCEL) {
 }
 
 /* ── PUBLIC API ──────────────────────────────────────────────────── */
+
+// readData: retorna null quando a chave nao existe, lanca erro em caso de falha
+// de armazenamento. NAO engole erros para nao mascarar problemas de conexao.
 async function readData(name) {
-  try {
-    if (BACKEND === 'upstash') return await upstashGet(name);
-    if (BACKEND === 'github')  return await githubRead(name);
-    return readLocal(name);
-  } catch (e) {
-    console.error(`[db] readData(${name}) falhou:`, e.message);
+  if (BACKEND === 'upstash') return await upstashGet(name);
+  if (BACKEND === 'github')  return await githubRead(name);
+  return readLocal(name);
+}
+
+// readDataSafe: versao que retorna null em caso de erro (uso em leituras nao criticas)
+async function readDataSafe(name) {
+  try { return await readData(name); } catch (e) {
+    console.error(`[db] readDataSafe(${name}) falhou:`, e.message);
     return null;
   }
 }
@@ -173,4 +179,4 @@ function storageStatus() {
   };
 }
 
-module.exports = { readData, writeData, storageStatus };
+module.exports = { readData, readDataSafe, writeData, storageStatus };

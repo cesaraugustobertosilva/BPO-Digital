@@ -54,13 +54,14 @@ function seedUsers() {
 }
 
 async function getOrSeedUsers() {
+  // readData lanca erro em caso de falha de storage; deixamos propagar para
+  // nao confundir "chave inexistente" com "erro de conexao" e evitar
+  // sobrescrever usuarios cadastrados quando o storage esta indisponivel.
   const list = await readData('users');
-  if (!list || !list.length) {
-    const s = seedUsers();
-    await writeData('users', s);
-    return s;
-  }
-  return list;
+  if (list && list.length > 0) return list;
+  const s = seedUsers();
+  await writeData('users', s);
+  return s;
 }
 
 function safeUser(u) {
