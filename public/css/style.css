@@ -1497,6 +1497,99 @@ html, body {
 /* TRABALHISTA NAV TAB */
 .nt-labor { }
 
+/* RH TAB INCONSISTENCIAS PILL */
+.nt-inc-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(220,80,60,.22);
+  border: .5px solid rgba(220,80,60,.45);
+  color: #f08070;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px;
+  cursor: pointer;
+  transition: all .15s;
+  line-height: 1;
+  margin-left: 4px;
+}
+.nt-inc-pill:hover { background: rgba(220,80,60,.38); color: #ffb0a0; }
+.nt-inc-pill.hidden { display: none; }
+
+/* PAINEL GERENCIAL VIEW */
+.pg-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.pg-title { font-size: 20px; font-weight: 700; color: var(--sbk-dark); display: flex; align-items: center; gap: 10px; }
+.pg-sub   { font-size: 13px; font-weight: 300; color: var(--sbk-slate); margin-top: 3px; }
+
+.pg-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+@media (max-width: 900px) { .pg-cards { grid-template-columns: repeat(2,1fr); } }
+
+.pg-card {
+  background: white;
+  border: .5px solid #d0d8e0;
+  border-radius: var(--r);
+  padding: 22px 24px;
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.pg-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--sbk-cyan);
+}
+.pg-card.pg-card-green::before { background: #2a9d5c; }
+.pg-card.pg-card-red::before   { background: #dc503c; }
+.pg-card.pg-card-amber::before { background: #c07700; }
+
+.pg-card-icon { font-size: 22px; margin-bottom: 4px; }
+.pg-card-val  { font-size: 38px; font-weight: 700; line-height: 1; color: var(--sbk-dark); }
+.pg-card-val.green { color: #2a9d5c; }
+.pg-card-val.red   { color: #dc503c; }
+.pg-card-val.cyan  { color: var(--sbk-cyan); }
+.pg-card-lbl  { font-size: 12px; font-weight: 400; color: var(--sbk-slate); }
+.pg-card-sub  { font-size: 11px; color: #aab4be; font-weight: 300; }
+
+/* Donut gauge */
+.pg-donut-wrap { display: flex; align-items: center; gap: 12px; }
+.pg-donut { width: 72px; height: 72px; transform: rotate(-90deg); }
+.pg-donut-bg   { fill: none; stroke: #edf0f3; stroke-width: 3; }
+.pg-donut-fill { fill: none; stroke: var(--sbk-cyan); stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray .6s ease; }
+.pg-donut-fill.fill-green { stroke: #2a9d5c; }
+.pg-donut-fill.fill-amber { stroke: #c07700; }
+.pg-donut-fill.fill-red   { stroke: #dc503c; }
+.pg-donut-text { fill: var(--sbk-dark); font-size: 7px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; transform: rotate(90deg) translate(0, -36px); }
+.pg-donut-info { display: flex; flex-direction: column; }
+.pg-donut-pct  { font-size: 28px; font-weight: 700; color: var(--sbk-dark); line-height: 1; }
+.pg-donut-lbl2 { font-size: 11px; color: var(--sbk-slate); }
+
+/* PAINEL: Itens do processo */
+.pg-section { background: white; border: .5px solid #d0d8e0; border-radius: var(--r); padding: 22px 24px; }
+.pg-section-title { font-size: 14px; font-weight: 600; color: var(--sbk-dark); margin-bottom: 2px; }
+.pg-section-sub   { font-size: 12px; color: var(--sbk-slate); font-weight: 300; margin-bottom: 18px; }
+.pg-items-grid    { display: flex; flex-direction: column; gap: 14px; }
+
+.pg-item {
+  display: grid;
+  grid-template-columns: 220px 1fr 52px 44px;
+  align-items: center;
+  gap: 16px;
+}
+.pg-item-name { font-size: 13px; font-weight: 400; color: var(--sbk-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-bar-track { background: #edf0f3; border-radius: 20px; height: 8px; overflow: hidden; }
+.pg-bar-fill  { height: 100%; border-radius: 20px; transition: width .6s ease; background: var(--sbk-cyan); }
+.pg-bar-fill.bar-green { background: #2a9d5c; }
+.pg-bar-fill.bar-amber { background: #c07700; }
+.pg-bar-fill.bar-red   { background: #dc503c; }
+.pg-item-count { font-size: 12px; color: var(--sbk-slate); text-align: right; white-space: nowrap; }
+.pg-item-pct   { font-size: 12px; font-weight: 600; color: var(--sbk-dark); text-align: right; }
+
 /* TRABALHISTA VIEW */
 .labor-header {
   display: flex; align-items: flex-start; justify-content: space-between;

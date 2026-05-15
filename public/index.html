@@ -68,10 +68,6 @@
       <button class="ctx-switch" id="ctxSwitch" onclick="doLogout()">Sair</button>
     </div>
     <div class="header-right">
-      <button class="inc-btn hidden" id="incHeaderBtn" onclick="showIncView()">
-        <span>&#9888;</span> Inconsistencias
-        <div class="inc-badge" id="incBadge">0</div>
-      </button>
       <div class="user-widget hidden" id="userWidget">
         <div class="user-avatar" id="userAvatar">A</div>
         <div class="user-info">
@@ -89,7 +85,10 @@
 
   <!-- NAV -->
   <nav class="nav" id="mainNav">
-    <div class="nt active" id="ntRH" onclick="switchTabRH(this)">&#128101; RH</div>
+    <div class="nt active" id="ntRH" onclick="switchTabRH(this)">&#128101; RH
+      <span class="nt-inc-pill hidden" id="ntIncPill" onclick="event.stopPropagation(); showIncView()">&#9888; <span id="incBadge">0</span></span>
+    </div>
+    <div class="nt" id="ntPainel" onclick="enterPainelView(this)">&#128202; Painel Gerencial</div>
     <div class="nt" id="ntNF" onclick="enterNfView(this)">&#129534; Notas Fiscais</div>
     <div class="nt" id="ntContratos" onclick="enterContratosView(this)">&#128203; Contratos</div>
     <div class="nt" onclick="switchTab(this)">&#128194; Documentos Variados</div>
@@ -568,6 +567,26 @@
     </div>
 
   </div><!-- /#incView -->
+
+  <!-- ── PAINEL GERENCIAL VIEW ─────────────────────────────────── -->
+  <div id="painelView" class="hidden body">
+
+    <div class="pg-header">
+      <div>
+        <div class="pg-title">&#128202; Painel Gerencial</div>
+        <div class="pg-sub">Indicadores operacionais de RH em tempo real</div>
+      </div>
+    </div>
+
+    <div class="pg-cards" id="painelCards"></div>
+
+    <div class="pg-section">
+      <div class="pg-section-title">Cobertura por Item do Processo</div>
+      <div class="pg-section-sub">Percentual de colaboradores com cada documento entregue</div>
+      <div class="pg-items-grid" id="painelItems"></div>
+    </div>
+
+  </div><!-- /#painelView -->
 
 </div><!-- /.layout -->
 

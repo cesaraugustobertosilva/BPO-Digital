@@ -62,7 +62,7 @@ function doLogout(silent = false) {
   localStorage.removeItem('sbk_token');
   STATE.profile = null; STATE.company = null; STATE.department = null;
   gel('userWidget').classList.add('hidden');
-  gel('incHeaderBtn').classList.add('hidden');
+  gel('ntIncPill').classList.add('hidden');
   gel('ctxBar').classList.add('hidden');
   showLogin();
   if (!silent) fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
@@ -91,7 +91,6 @@ async function setupFromUser(user) {
   gel('userRole').textContent  = roleLabels[user.role] || user.role;
   gel('userAvatar').textContent = user.name.charAt(0).toUpperCase();
   gel('userWidget').classList.remove('hidden');
-  gel('incHeaderBtn').classList.remove('hidden');
   setupNavModules();
 
   STATE.profile = user.role;
@@ -222,20 +221,21 @@ function resetChecklistFromDept() {
 
 /* ── VIEW CONTROL ────────────────────────────────────────────────── */
 function showView(name) {
-  ['mainView','incView','adminView','companyView','trabalhistaView','nfView','contratosView'].forEach(id => {
+  ['mainView','incView','adminView','companyView','trabalhistaView','nfView','contratosView','painelView'].forEach(id => {
     const e = gel(id);
     if (e) { e.classList.add('hidden'); e.classList.remove('active'); }
   });
   const nav = gel('mainNav');
-  if (['main','inc','trabalhista','nf','contratos'].includes(name)) nav?.classList.remove('hidden');
+  if (['main','inc','trabalhista','nf','contratos','painel'].includes(name)) nav?.classList.remove('hidden');
   else nav?.classList.add('hidden');
 
-  const idMap = { main:'mainView', inc:'incView', admin:'adminView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView' };
+  const idMap = { main:'mainView', inc:'incView', admin:'adminView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView', painel:'painelView' };
   const target = gel(idMap[name] || 'companyView');
   if (target) { target.classList.remove('hidden'); if (name === 'inc') target.classList.add('active'); }
 
   gel('ntLabor')?.classList.toggle('active', name === 'trabalhista');
   gel('ntRH')?.classList.toggle('active', name === 'main');
+  gel('ntPainel')?.classList.toggle('active', name === 'painel');
 }
 
 function updateContextBar() {
@@ -1074,6 +1074,94 @@ function switchTabRH(tabEl) {
   showView('main');
 }
 
+/* ── PAINEL GERENCIAL ────────────────────────────────────────────── */
+async function enterPainelView(tabEl) {
+  document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+  showView('painel');
+  await renderPainelGerencial();
+}
+
+async function renderPainelGerencial() {
+  const list = await loadDossies();
+  const total = list.length;
+  const completos   = list.filter(d => (d.missing_req || []).length === 0).length;
+  const incompletos = total - completos;
+  const taxa = total > 0 ? Math.round((completos / total) * 100) : 0;
+
+  const taxaColor = taxa >= 80 ? 'green' : taxa >= 50 ? '' : 'red';
+  const fillClass = taxa >= 80 ? 'fill-green' : taxa >= 50 ? '' : 'fill-red';
+
+  gel('painelCards').innerHTML = `
+    <div class="pg-card">
+      <div class="pg-card-icon">&#128101;</div>
+      <div class="pg-card-val">${total}</div>
+      <div class="pg-card-lbl">Total de Prontuarios</div>
+      <div class="pg-card-sub">colaboradores cadastrados</div>
+    </div>
+    <div class="pg-card pg-card-green">
+      <div class="pg-card-icon">&#10003;</div>
+      <div class="pg-card-val green">${completos}</div>
+      <div class="pg-card-lbl">Prontuarios Completos</div>
+      <div class="pg-card-sub">todos os itens obrigatorios entregues</div>
+    </div>
+    <div class="pg-card pg-card-red">
+      <div class="pg-card-icon">&#9888;</div>
+      <div class="pg-card-val red">${incompletos}</div>
+      <div class="pg-card-lbl">Prontuarios Incompletos</div>
+      <div class="pg-card-sub">com documentos obrigatorios pendentes</div>
+    </div>
+    <div class="pg-card ${taxa >= 80 ? 'pg-card-green' : taxa < 50 ? 'pg-card-red' : 'pg-card-amber'}">
+      <div class="pg-donut-wrap">
+        <svg viewBox="0 0 36 36" class="pg-donut">
+          <circle class="pg-donut-bg" cx="18" cy="18" r="15.9155"/>
+          <circle class="pg-donut-fill ${fillClass}" cx="18" cy="18" r="15.9155"
+            stroke-dasharray="${taxa} ${100 - taxa}"/>
+        </svg>
+        <div class="pg-donut-info">
+          <div class="pg-donut-pct ${taxaColor}">${taxa}%</div>
+          <div class="pg-donut-lbl2">taxa de conformidade</div>
+        </div>
+      </div>
+      <div class="pg-card-lbl" style="margin-top:8px">Colaboradores Processados</div>
+      <div class="pg-card-sub">${completos} de ${total} com prontuario completo</div>
+    </div>
+  `;
+
+  const ITEMS = [
+    { id:'cnh',    name:'CNH / RG / Identidade',     match:'cnh' },
+    { id:'cpf',    name:'CPF',                        match:'cpf' },
+    { id:'ctrato', name:'Contrato de Trabalho',       match:'contrato' },
+    { id:'admiss', name:'Ficha de Admissao',          match:'admis' },
+    { id:'exame',  name:'Exame Admissional',          match:'exame' },
+    { id:'resid',  name:'Comprovante de Residencia',  match:'resid' },
+    { id:'foto',   name:'Foto 3x4',                   match:'foto' },
+  ];
+
+  const counts = {};
+  ITEMS.forEach(it => { counts[it.id] = 0; });
+  list.forEach(d => {
+    const fileIds  = (d.files || []).map(f => f.id);
+    const docNames = (d.docs  || []).map(n => n.toLowerCase());
+    ITEMS.forEach(it => {
+      if (fileIds.includes(it.id) || docNames.some(n => n.includes(it.match))) counts[it.id]++;
+    });
+  });
+
+  gel('painelItems').innerHTML = ITEMS.map(it => {
+    const cnt = counts[it.id];
+    const pct = total > 0 ? Math.round((cnt / total) * 100) : 0;
+    const barClass = pct >= 80 ? 'bar-green' : pct >= 50 ? 'bar-amber' : 'bar-red';
+    return `
+      <div class="pg-item">
+        <div class="pg-item-name">${it.name}</div>
+        <div class="pg-bar-track"><div class="pg-bar-fill ${barClass}" style="width:${pct}%"></div></div>
+        <div class="pg-item-count">${cnt}/${total}</div>
+        <div class="pg-item-pct">${pct}%</div>
+      </div>`;
+  }).join('');
+}
+
 /* ── API: DOSSIES ────────────────────────────────────────────────── */
 async function loadDossies() {
   try {
@@ -1250,7 +1338,10 @@ async function renderIncTable() {
   document.getElementById('incCriticalCount').textContent = critical;
   document.getElementById('incWarningCount').textContent  = warning;
   document.getElementById('incOkCount').textContent       = ok;
-  document.getElementById('incBadge').textContent         = critical + warning;
+  const incCount = critical + warning;
+  document.getElementById('incBadge').textContent         = incCount;
+  const pill = document.getElementById('ntIncPill');
+  if (pill) pill.classList.toggle('hidden', incCount === 0);
   const filtered = list.filter(d => {
     const s = getSeverity(d);
     return (incFilter === 'all' || s === incFilter) &&
@@ -1326,6 +1417,8 @@ async function updateIncBadge() {
   const list  = await loadDossies();
   const count = list.filter(d => (d.missing_req || []).length > 0).length;
   document.getElementById('incBadge').textContent = count;
+  const pill = document.getElementById('ntIncPill');
+  if (pill) pill.classList.toggle('hidden', count === 0);
 }
 
 /* ── SEARCH ──────────────────────────────────────────────────────── */

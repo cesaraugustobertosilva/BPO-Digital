@@ -340,6 +340,69 @@
     ],
     "missing_req": [],
     "total": 5,
-    "req": 5
+    "req": 5,
+    "files": [
+      { "id": "cnh",    "name": "CNH / RG / Documento de Identidade", "previewUrl": "/demo/doc.html?type=cnh&nome=Ana+Beatriz+Souza&cpf=123.456.789-00&num=6641+0019+SP%2FSSP&emissao=15%2F04%2F2023&validade=20%2F04%2F2028&cargo=Analista" },
+      { "id": "cpf",    "name": "CPF", "previewUrl": "/demo/doc.html?type=cpf&nome=Ana+Beatriz+Souza&cpf=123.456.789-00&emissao=08%2F03%2F2017" },
+      { "id": "ctrato", "name": "Contrato de Trabalho", "previewUrl": "/demo/doc.html?type=ctrato&nome=Ana+Beatriz+Souza&cpf=123.456.789-00&num=CT-2023%2F0011&emissao=20%2F04%2F2023&cargo=Analista&mat=00541&empresa=SBK+Legal+Operations" },
+      { "id": "admiss", "name": "Ficha de Admissao", "previewUrl": "/demo/doc.html?type=admiss&nome=Ana+Beatriz+Souza&cpf=123.456.789-00&num=FA-2023%2F0011&emissao=20%2F04%2F2023&cargo=Analista&mat=00541&empresa=SBK+Legal+Operations" },
+      { "id": "exame",  "name": "Exame Admissional", "previewUrl": "/demo/doc.html?type=exame&nome=Ana+Beatriz+Souza&cpf=123.456.789-00&num=EX-2023%2F0011&emissao=17%2F04%2F2023&validade=20%2F04%2F2028&cargo=Analista&empresa=SBK+Legal+Operations" }
+    ]
+  },
+  {
+    "id": "demo2",
+    "ts": 1777895552229,
+    "companyId": "comp_demo",
+    "departmentId": "dept_rh",
+    "name": "Joao Paulo Ferreira",
+    "cpf": "445.231.890-12",
+    "mat": "00788",
+    "cargo": "Tecnico de TI",
+    "docs": [
+      "CNH / RG / Documento de Identidade",
+      "CPF"
+    ],
+    "missing_req": [
+      "Contrato de Trabalho",
+      "Ficha de Admissao",
+      "Exame Admissional"
+    ],
+    "total": 2,
+    "req": 0,
+    "files": [
+      { "id": "cnh", "name": "CNH / RG / Documento de Identidade", "previewUrl": "/demo/doc.html?type=cnh&nome=Joao+Paulo+Ferreira&cpf=445.231.890-12&num=7732+8801+RJ%2FDETRAN&emissao=03%2F11%2F2020&validade=10%2F11%2F2025&cargo=Tecnico+de+TI" },
+      { "id": "cpf", "name": "CPF", "previewUrl": "/demo/doc.html?type=cpf&nome=Joao+Paulo+Ferreira&cpf=445.231.890-12&emissao=20%2F06%2F2013" }
+    ]
+  },
+  {
+    "id": "demo3",
+    "ts": 1777809152229,
+    "companyId": "comp_demo",
+    "departmentId": "dept_rh",
+    "name": "Camila Rocha Dias",
+    "cpf": "762.019.453-88",
+    "mat": "00655",
+    "cargo": "Gerente Comercial",
+    "docs": [
+      "CNH / RG / Documento de Identidade",
+      "CPF",
+      "Contrato de Trabalho",
+      "Ficha de Admissao",
+      "Exame Admissional",
+      "Comprovante de Residencia",
+      "Foto 3x4"
+    ],
+    "missing_req": [],
+    "total": 7,
+    "req": 5,
+    "files": [
+      { "id": "cnh",    "name": "CNH / RG / Documento de Identidade", "previewUrl": "/demo/doc.html?type=cnh&nome=Camila+Rocha+Dias&cpf=762.019.453-88&num=8891+2244+SP%2FDETRAN&emissao=12%2F09%2F2021&validade=18%2F09%2F2026&cargo=Gerente+Comercial" },
+      { "id": "cpf",    "name": "CPF", "previewUrl": "/demo/doc.html?type=cpf&nome=Camila+Rocha+Dias&cpf=762.019.453-88&emissao=01%2F02%2F2016" },
+      { "id": "ctrato", "name": "Contrato de Trabalho", "previewUrl": "/demo/doc.html?type=ctrato&nome=Camila+Rocha+Dias&cpf=762.019.453-88&num=CT-2021%2F0055&emissao=18%2F09%2F2021&cargo=Gerente+Comercial&mat=00655&empresa=SBK+Legal+Operations" },
+      { "id": "admiss", "name": "Ficha de Admissao", "previewUrl": "/demo/doc.html?type=admiss&nome=Camila+Rocha+Dias&cpf=762.019.453-88&num=FA-2021%2F0055&emissao=18%2F09%2F2021&cargo=Gerente+Comercial&mat=00655&empresa=SBK+Legal+Operations" },
+      { "id": "exame",  "name": "Exame Admissional", "previewUrl": "/demo/doc.html?type=exame&nome=Camila+Rocha+Dias&cpf=762.019.453-88&num=EX-2021%2F0055&emissao=14%2F09%2F2021&validade=18%2F09%2F2026&cargo=Gerente+Comercial&empresa=SBK+Legal+Operations" },
+      { "id": "resid",  "name": "Comprovante de Residencia", "previewUrl": "/demo/doc.html?type=resid&nome=Camila+Rocha+Dias&cpf=762.019.453-88&num=Conta+de+Gas+-+Comgas&emissao=02%2F05%2F2025&validade=31%2F05%2F2025" },
+      { "id": "foto",   "name": "Foto 3x4", "previewUrl": "/demo/doc.html?type=foto&nome=Camila+Rocha+Dias&cpf=762.019.453-88&cargo=Gerente+Comercial" }
+    ]
   }
 ]
