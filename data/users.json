@@ -1,0 +1,54 @@
+[
+  {
+    "id": "user_admin",
+    "username": "admin",
+    "name": "Administrador",
+    "role": "admin",
+    "companyId": null,
+    "departmentId": null,
+    "passwordHash": "227dd30504c84595abc1b93b5a1dab90:18961076c9fd39a39194b0d7561681483593fb9577cb5e56f728abb9147297ff86a61c81a833c7377dcb41e64973bacccec764e9f94c7d76ecadb110eb7ea6db"
+  },
+  {
+    "id": "user_gest",
+    "username": "gestor",
+    "name": "Gestor SBK",
+    "role": "company",
+    "companyId": "comp_demo",
+    "departmentId": null,
+    "passwordHash": "4803693d3c5ef924c89593c0713d3d6e:e982f7e8abbe168a991900ec018481102632800dcb3c667dc7011c3afd9a9b4e201397a7d13b0f105de98ecda322ae0fc78f8a954ecd1684169b5246b58004cf"
+  },
+  {
+    "id": "user_rh",
+    "username": "rh",
+    "name": "Analista RH",
+    "role": "department",
+    "companyId": "comp_demo",
+    "departmentId": "dept_rh",
+    "passwordHash": "38783dc3ee57aa33f89c3bcbf61733e5:63d23abd9ff63cf217e99cb1865fbf40780dd3f07fbaf66baa9c28c036ca58b39409c9292c9b919fd635efbc987812cddaf0d7d028f2fe84c25238ed63c186f1"
+  },
+  {
+    "id": "user_1778845865364",
+    "username": "cesar.silva",
+    "name": "César Augusto",
+    "role": "company",
+    "companyId": "comp_demo",
+    "departmentId": null,
+    "modules": [
+      "rh",
+      "trabalhista",
+      "nf",
+      "contratos"
+    ],
+    "passwordHash": "b17e1cd5cc38f9d788a1b4356bfb3bca:04ff70a4316019d40fd881ad7a02375984a7fd3a3214281b8d0ed80acd4ddb396787805d8f7c220a2880d186a53a9eaf94f358288521f53c8806c99a94ea7b2c"
+  },
+  {
+    "id": "user_1778845885863",
+    "username": "cesar.berto",
+    "name": "César Augusto",
+    "role": "admin",
+    "companyId": null,
+    "departmentId": null,
+    "modules": [],
+    "passwordHash": "23a47318c394fa4bcc75f284e953c49e:febdf036eccf312e882b905fec9a5408c3baac1dd0d032b7a1f8ba53db7280ad7602378d469cb7f9e732eda980745f3ec596505fce5ba232972280f037381343"
+  }
+]
