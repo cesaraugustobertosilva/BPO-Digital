@@ -40,5 +40,15 @@
       "contratos"
     ],
     "passwordHash": "b17e1cd5cc38f9d788a1b4356bfb3bca:04ff70a4316019d40fd881ad7a02375984a7fd3a3214281b8d0ed80acd4ddb396787805d8f7c220a2880d186a53a9eaf94f358288521f53c8806c99a94ea7b2c"
+  },
+  {
+    "id": "user_1778845885863",
+    "username": "cesar.berto",
+    "name": "César Augusto",
+    "role": "admin",
+    "companyId": null,
+    "departmentId": null,
+    "modules": [],
+    "passwordHash": "23a47318c394fa4bcc75f284e953c49e:febdf036eccf312e882b905fec9a5408c3baac1dd0d032b7a1f8ba53db7280ad7602378d469cb7f9e732eda980745f3ec596505fce5ba232972280f037381343"
   }
 ]
