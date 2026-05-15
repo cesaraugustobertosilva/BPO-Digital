@@ -1,0 +1,44 @@
+{
+  "comp_demo": [
+    {
+      "id": "f1",
+      "label": "Nome do Cliente",
+      "required": true
+    },
+    {
+      "id": "f2",
+      "label": "CPF / CNPJ",
+      "required": false
+    },
+    {
+      "id": "f3",
+      "label": "número de contrato",
+      "required": false
+    },
+    {
+      "id": "f4",
+      "label": "Cidade",
+      "required": false
+    },
+    {
+      "id": "f5",
+      "label": "Estado",
+      "required": false
+    },
+    {
+      "id": "f6",
+      "label": "Filial",
+      "required": false
+    },
+    {
+      "id": "f7",
+      "label": "Modelo",
+      "required": false
+    },
+    {
+      "id": "f8",
+      "label": "Data de Instalacao",
+      "required": false
+    }
+  ]
+}
