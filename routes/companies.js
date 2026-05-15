@@ -116,4 +116,32 @@ router.delete('/:id/departments/:deptId', requireAuth, requireAdmin, async (req,
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/companies/:id/ct-schema
+router.get('/:id/ct-schema', requireAuth, async (req, res) => {
+  try {
+    const schemas = await readData('ct_schemas') || {};
+    res.json(schemas[req.params.id] || null);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT /api/companies/:id/ct-schema
+router.put('/:id/ct-schema', requireAuth, async (req, res) => {
+  try {
+    const { role, companyId: uCo } = req.user;
+    if (role !== 'admin' && !(role === 'company' && uCo === req.params.id))
+      return res.status(403).json({ error: 'Acesso negado.' });
+    const { fields } = req.body;
+    if (!Array.isArray(fields) || fields.length < 1 || fields.length > 10)
+      return res.status(400).json({ error: 'Schema deve ter entre 1 e 10 campos.' });
+    const schemas = await readData('ct_schemas') || {};
+    schemas[req.params.id] = fields
+      .map(f => ({ id: String(f.id), label: String(f.label || '').trim(), required: !!f.required }))
+      .filter(f => f.id && f.label);
+    if (!schemas[req.params.id].length)
+      return res.status(400).json({ error: 'Nenhum campo valido enviado.' });
+    await writeData('ct_schemas', schemas);
+    res.json(schemas[req.params.id]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;
