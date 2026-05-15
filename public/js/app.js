@@ -2866,14 +2866,41 @@ function nfCancelForm() {
    MÓDULO: CONTRATOS
    ════════════════════════════════════════════════════════════════════ */
 
+const DEFAULT_CT_SCHEMA = [
+  { id: 'f1', label: 'Nome do Cliente',    required: true  },
+  { id: 'f2', label: 'CPF / CNPJ',         required: false },
+  { id: 'f3', label: 'Cliente Chave',      required: false },
+  { id: 'f4', label: 'Cidade',             required: false },
+  { id: 'f5', label: 'Estado',             required: false },
+  { id: 'f6', label: 'Filial',             required: false },
+  { id: 'f7', label: 'Modelo',             required: false },
+  { id: 'f8', label: 'Data de Instalacao', required: false },
+];
+
 const CT = {
   list:      [],
   editingId: null,
-  sortField: 'nomeCliente',
+  sortField: 'f1',
   sortAsc:   true,
+  schema:    DEFAULT_CT_SCHEMA.map(f => ({ ...f })),
 };
 
-const CT_FIELDS = ['nomeCliente','cidade','clienteChave','cpfCnpj','dataInstalacao','estado','filial','modelo'];
+let ctSchemaDraft = [];
+
+// Normaliza contratos antigos (formato legado sem .fields) para o formato novo
+function ctGetFields(ct) {
+  if (ct.fields && Object.keys(ct.fields).length) return ct.fields;
+  return {
+    f1: ct.nomeCliente    || '',
+    f2: ct.cpfCnpj        || '',
+    f3: ct.clienteChave   || '',
+    f4: ct.cidade         || '',
+    f5: ct.estado         || '',
+    f6: ct.filial         || '',
+    f7: ct.modelo         || '',
+    f8: ct.dataInstalacao || '',
+  };
+}
 
 /* ── ENTRY ── */
 function enterContratosView(tabEl) {
@@ -2883,28 +2910,58 @@ function enterContratosView(tabEl) {
   ctLoad();
 }
 
+/* ── SCHEMA API ── */
+async function apiGetCtSchema(companyId) {
+  if (!companyId) return null;
+  try {
+    const r = await apiFetch(`/api/companies/${companyId}/ct-schema`);
+    if (!r || !r.ok) return null;
+    const data = await r.json();
+    return Array.isArray(data) && data.length ? data : null;
+  } catch { return null; }
+}
+
 /* ── LOAD ── */
 async function ctLoad() {
   const companyId = STATE.company?.id;
-  const r = await apiFetch('/api/contratos' + (companyId ? '?companyId=' + companyId : ''));
-  CT.list = (r && r.ok) ? await r.json() : [];
+  const [schemaData, r] = await Promise.all([
+    apiGetCtSchema(companyId),
+    apiFetch('/api/contratos' + (companyId ? '?companyId=' + companyId : '')),
+  ]);
+  CT.schema = schemaData || DEFAULT_CT_SCHEMA.map(f => ({ ...f }));
+  CT.list   = (r && r.ok) ? await r.json() : [];
+  const cfgBtn = gel('ctBtnCfgSchema');
+  if (cfgBtn) {
+    const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company');
+    cfgBtn.classList.toggle('hidden', !canCfg);
+  }
+  ctRenderHead();
   ctRenderStats();
   ctRenderTable();
 }
 
+/* ── TABLE HEAD ── */
+function ctRenderHead() {
+  const thead = gel('ctThead');
+  if (!thead) return;
+  thead.innerHTML = '<tr>' +
+    CT.schema.map(f =>
+      `<th onclick="ctSort('${f.id}')">${f.label} <span class="ct-sort-icon" id="ctsi_${f.id}"></span></th>`
+    ).join('') +
+    '<th class="ct-th-action"></th></tr>';
+}
+
 /* ── STATS ── */
 function ctRenderStats() {
-  const total    = CT.list.length;
-  const cidades  = new Set(CT.list.map(c => c.cidade).filter(Boolean)).size;
-  const filiais  = new Set(CT.list.map(c => c.filial).filter(Boolean)).size;
-  const modelos  = new Set(CT.list.map(c => c.modelo).filter(Boolean)).size;
+  const total = CT.list.length;
   const el = gel('ctStats');
   if (!el) return;
-  el.innerHTML = `
-    <div class="ct-stat"><div class="ct-sv">${total}</div><div class="ct-sl">Contratos</div></div>
-    <div class="ct-stat"><div class="ct-sv">${cidades}</div><div class="ct-sl">Cidades</div></div>
-    <div class="ct-stat"><div class="ct-sv">${filiais}</div><div class="ct-sl">Filiais</div></div>
-    <div class="ct-stat"><div class="ct-sv">${modelos}</div><div class="ct-sl">Modelos</div></div>`;
+  const statFields = CT.schema.slice(1, 4);
+  const extras = statFields.map(f => {
+    const unique = new Set(CT.list.map(c => ctGetFields(c)[f.id]).filter(Boolean)).size;
+    return `<div class="ct-stat"><div class="ct-sv">${unique}</div><div class="ct-sl">${f.label}s</div></div>`;
+  }).join('');
+  el.innerHTML = `<div class="ct-stat"><div class="ct-sv">${total}</div><div class="ct-sl">Contratos</div></div>${extras}`;
 }
 
 /* ── SORT ── */
@@ -2916,31 +2973,24 @@ function ctSort(field) {
 
 /* ── TABLE ── */
 function ctRenderTable() {
-  const q    = (gel('ctSearch')?.value || '').toLowerCase();
-  const body = gel('ctBody');
+  const q     = (gel('ctSearch')?.value || '').toLowerCase();
+  const body  = gel('ctBody');
   const empty = gel('ctEmpty');
   if (!body) return;
 
-  // Update sort icons
-  CT_FIELDS.concat(['nomeCliente']).forEach(f => {
-    const el = gel('cts' + f.charAt(0).toUpperCase() + f.slice(1));
-    if (el) el.textContent = CT.sortField === f ? (CT.sortAsc ? ' ▲' : ' ▼') : '';
+  CT.schema.forEach(f => {
+    const el = gel('ctsi_' + f.id);
+    if (el) el.textContent = CT.sortField === f.id ? (CT.sortAsc ? ' ▲' : ' ▼') : '';
   });
 
-  let list = CT.list.filter(c =>
-    !q ||
-    (c.nomeCliente  || '').toLowerCase().includes(q) ||
-    (c.cpfCnpj      || '').includes(q) ||
-    (c.cidade       || '').toLowerCase().includes(q) ||
-    (c.estado       || '').toLowerCase().includes(q) ||
-    (c.filial       || '').toLowerCase().includes(q) ||
-    (c.modelo       || '').toLowerCase().includes(q) ||
-    (c.clienteChave || '').toLowerCase().includes(q)
-  );
+  let list = CT.list.filter(c => {
+    if (!q) return true;
+    return Object.values(ctGetFields(c)).some(v => (v || '').toLowerCase().includes(q));
+  });
 
   list = list.slice().sort((a, b) => {
-    const va = (a[CT.sortField] || '').toLowerCase();
-    const vb = (b[CT.sortField] || '').toLowerCase();
+    const va = (ctGetFields(a)[CT.sortField] || '').toLowerCase();
+    const vb = (ctGetFields(b)[CT.sortField] || '').toLowerCase();
     return CT.sortAsc ? va.localeCompare(vb, 'pt-BR') : vb.localeCompare(va, 'pt-BR');
   });
 
@@ -2951,20 +3001,20 @@ function ctRenderTable() {
   }
   empty?.classList.add('hidden');
 
-  body.innerHTML = list.map(c => `
-    <tr class="ct-row" onclick="ctOpenForm('${c.id}')">
-      <td class="ct-td ct-td-name">${c.nomeCliente}</td>
-      <td class="ct-td">${c.cidade || '—'}</td>
-      <td class="ct-td ct-td-uf">${c.estado || '—'}</td>
-      <td class="ct-td">${c.filial || '—'}</td>
-      <td class="ct-td">${c.modelo ? `<span class="ct-modelo-tag">${c.modelo}</span>` : '—'}</td>
-      <td class="ct-td ct-td-mono">${c.cpfCnpj || '—'}</td>
-      <td class="ct-td">${c.clienteChave || '—'}</td>
-      <td class="ct-td">${c.dataInstalacao || '—'}</td>
+  body.innerHTML = list.map(c => {
+    const fields = ctGetFields(c);
+    const cells  = CT.schema.map((f, i) => {
+      const v   = fields[f.id] || '—';
+      const cls = i === 0 ? 'ct-td ct-td-name' : 'ct-td';
+      return `<td class="${cls}">${v}</td>`;
+    }).join('');
+    return `<tr class="ct-row" onclick="ctOpenForm('${c.id}')">
+      ${cells}
       <td class="ct-td ct-td-action">
         <button class="ct-edit-btn" onclick="event.stopPropagation();ctOpenForm('${c.id}')">&#9998;</button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 /* ── FORM ── */
@@ -2975,22 +3025,22 @@ function ctOpenForm(id) {
   gel('ctBtnSave').textContent    = ct ? 'Salvar alteracoes' : 'Cadastrar';
   gel('ctBtnDel').classList.toggle('hidden', !ct);
 
-  const vals = {
-    NomeCliente:    ct?.nomeCliente    || '',
-    CpfCnpj:        ct?.cpfCnpj        || '',
-    ClienteChave:   ct?.clienteChave   || '',
-    Cidade:         ct?.cidade         || '',
-    Estado:         ct?.estado         || '',
-    Filial:         ct?.filial         || '',
-    Modelo:         ct?.modelo         || '',
-    DataInstalacao: ct?.dataInstalacao || '',
-  };
-  Object.entries(vals).forEach(([k, v]) => {
-    const el = gel('ct' + k); if (el) el.value = v;
-  });
-  gel('ctModal').classList.remove('hidden');
+  const existing = ct ? ctGetFields(ct) : {};
+  const grid = gel('ctFormFields');
+  if (grid) {
+    grid.innerHTML = CT.schema.map((f, i) => {
+      const val      = (existing[f.id] || '').replace(/"/g, '&quot;');
+      const spanCls  = i === 0 ? ' ct-span2' : '';
+      const reqStar  = f.required ? ' <span class="ct-req">*</span>' : '';
+      const reqAttr  = f.required ? ' required' : '';
+      return `<div class="ct-field${spanCls}">
+        <label class="ct-label">${f.label}${reqStar}</label>
+        <input class="ct-input" id="ctf_${f.id}" type="text" value="${val}"${reqAttr}>
+      </div>`;
+    }).join('');
+  }
 
-  // Files section: visible only when editing existing contract
+  gel('ctModal').classList.remove('hidden');
   const filesSection = gel('ctFilesSection');
   if (filesSection) {
     filesSection.classList.toggle('hidden', !id);
@@ -3029,17 +3079,12 @@ function ctMaskDate(input) {
 /* ── SUBMIT ── */
 async function ctSubmit(e) {
   e.preventDefault();
-  const payload = {
-    nomeCliente:    gel('ctNomeCliente').value.trim(),
-    cpfCnpj:        gel('ctCpfCnpj').value.trim(),
-    clienteChave:   gel('ctClienteChave').value.trim(),
-    cidade:         gel('ctCidade').value.trim(),
-    estado:         gel('ctEstado').value.trim(),
-    filial:         gel('ctFilial').value.trim(),
-    modelo:         gel('ctModelo').value.trim(),
-    dataInstalacao: gel('ctDataInstalacao').value.trim(),
-    companyId:      STATE.company?.id || null,
-  };
+  const fields = {};
+  CT.schema.forEach(f => {
+    const el = gel('ctf_' + f.id);
+    if (el) fields[f.id] = el.value.trim();
+  });
+  const payload = { fields, companyId: STATE.company?.id || null };
   const isEdit = !!CT.editingId;
   const url    = isEdit ? `/api/contratos/${CT.editingId}` : '/api/contratos';
   const method = isEdit ? 'PUT' : 'POST';
@@ -3063,6 +3108,89 @@ async function ctSubmit(e) {
     const filesSection = gel('ctFilesSection');
     if (filesSection) { filesSection.classList.remove('hidden'); ctRenderFiles(); }
   }
+}
+
+/* ── SCHEMA MODAL ── */
+function ctOpenSchemaModal() {
+  ctSchemaDraft = CT.schema.map(f => ({ ...f }));
+  ctRenderSchemaFields();
+  gel('ctSchemaModal').classList.remove('hidden');
+}
+
+function ctCloseSchemaModal() {
+  gel('ctSchemaModal').classList.add('hidden');
+}
+
+function ctRenderSchemaFields() {
+  const el = gel('ctSchemaFields');
+  if (!el) return;
+  el.innerHTML = ctSchemaDraft.map((f, i) => {
+    const isFirst = i === 0;
+    const dis     = isFirst ? ' disabled' : '';
+    const chk     = (isFirst || f.required) ? ' checked' : '';
+    const safeVal = (f.label + '').replace(/"/g, '&quot;');
+    return `<div class="ct-schema-row">
+      <span class="ct-schema-num">${i + 1}</span>
+      <input class="ct-input ct-schema-label-input" id="ctsl_${f.id}" value="${safeVal}" placeholder="Nome do campo"${isFirst ? ' required' : ''}>
+      <label class="ct-schema-req-label">
+        <input type="checkbox" id="ctsr_${f.id}"${chk}${dis}> Obrig.
+      </label>
+      <button class="ct-schema-del-btn" onclick="ctSchemaRemoveField('${f.id}')"${dis} title="Remover campo">&#215;</button>
+    </div>`;
+  }).join('');
+  const addBtn = gel('ctSchemaAddBtn');
+  if (addBtn) addBtn.disabled = ctSchemaDraft.length >= 10;
+}
+
+function ctSchemaAddField() {
+  if (ctSchemaDraft.length >= 10) return;
+  const usedIds = new Set(ctSchemaDraft.map(f => f.id));
+  let nextId = null;
+  for (let n = 1; n <= 10; n++) {
+    if (!usedIds.has('f' + n)) { nextId = 'f' + n; break; }
+  }
+  if (!nextId) return;
+  ctSchemaDraft.push({ id: nextId, label: '', required: false });
+  ctRenderSchemaFields();
+  const inp = gel('ctsl_' + nextId);
+  if (inp) setTimeout(() => inp.focus(), 30);
+}
+
+function ctSchemaRemoveField(id) {
+  if (ctSchemaDraft[0]?.id === id) return;
+  ctSchemaDraft = ctSchemaDraft.filter(f => f.id !== id);
+  ctRenderSchemaFields();
+}
+
+async function ctSaveSchema() {
+  const schema = ctSchemaDraft.map((f, i) => {
+    const labelEl = gel('ctsl_' + f.id);
+    const reqEl   = gel('ctsr_' + f.id);
+    return {
+      id:       f.id,
+      label:    (labelEl?.value || '').trim(),
+      required: i === 0 ? true : (reqEl?.checked || false),
+    };
+  }).filter(f => f.label);
+
+  if (!schema.length) { toast('Adicione ao menos um campo com nome.'); return; }
+  const companyId = STATE.company?.id;
+  if (!companyId) { toast('Nenhuma empresa selecionada.'); return; }
+
+  const r = await apiFetch(`/api/companies/${companyId}/ct-schema`, {
+    method: 'PUT',
+    body:   JSON.stringify({ fields: schema }),
+  });
+  if (!r || !r.ok) {
+    const err = r ? await r.json().catch(() => ({})) : {};
+    toast('Erro: ' + (err.error || 'Falha ao salvar.')); return;
+  }
+  CT.schema = await r.json();
+  ctCloseSchemaModal();
+  ctRenderHead();
+  ctRenderStats();
+  ctRenderTable();
+  showCrf(true, 'Campos atualizados', 'A configuracao de campos foi salva. Os novos campos estarao disponiveis ao cadastrar contratos.');
 }
 
 /* ── DELETE ── */

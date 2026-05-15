@@ -35,22 +35,20 @@ router.get('/', async (req, res) => {
 // POST /api/contratos
 router.post('/', async (req, res) => {
   try {
-    const { nomeCliente, cidade, clienteChave, cpfCnpj, dataInstalacao, estado, filial, modelo, companyId } = req.body;
-    if (!nomeCliente) return res.status(400).json({ error: 'Nome do cliente e obrigatorio.' });
+    const { fields = {}, companyId } = req.body;
+    if (!String(fields.f1 || '').trim())
+      return res.status(400).json({ error: 'O campo principal (f1) e obrigatorio.' });
+    const sanitized = Object.fromEntries(
+      Object.entries(fields).map(([k, v]) => [k, String(v || '').trim()])
+    );
     const ct = {
-      id:             'ct_' + Date.now(),
-      nomeCliente:    (nomeCliente   || '').trim(),
-      cidade:         (cidade        || '').trim(),
-      clienteChave:   (clienteChave  || '').trim(),
-      cpfCnpj:        (cpfCnpj       || '').trim(),
-      dataInstalacao: (dataInstalacao|| '').trim(),
-      estado:         (estado        || '').trim(),
-      filial:         (filial        || '').trim(),
-      modelo:         (modelo        || '').trim(),
-      companyId:      companyId || null,
-      files:          [],
-      createdAt:      new Date().toISOString(),
-      createdBy:      req.user?.username || 'sistema',
+      id:          'ct_' + Date.now(),
+      companyId:   companyId || null,
+      fields:      sanitized,
+      nomeCliente: sanitized.f1, // backward compat
+      files:       [],
+      createdAt:   new Date().toISOString(),
+      createdBy:   req.user?.username || 'sistema',
     };
     await saveContrato(ct);
     res.status(201).json({ ...ct, files: [] });
@@ -63,8 +61,12 @@ router.put('/:id', async (req, res) => {
     const all = await readData(CT_KEY) || [];
     const ct  = all.find(c => c.id === req.params.id);
     if (!ct) return res.status(404).json({ error: 'Contrato nao encontrado.' });
-    const fields = ['nomeCliente','cidade','clienteChave','cpfCnpj','dataInstalacao','estado','filial','modelo'];
-    fields.forEach(f => { if (req.body[f] !== undefined) ct[f] = req.body[f].trim(); });
+    if (req.body.fields && typeof req.body.fields === 'object') {
+      ct.fields = Object.fromEntries(
+        Object.entries(req.body.fields).map(([k, v]) => [k, String(v || '').trim()])
+      );
+      ct.nomeCliente = ct.fields.f1 || ct.nomeCliente; // backward compat
+    }
     ct.updatedAt = new Date().toISOString();
     await saveContrato(ct);
     res.json({ ...ct, files: (ct.files||[]).map(f => ({ id:f.id, name:f.name, size:f.size, mime:f.mime, uploadedAt:f.uploadedAt })) });

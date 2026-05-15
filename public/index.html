@@ -166,7 +166,8 @@
         <div class="ct-sub">Gestao de contratos de clientes</div>
       </div>
       <div class="ct-header-actions">
-        <input class="ct-search" id="ctSearch" type="text" placeholder="Buscar cliente, CNPJ, cidade..." oninput="ctRenderTable()">
+        <input class="ct-search" id="ctSearch" type="text" placeholder="Buscar..." oninput="ctRenderTable()">
+        <button class="ct-btn-cfg hidden" id="ctBtnCfgSchema" onclick="ctOpenSchemaModal()">&#9881; Configurar Campos</button>
         <button class="ct-btn-primary" onclick="ctOpenForm(null)">&#43; Novo Contrato</button>
       </div>
     </div>
@@ -177,19 +178,7 @@
     <!-- Table -->
     <div class="ct-table-wrap">
       <table class="ct-table" id="ctTable">
-        <thead>
-          <tr>
-            <th onclick="ctSort('nomeCliente')">Cliente <span class="ct-sort-icon" id="ctsNomeCliente"></span></th>
-            <th onclick="ctSort('cidade')">Cidade <span class="ct-sort-icon" id="ctsCidade"></span></th>
-            <th onclick="ctSort('estado')">Estado <span class="ct-sort-icon" id="ctsEstado"></span></th>
-            <th onclick="ctSort('filial')">Filial <span class="ct-sort-icon" id="ctsFilial"></span></th>
-            <th onclick="ctSort('modelo')">Modelo <span class="ct-sort-icon" id="ctsModelo"></span></th>
-            <th onclick="ctSort('cpfCnpj')">CPF/CNPJ <span class="ct-sort-icon" id="ctsCpfCnpj"></span></th>
-            <th onclick="ctSort('clienteChave')">Cliente Chave <span class="ct-sort-icon" id="ctsClienteChave"></span></th>
-            <th onclick="ctSort('dataInstalacao')">Data Instalacao <span class="ct-sort-icon" id="ctsDataInstalacao"></span></th>
-            <th class="ct-th-action"></th>
-          </tr>
-        </thead>
+        <thead id="ctThead"><tr><th></th></tr></thead>
         <tbody id="ctBody"></tbody>
       </table>
       <div class="ct-empty hidden" id="ctEmpty">Nenhum contrato encontrado.</div>
@@ -203,40 +192,7 @@
           <button class="ct-modal-close" onclick="ctCloseForm()">&#10005;</button>
         </div>
         <form class="ct-form" id="ctForm" onsubmit="ctSubmit(event)">
-          <div class="ct-form-grid">
-            <div class="ct-field ct-span2">
-              <label class="ct-label">Nome do Cliente <span class="ct-req">*</span></label>
-              <input class="ct-input" id="ctNomeCliente" type="text" placeholder="Razao social ou nome" required>
-            </div>
-            <div class="ct-field">
-              <label class="ct-label">CPF / CNPJ</label>
-              <input class="ct-input" id="ctCpfCnpj" type="text" placeholder="000.000.000-00" oninput="ctMaskDoc(this)" maxlength="18">
-            </div>
-            <div class="ct-field">
-              <label class="ct-label">Cliente Chave</label>
-              <input class="ct-input" id="ctClienteChave" type="text" placeholder="Identificador ou codigo">
-            </div>
-            <div class="ct-field">
-              <label class="ct-label">Cidade</label>
-              <input class="ct-input" id="ctCidade" type="text" placeholder="Sao Paulo">
-            </div>
-            <div class="ct-field">
-              <label class="ct-label">Estado</label>
-              <input class="ct-input" id="ctEstado" type="text" placeholder="SP" maxlength="2" oninput="this.value=this.value.toUpperCase()">
-            </div>
-            <div class="ct-field">
-              <label class="ct-label">Filial</label>
-              <input class="ct-input" id="ctFilial" type="text" placeholder="Filial ou unidade">
-            </div>
-            <div class="ct-field">
-              <label class="ct-label">Modelo</label>
-              <input class="ct-input" id="ctModelo" type="text" placeholder="Tipo ou modelo do contrato">
-            </div>
-            <div class="ct-field">
-              <label class="ct-label">Data de Instalacao</label>
-              <input class="ct-input" id="ctDataInstalacao" type="text" placeholder="DD/MM/AAAA" oninput="ctMaskDate(this)" maxlength="10">
-            </div>
-          </div>
+          <div class="ct-form-grid" id="ctFormFields"></div>
           <div class="ct-form-actions">
             <button type="button" class="ct-btn-del hidden" id="ctBtnDel" onclick="ctDelete()">&#128465; Excluir contrato</button>
             <button type="button" class="ct-btn-sec" onclick="ctCloseForm()">Cancelar</button>
@@ -252,6 +208,25 @@
             <input type="file" id="ctFileInput" multiple style="display:none" onchange="ctUploadFiles(this.files)">
           </div>
           <div class="ct-files-list" id="ctFilesList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schema config modal -->
+    <div class="ct-modal hidden" id="ctSchemaModal" onclick="if(event.target===this)ctCloseSchemaModal()">
+      <div class="ct-modal-box">
+        <div class="ct-modal-header">
+          <span class="ct-modal-title">&#9881; Configurar Campos de Contrato</span>
+          <button class="ct-modal-close" onclick="ctCloseSchemaModal()">&#10005;</button>
+        </div>
+        <div class="ct-schema-body">
+          <p class="ct-schema-hint">Defina ate 10 campos. O campo 1 e o identificador principal e sempre obrigatorio. Campos salvos aqui aparecem no formulario e na tabela.</p>
+          <div id="ctSchemaFields"></div>
+          <button class="ct-schema-add" id="ctSchemaAddBtn" onclick="ctSchemaAddField()">&#43; Adicionar campo</button>
+        </div>
+        <div class="ct-form-actions" style="padding:0 22px 22px;">
+          <button type="button" class="ct-btn-sec" onclick="ctCloseSchemaModal()">Cancelar</button>
+          <button type="button" class="ct-btn-primary" onclick="ctSaveSchema()">Salvar configuracao</button>
         </div>
       </div>
     </div>
