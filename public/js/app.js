@@ -1,3 +1,16 @@
+/* ── CONFIRM RESULT MODAL ────────────────────────────────────────── */
+function showCrf(ok, title, body, detail) {
+  gel('crfIcon').textContent  = ok ? '✓' : '✗';
+  gel('crfIcon').className    = 'crf-icon ' + (ok ? 'crf-ok' : 'crf-err');
+  gel('crfTitle').textContent = title;
+  gel('crfBody').textContent  = body;
+  const detEl = gel('crfDetail');
+  if (detail) { detEl.textContent = detail; detEl.classList.remove('hidden'); }
+  else detEl.classList.add('hidden');
+  gel('crfOverlay').classList.remove('hidden');
+}
+function closeCrf() { gel('crfOverlay').classList.add('hidden'); }
+
 /* ── AUTH ────────────────────────────────────────────────────────── */
 const AUTH = {
   token: localStorage.getItem('sbk_token') || null,
@@ -494,11 +507,16 @@ function renderAdminDepts(company) {
 
 function adminNewCompany() {
   openPrompt('Nome da empresa', 'Ex.: Acme Legal', async name => {
+    const btn = gel('promptOkBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
     try {
       const c = await apiPostCompany(name);
-      if (c?.id) { toast('Empresa "' + c.name + '" criada.'); renderAdminPanel(); }
+      await renderAdminPanel();
+      showCrf(true, 'Empresa cadastrada', '"' + c.name + '" foi salva com sucesso no storage (' + (await getBackendLabel()) + ').');
     } catch (e) {
-      toast('Erro ao criar empresa: ' + (e.message || 'tente novamente.'));
+      showCrf(false, 'Erro ao salvar empresa', 'O cadastro nao foi persistido.', e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Confirmar'; }
     }
   });
 }
@@ -509,12 +527,15 @@ function adminRenameCompany(id, encodedName) {
     if (!name || name === current) return;
     try {
       const r = await apiFetch(`/api/companies/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
-      if (!r || !r.ok) { toast('Erro ao renomear empresa.'); return; }
-      toast('Empresa renomeada.');
+      if (!r || !r.ok) {
+        const err = await r?.json().catch(() => ({}));
+        showCrf(false, 'Erro ao renomear', 'Nao foi possivel salvar o novo nome.', err?.error || `HTTP ${r?.status}`); return;
+      }
       const companies = await apiGetCompanies();
       if (adminSelCompany?.id === id) adminSelCompany = companies.find(c => c.id === id);
       renderAdminCompanies(companies);
-    } catch (e) { toast('Erro: ' + e.message); }
+      showCrf(true, 'Empresa renomeada', 'Nome atualizado para "' + name + '".');
+    } catch (e) { showCrf(false, 'Erro', 'Nao foi possivel renomear.', e.message); }
   });
 }
 
@@ -524,27 +545,46 @@ function adminRenameDept(companyId, deptId, encodedName) {
     if (!name || name === current) return;
     try {
       const r = await apiFetch(`/api/companies/${companyId}/departments/${deptId}`, { method: 'PUT', body: JSON.stringify({ name }) });
-      if (!r || !r.ok) { toast('Erro ao renomear departamento.'); return; }
-      toast('Departamento renomeado.');
+      if (!r || !r.ok) {
+        const err = await r?.json().catch(() => ({}));
+        showCrf(false, 'Erro ao renomear', 'Nao foi possivel salvar o novo nome.', err?.error || `HTTP ${r?.status}`); return;
+      }
       const companies = await apiGetCompanies();
       adminSelCompany = companies.find(c => c.id === companyId);
       if (adminSelCompany) renderAdminDepts(adminSelCompany);
       renderAdminCompanies(companies);
-    } catch (e) { toast('Erro: ' + e.message); }
+      showCrf(true, 'Departamento renomeado', 'Nome atualizado para "' + name + '".');
+    } catch (e) { showCrf(false, 'Erro', 'Nao foi possivel renomear.', e.message); }
   });
 }
 
 function adminNewDept() {
   if (!adminSelCompany) return;
   openPrompt('Nome do departamento', 'Ex.: Recursos Humanos', async name => {
-    const d = await apiPostDept(adminSelCompany.id, name);
-    if (d?.id) {
-      toast('Departamento "' + d.name + '" criado.');
+    const btn = gel('promptOkBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+    try {
+      const d = await apiPostDept(adminSelCompany.id, name);
+      if (!d?.id) { showCrf(false, 'Erro', 'Servidor nao retornou o departamento criado.'); return; }
       const companies = await apiGetCompanies();
       adminSelCompany = companies.find(c => c.id === adminSelCompany.id);
       if (adminSelCompany) { renderAdminDepts(adminSelCompany); renderAdminCompanies(companies); }
+      showCrf(true, 'Departamento cadastrado', '"' + d.name + '" foi salvo com sucesso.');
+    } catch (e) {
+      showCrf(false, 'Erro ao salvar departamento', 'O cadastro nao foi persistido.', e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Confirmar'; }
     }
   });
+}
+
+async function getBackendLabel() {
+  try {
+    const r = await apiFetch('/api/status');
+    if (!r || !r.ok) return 'storage';
+    const { storage } = await r.json();
+    return { upstash: 'Upstash Redis', github: 'GitHub', local: 'local' }[storage.backend] || storage.backend;
+  } catch { return 'storage'; }
 }
 
 async function adminDeleteCompany(id) {
