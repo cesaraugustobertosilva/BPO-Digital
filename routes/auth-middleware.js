@@ -34,21 +34,19 @@ function verifyToken(token) {
 }
 
 function seedUsers() {
+  // Apenas o administrador e criado automaticamente.
+  // Usuarios de empresa e departamento devem ser cadastrados pelo admin
+  // apos criar as empresas e departamentos correspondentes.
   return [
     {
-      id: 'user_admin', username: 'admin',  name: 'Administrador',
-      role: 'admin',      companyId: null,        departmentId: null,
+      id:           'user_admin',
+      username:     'admin',
+      name:         'Administrador',
+      role:         'admin',
+      companyId:    null,
+      departmentId: null,
+      modules:      [],
       passwordHash: hashPassword('admin123'),
-    },
-    {
-      id: 'user_gest',  username: 'gestor', name: 'Gestor SBK',
-      role: 'company',    companyId: 'comp_demo', departmentId: null,
-      passwordHash: hashPassword('gestor123'),
-    },
-    {
-      id: 'user_rh',    username: 'rh',     name: 'Analista RH',
-      role: 'department', companyId: 'comp_demo', departmentId: 'dept_rh',
-      passwordHash: hashPassword('rh123'),
     },
   ];
 }

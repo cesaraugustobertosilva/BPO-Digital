@@ -5,13 +5,21 @@
  *                      Crie gratis em: https://console.upstash.com
  *
  * 2. GitHub Contents — configure GITHUB_TOKEN (PAT com repo write) + GITHUB_OWNER + GITHUB_REPO
- *                      Cria/atualiza arquivos JSON no branch "data" do repositorio.
+ *                      Salva arquivos JSON no branch "data" do repositorio.
  *
  * 3. Filesystem local — apenas para desenvolvimento. No Vercel usa /tmp (volatil).
+ *
+ * Cache em memoria (write-through):
+ *   Todos os writes atualizam o cache antes de persistir no backend.
+ *   Reads verificam o cache primeiro, evitando roundtrips desnecessarios.
+ *   Garante consistencia dentro da mesma instancia do servidor.
  */
 
 const fs   = require('fs');
 const path = require('path');
+
+/* ── CACHE EM MEMORIA ────────────────────────────────────────────── */
+const memCache = new Map();
 
 /* ── UPSTASH ─────────────────────────────────────────────────────── */
 const UPSTASH_URL   = process.env.UPSTASH_REDIS_REST_URL;
@@ -56,6 +64,34 @@ function ghHeaders() {
     'X-GitHub-Api-Version': '2022-11-28',
   };
 }
+
+async function ghEnsureBranch() {
+  try {
+    const check = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/refs/heads/${GH_BRANCH}`,
+      { headers: ghHeaders() }
+    );
+    if (check.ok) return;
+    // Branch nao existe — criar a partir de main
+    const mainRef = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/refs/heads/main`,
+      { headers: ghHeaders() }
+    );
+    if (!mainRef.ok) return;
+    const { object } = await mainRef.json();
+    await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/refs`, {
+      method:  'POST',
+      headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ref: `refs/heads/${GH_BRANCH}`, sha: object.sha }),
+    });
+    console.log(`[db] Branch "${GH_BRANCH}" criado no GitHub.`);
+  } catch (e) {
+    console.warn('[db] ghEnsureBranch falhou:', e.message);
+  }
+}
+
+// Garante branch "data" ao iniciar (apenas uma vez)
+if (GH_TOKEN) ghEnsureBranch();
 
 async function ghGet(filePath) {
   const resp = await fetch(`${GH_BASE}/${filePath}?ref=${GH_BRANCH}`, { headers: ghHeaders() });
@@ -132,9 +168,10 @@ const BACKEND = UPSTASH_URL ? 'upstash'
 
 if (BACKEND === 'local' && process.env.VERCEL) {
   console.warn(
-    '[db] DADOS NAO SERAO PERSISTIDOS!\n' +
+    '[db] AVISO CRITICO: Dados NAO serao persistidos entre deploys/instancias!\n' +
     '     Configure UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN no Vercel.\n' +
-    '     Instrucoes: https://console.upstash.com'
+    '     Alternativa: configure GITHUB_TOKEN com permissao de escrita no repositorio.\n' +
+    '     Instrucoes Upstash: https://console.upstash.com'
   );
 } else {
   console.log(`[db] Backend de armazenamento: ${BACKEND}`);
@@ -142,15 +179,19 @@ if (BACKEND === 'local' && process.env.VERCEL) {
 
 /* ── PUBLIC API ──────────────────────────────────────────────────── */
 
-// readData: retorna null quando a chave nao existe, lanca erro em caso de falha
-// de armazenamento. NAO engole erros para nao mascarar problemas de conexao.
+// readData: verifica cache primeiro, depois storage.
+// Retorna null quando a chave nao existe. Lanca erro em falha de conexao.
 async function readData(name) {
-  if (BACKEND === 'upstash') return await upstashGet(name);
-  if (BACKEND === 'github')  return await githubRead(name);
-  return readLocal(name);
+  if (memCache.has(name)) return memCache.get(name);
+  let data;
+  if (BACKEND === 'upstash') data = await upstashGet(name);
+  else if (BACKEND === 'github') data = await githubRead(name);
+  else data = readLocal(name);
+  if (data !== null) memCache.set(name, data);
+  return data;
 }
 
-// readDataSafe: versao que retorna null em caso de erro (uso em leituras nao criticas)
+// readDataSafe: idem, mas retorna null em vez de lancar erro em falha de conexao.
 async function readDataSafe(name) {
   try { return await readData(name); } catch (e) {
     console.error(`[db] readDataSafe(${name}) falhou:`, e.message);
@@ -158,25 +199,33 @@ async function readDataSafe(name) {
   }
 }
 
+// writeData: atualiza cache imediatamente e persiste no backend.
+// O cache garante consistencia dentro da mesma instancia mesmo que o storage falhe.
 async function writeData(name, data) {
+  memCache.set(name, data);
   try {
     if (BACKEND === 'upstash') { await upstashSet(name, data); return; }
     if (BACKEND === 'github')  { await githubWrite(name, data); return; }
     writeLocal(name, data);
   } catch (e) {
-    console.error(`[db] writeData(${name}) falhou:`, e.message);
+    console.error(`[db] writeData(${name}) falhou no backend ${BACKEND}:`, e.message);
     throw e;
   }
 }
 
-/* Retorna estado do storage para o endpoint de status */
+// invalidateCache: remove entrada do cache (forcando releitura do storage)
+function invalidateCache(name) {
+  memCache.delete(name);
+}
+
 function storageStatus() {
   return {
     backend:  BACKEND,
     upstash:  !!UPSTASH_URL,
     github:   !!GH_TOKEN,
     volatile: BACKEND === 'local' && !!process.env.VERCEL,
+    cached:   [...memCache.keys()],
   };
 }
 
-module.exports = { readData, readDataSafe, writeData, storageStatus };
+module.exports = { readData, readDataSafe, writeData, invalidateCache, storageStatus };
