@@ -199,14 +199,14 @@ async function readDataSafe(name) {
   }
 }
 
-// writeData: atualiza cache imediatamente e persiste no backend.
-// O cache garante consistencia dentro da mesma instancia mesmo que o storage falhe.
+// writeData: persiste no backend e SO ENTAO atualiza o cache.
+// Se o storage falhar, o cache NAO e atualizado (evita divergencia).
 async function writeData(name, data) {
-  memCache.set(name, data);
   try {
-    if (BACKEND === 'upstash') { await upstashSet(name, data); return; }
-    if (BACKEND === 'github')  { await githubWrite(name, data); return; }
-    writeLocal(name, data);
+    if (BACKEND === 'upstash') await upstashSet(name, data);
+    else if (BACKEND === 'github') await githubWrite(name, data);
+    else writeLocal(name, data);
+    memCache.set(name, data); // Cache so atualizado apos escrita bem-sucedida
   } catch (e) {
     console.error(`[db] writeData(${name}) falhou no backend ${BACKEND}:`, e.message);
     throw e;

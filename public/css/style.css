@@ -532,6 +532,42 @@ html, body {
 }
 
 /* SUCCESS OVERLAY */
+/* ── CONFIRM RESULT MODAL ────────────────────────────────────────── */
+.crf-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+}
+.crf-modal {
+  background: #fff; border-radius: 14px;
+  padding: 36px 32px 28px; max-width: 400px; width: 90%;
+  text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,.18);
+  animation: fadeUp .25s ease;
+}
+.crf-icon {
+  font-size: 40px; font-weight: 700;
+  width: 64px; height: 64px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+}
+.crf-ok  { background: #e6f4ee; color: #1a7a45; }
+.crf-err { background: #fdecea; color: #c0392b; }
+.crf-title { font-size: 18px; font-weight: 700; color: var(--sbk-dark); margin-bottom: 8px; }
+.crf-body  { font-size: 14px; color: var(--sbk-slate); margin-bottom: 8px; line-height: 1.5; }
+.crf-detail {
+  font-size: 11px; color: #c0392b; background: #fdecea;
+  border-radius: 6px; padding: 8px 12px; margin-bottom: 8px;
+  font-family: monospace; word-break: break-all; text-align: left;
+}
+.crf-btn {
+  margin-top: 12px; padding: 10px 32px;
+  background: var(--sbk-dark); color: #fff;
+  border: none; border-radius: 8px; font-size: 14px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer; transition: background .15s;
+}
+.crf-btn:hover { background: var(--sbk-mid); }
+
 .success-overlay {
   position: fixed; inset: 0;
   background: rgba(2,54,49,.92);
