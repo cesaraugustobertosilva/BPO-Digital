@@ -422,14 +422,17 @@
           ondrop="dDrop(event)">
           <div class="uglow"></div>
           <div class="uiw">&#128206;</div>
-          <div class="ucta">+ Upload Documental</div>
-          <div class="usub">Clique ou arraste &middot; IA analisa o conteudo real</div>
+          <div class="ucta">+ Upload com Analise IA</div>
+          <div class="usub">Clique ou arraste &middot; IA identifica e mapeia ao checklist</div>
           <div class="upills">
             <span class="upill">PDF</span>
             <span class="upill">JPG / PNG</span>
             <span class="upill">DOCX</span>
           </div>
         </div>
+        <button class="upload-simple-btn" onclick="trigUpSimple()" title="Adiciona o arquivo sem enviar para analise IA">
+          &#128203; Upload simples (sem analise IA)
+        </button>
         <div class="toast" id="toast">
           <div class="tdot"></div>
           <span id="tmsg">Aguardando documentos...</span>
@@ -646,7 +649,7 @@
     </div>
     <div class="cle-foot">
       <button class="ibtn-sec" onclick="closeClEditor()">Cancelar</button>
-      <button class="ibtn-pri" onclick="saveClEditor()">&#10003; Salvar checklist</button>
+      <button class="ibtn-pri" id="cleSaveBtn" onclick="saveClEditor()">&#10003; Salvar checklist</button>
     </div>
   </div>
 </div>
@@ -762,7 +765,8 @@
   </div>
 </div>
 
-<input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.docx" onchange="handleFiles(event)" style="display:none">
+<input type="file" id="fileInput"       multiple accept=".pdf,.jpg,.jpeg,.png,.docx" onchange="handleFiles(event)"       style="display:none">
+<input type="file" id="fileInputSimple" multiple accept=".pdf,.jpg,.jpeg,.png,.docx" onchange="handleFilesSimple(event)" style="display:none">
 <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" onchange="handleXlsx(event)" style="display:none">
 
 <script src="/js/app.js"></script>

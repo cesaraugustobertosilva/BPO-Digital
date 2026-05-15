@@ -181,7 +181,11 @@ const STATE = {
 };
 
 /* ── SYSTEM PROMPT ───────────────────────────────────────────────── */
-const SYSTEM_PROMPT = `Voce e um assistente especializado em analise de documentos de RH para compliance documental.
+// Gerado dinamicamente a partir do CHECKLIST atual, para que itens
+// customizados do departamento sejam reconhecidos pela IA.
+function buildSystemPrompt() {
+  const items = CHECKLIST.map(item => `- "${item.id}" -> ${item.name}`).join('\n');
+  return `Voce e um assistente especializado em analise de documentos de RH para compliance documental.
 
 Analise o documento ou imagem enviado e responda APENAS em JSON valido, sem nenhum texto extra, com este formato exato:
 
@@ -198,18 +202,13 @@ Analise o documento ou imagem enviado e responda APENAS em JSON valido, sem nenh
 }
 
 Os IDs de checklist disponiveis sao:
-- "cnh"    -> CNH, RG, Identidade, Passaporte
-- "cpf"    -> Documento CPF
-- "ctrato" -> Contrato de trabalho, CTPS, Vinculo empregaticio
-- "admiss" -> Ficha de admissao, formulario de entrada
-- "exame"  -> Exame admissional, atestado medico, laudo medico
-- "resid"  -> Comprovante de residencia, conta de luz/agua/gas, extrato bancario com endereco
-- "foto"   -> Foto 3x4, foto de perfil profissional
+${items}
 
 Atencao especial:
 - Se o documento contiver dados de MAIS de uma pessoa diferente, defina "multiplas_pessoas": true.
 - Extraia o nome e CPF visiveis no documento em "nome_no_documento" e "cpf_no_documento".
 - Se o documento nao corresponder a nenhum item da lista, retorne checklist_id como null.`;
+}
 
 /* ── HELPERS ─────────────────────────────────────────────────────── */
 const gel = id => document.getElementById(id);
@@ -770,13 +769,21 @@ function cleAddItem() {
 async function saveClEditor() {
   const valid = cleItems.filter(c => c.name.trim().length > 0);
   if (!valid.length) { toast('Adicione ao menos um item ao checklist.'); return; }
-  const updated = await apiPutDept(STATE.company.id, STATE.department.id, { checklist: valid });
-  if (updated) {
-    STATE.department = updated;
-    const idx = STATE.company.departments.findIndex(d => d.id === updated.id);
-    if (idx >= 0) STATE.company.departments[idx] = updated;
-    resetChecklistFromDept(); renderChecklist(); closeClEditor();
-    toast('Checklist do departamento atualizado.');
+  const btn = gel('cleSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+  try {
+    const updated = await apiPutDept(STATE.company.id, STATE.department.id, { checklist: valid });
+    if (updated) {
+      STATE.department = updated;
+      const idx = STATE.company.departments.findIndex(d => d.id === updated.id);
+      if (idx >= 0) STATE.company.departments[idx] = updated;
+      resetChecklistFromDept(); renderChecklist(); closeClEditor();
+      toast('Checklist do departamento atualizado.');
+    } else {
+      toast('Erro ao salvar checklist. Verifique sua conexao e tente novamente.');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; }
   }
 }
 
@@ -949,7 +956,7 @@ async function analyzeWithAI(file) {
   }
   const resp = await apiFetch('/api/analyze', {
     method:'POST',
-    body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system:SYSTEM_PROMPT, messages }),
+    body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system: buildSystemPrompt(), messages }),
   });
   if (!resp || !resp.ok) {
     const err = resp ? await resp.json().catch(() => ({})) : {};
@@ -1046,6 +1053,34 @@ function dLeave()       { document.getElementById('uzone').classList.remove('dra
 function dDrop(e)       { e.preventDefault(); document.getElementById('uzone').classList.remove('drag'); processFiles(Array.from(e.dataTransfer.files)); }
 function handleFiles(e) { processFiles(Array.from(e.target.files)); e.target.value = ''; }
 function remDoc(id)     { docs = docs.filter(d => d.id !== id); renderDocs(); updateStats(); }
+
+/* ── UPLOAD SEM IA ───────────────────────────────────────────────── */
+function trigUpSimple()        { document.getElementById('fileInputSimple').click(); }
+function handleFilesSimple(e)  { processFilesSimple(Array.from(e.target.files)); e.target.value = ''; }
+function dDropSimple(e) {
+  e.preventDefault();
+  document.getElementById('uzone').classList.remove('drag');
+  processFilesSimple(Array.from(e.dataTransfer.files));
+}
+
+async function processFilesSimple(files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const id   = Date.now() + i;
+    const doc  = {
+      id,
+      name:          file.name,
+      status:        'done',
+      result:        'Documento recebido',
+      analysis:      'Adicionado sem analise automatica.',
+      error:         '',
+      identityAlert: null,
+    };
+    docs.push(doc);
+    renderDocs(); updateStats();
+    toast(`"${file.name}" adicionado sem analise IA.`);
+  }
+}
 
 /* ── TOAST ───────────────────────────────────────────────────────── */
 let toastTimer;
