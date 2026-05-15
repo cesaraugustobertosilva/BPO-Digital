@@ -403,11 +403,13 @@ async function apiPostCompany(name) {
   return r.json();
 }
 async function apiPostDept(companyId, name) {
-  try {
-    const r = await apiFetch(`/api/companies/${companyId}/departments`, { method:'POST', body:JSON.stringify({name}) });
-    if (!r) return null;
-    return r.ok ? r.json() : null;
-  } catch { return null; }
+  const r = await apiFetch(`/api/companies/${companyId}/departments`, { method:'POST', body:JSON.stringify({name}) });
+  if (!r) throw new Error('Sem resposta do servidor.');
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${r.status}`);
+  }
+  return r.json();
 }
 async function apiPutDept(companyId, deptId, data) {
   try {
@@ -565,7 +567,6 @@ function adminNewDept() {
     if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
     try {
       const d = await apiPostDept(adminSelCompany.id, name);
-      if (!d?.id) { showCrf(false, 'Erro', 'Servidor nao retornou o departamento criado.'); return; }
       const companies = await apiGetCompanies();
       adminSelCompany = companies.find(c => c.id === adminSelCompany.id);
       if (adminSelCompany) { renderAdminDepts(adminSelCompany); renderAdminCompanies(companies); }
@@ -667,11 +668,13 @@ function cvEnterDept(json) {
 
 function cvNewDept() {
   openPrompt('Nome do departamento', 'Ex.: Financeiro', async name => {
-    const d = await apiPostDept(STATE.company.id, name);
-    if (d?.id) {
+    try {
+      const d = await apiPostDept(STATE.company.id, name);
       const companies = await apiGetCompanies();
       STATE.company = companies.find(c => c.id === STATE.company.id);
       toast('Departamento "' + d.name + '" criado.'); renderCvDeptCards();
+    } catch (e) {
+      showCrf(false, 'Erro ao salvar departamento', 'O cadastro nao foi persistido.', e.message);
     }
   });
 }
@@ -793,8 +796,9 @@ function closePrompt() { gel('promptOverlay').classList.add('hidden'); promptCb 
 function confirmPrompt() {
   const val = gel('promptInput').value.trim();
   if (!val) return;
+  const cb = promptCb;
   closePrompt();
-  if (promptCb) promptCb(val);
+  if (cb) cb(val);
 }
 
 document.addEventListener('keydown', e => {
