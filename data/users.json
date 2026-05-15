@@ -25,5 +25,20 @@
     "companyId": "comp_demo",
     "departmentId": "dept_rh",
     "passwordHash": "38783dc3ee57aa33f89c3bcbf61733e5:63d23abd9ff63cf217e99cb1865fbf40780dd3f07fbaf66baa9c28c036ca58b39409c9292c9b919fd635efbc987812cddaf0d7d028f2fe84c25238ed63c186f1"
+  },
+  {
+    "id": "user_1778845865364",
+    "username": "cesar.silva",
+    "name": "César Augusto",
+    "role": "company",
+    "companyId": null,
+    "departmentId": null,
+    "modules": [
+      "rh",
+      "trabalhista",
+      "nf",
+      "contratos"
+    ],
+    "passwordHash": "b17e1cd5cc38f9d788a1b4356bfb3bca:04ff70a4316019d40fd881ad7a02375984a7fd3a3214281b8d0ed80acd4ddb396787805d8f7c220a2880d186a53a9eaf94f358288521f53c8806c99a94ea7b2c"
   }
 ]
