@@ -84,6 +84,47 @@
             "req": false
           }
         ]
+      },
+      {
+        "id": "dept_1778862360331",
+        "name": "Financeiro",
+        "checklist": [
+          {
+            "id": "cnh",
+            "name": "CNH / RG / Documento de Identidade",
+            "req": true
+          },
+          {
+            "id": "cpf",
+            "name": "CPF",
+            "req": true
+          },
+          {
+            "id": "ctrato",
+            "name": "Contrato de Trabalho",
+            "req": true
+          },
+          {
+            "id": "admiss",
+            "name": "Ficha de Admissao",
+            "req": true
+          },
+          {
+            "id": "exame",
+            "name": "Exame Admissional",
+            "req": true
+          },
+          {
+            "id": "resid",
+            "name": "Comprovante de Residencia",
+            "req": false
+          },
+          {
+            "id": "foto",
+            "name": "Foto 3x4",
+            "req": false
+          }
+        ]
       }
     ]
   }
