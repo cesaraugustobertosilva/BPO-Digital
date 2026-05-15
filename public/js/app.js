@@ -104,8 +104,20 @@ async function setupFromUser(user) {
 
   updateContextBar();
 
-  if (user.role === 'company')    { enterCompanyView(); return; }
-  if (user.role === 'department') { enterDeptView();    return; }
+  if (user.role === 'company') {
+    if (!STATE.company) {
+      toast('Sua conta nao esta vinculada a nenhuma empresa. Contate o administrador.');
+      doLogout(); return;
+    }
+    enterCompanyView(); return;
+  }
+  if (user.role === 'department') {
+    if (!STATE.company || !STATE.department) {
+      toast('Sua conta nao esta vinculada a um departamento valido. Contate o administrador.');
+      doLogout(); return;
+    }
+    enterDeptView(); return;
+  }
 }
 
 /* ── MODULE NAV FILTER ───────────────────────────────────────────── */
@@ -429,15 +441,23 @@ async function renderStorageStatus() {
 
 function renderAdminCompanies(companies) {
   const list = gel('adminCompanyList');
-  if (!companies.length) { list.innerHTML = '<div class="adm-empty">Nenhuma empresa cadastrada.</div>'; return; }
+  if (!companies.length) {
+    list.innerHTML = `<div class="adm-empty-state">
+      <div class="adm-empty-icon">&#127970;</div>
+      <div class="adm-empty-msg">Nenhuma empresa cadastrada.</div>
+      <div class="adm-empty-hint">Clique em <strong>+ Adicionar</strong> para criar a primeira empresa.</div>
+    </div>`;
+    return;
+  }
   list.innerHTML = companies.map(c => {
-    const sel = adminSelCompany?.id === c.id ? 'sel' : '';
+    const sel  = adminSelCompany?.id === c.id ? 'sel' : '';
     const safe = encodeURIComponent(JSON.stringify(c));
     return `<div class="adm-item ${sel}" onclick="adminSelectCompany(decodeURIComponent('${safe}'))">
       <div class="adm-item-ico">&#127970;</div>
       <div class="adm-item-name">${c.name}</div>
-      <button class="adm-view-btn" onclick="event.stopPropagation();adminViewCompany(decodeURIComponent('${safe}'))" title="Visualizar empresa">&#128065;</button>
-      <button class="adm-del-btn" onclick="event.stopPropagation();adminDeleteCompany('${c.id}')" title="Excluir">&#215;</button>
+      <button class="adm-rename-btn" onclick="event.stopPropagation();adminRenameCompany('${c.id}','${encodeURIComponent(c.name)}')" title="Renomear">&#9998;</button>
+      <button class="adm-view-btn"   onclick="event.stopPropagation();adminViewCompany(decodeURIComponent('${safe}'))" title="Visualizar empresa">&#128065;</button>
+      <button class="adm-del-btn"    onclick="event.stopPropagation();adminDeleteCompany('${c.id}')" title="Excluir">&#215;</button>
     </div>`;
   }).join('');
 }
@@ -451,15 +471,23 @@ function adminSelectCompany(json) {
 
 function renderAdminDepts(company) {
   const list = gel('adminDeptList');
-  if (!company.departments.length) { list.innerHTML = '<div class="adm-empty">Nenhum departamento.</div>'; return; }
+  if (!company.departments.length) {
+    list.innerHTML = `<div class="adm-empty-state">
+      <div class="adm-empty-icon">&#128101;</div>
+      <div class="adm-empty-msg">Nenhum departamento em <strong>${company.name}</strong>.</div>
+      <div class="adm-empty-hint">Clique em <strong>+ Adicionar</strong> para criar o primeiro departamento.</div>
+    </div>`;
+    return;
+  }
   const safeC = encodeURIComponent(JSON.stringify(company));
   list.innerHTML = company.departments.map(d => {
     const safeD = encodeURIComponent(JSON.stringify(d));
     return `<div class="adm-item">
       <div class="adm-item-ico">&#128101;</div>
       <div class="adm-item-name">${d.name}</div>
-      <button class="adm-view-btn" onclick="adminViewDept(decodeURIComponent('${safeC}'), decodeURIComponent('${safeD}'))" title="Visualizar departamento">&#128065;</button>
-      <button class="adm-del-btn" onclick="adminDeleteDept('${company.id}','${d.id}')" title="Excluir">&#215;</button>
+      <button class="adm-rename-btn" onclick="adminRenameDept('${company.id}','${d.id}','${encodeURIComponent(d.name)}')" title="Renomear">&#9998;</button>
+      <button class="adm-view-btn"   onclick="adminViewDept(decodeURIComponent('${safeC}'), decodeURIComponent('${safeD}'))" title="Visualizar departamento">&#128065;</button>
+      <button class="adm-del-btn"    onclick="adminDeleteDept('${company.id}','${d.id}')" title="Excluir">&#215;</button>
     </div>`;
   }).join('');
 }
@@ -468,10 +496,41 @@ function adminNewCompany() {
   openPrompt('Nome da empresa', 'Ex.: Acme Legal', async name => {
     try {
       const c = await apiPostCompany(name);
-      if (c?.id) { toast('Empresa criada.'); renderAdminPanel(); }
+      if (c?.id) { toast('Empresa "' + c.name + '" criada.'); renderAdminPanel(); }
     } catch (e) {
       toast('Erro ao criar empresa: ' + (e.message || 'tente novamente.'));
     }
+  });
+}
+
+function adminRenameCompany(id, encodedName) {
+  const current = decodeURIComponent(encodedName);
+  openPrompt('Renomear empresa', current, async name => {
+    if (!name || name === current) return;
+    try {
+      const r = await apiFetch(`/api/companies/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
+      if (!r || !r.ok) { toast('Erro ao renomear empresa.'); return; }
+      toast('Empresa renomeada.');
+      const companies = await apiGetCompanies();
+      if (adminSelCompany?.id === id) adminSelCompany = companies.find(c => c.id === id);
+      renderAdminCompanies(companies);
+    } catch (e) { toast('Erro: ' + e.message); }
+  });
+}
+
+function adminRenameDept(companyId, deptId, encodedName) {
+  const current = decodeURIComponent(encodedName);
+  openPrompt('Renomear departamento', current, async name => {
+    if (!name || name === current) return;
+    try {
+      const r = await apiFetch(`/api/companies/${companyId}/departments/${deptId}`, { method: 'PUT', body: JSON.stringify({ name }) });
+      if (!r || !r.ok) { toast('Erro ao renomear departamento.'); return; }
+      toast('Departamento renomeado.');
+      const companies = await apiGetCompanies();
+      adminSelCompany = companies.find(c => c.id === companyId);
+      if (adminSelCompany) renderAdminDepts(adminSelCompany);
+      renderAdminCompanies(companies);
+    } catch (e) { toast('Erro: ' + e.message); }
   });
 }
 
@@ -480,11 +539,10 @@ function adminNewDept() {
   openPrompt('Nome do departamento', 'Ex.: Recursos Humanos', async name => {
     const d = await apiPostDept(adminSelCompany.id, name);
     if (d?.id) {
-      toast('Departamento criado.');
+      toast('Departamento "' + d.name + '" criado.');
       const companies = await apiGetCompanies();
       adminSelCompany = companies.find(c => c.id === adminSelCompany.id);
-      renderAdminDepts(adminSelCompany);
-      renderAdminCompanies(companies);
+      if (adminSelCompany) { renderAdminDepts(adminSelCompany); renderAdminCompanies(companies); }
     }
   });
 }
