@@ -31,7 +31,7 @@
     "username": "cesar.silva",
     "name": "César Augusto",
     "role": "company",
-    "companyId": null,
+    "companyId": "comp_demo",
     "departmentId": null,
     "modules": [
       "rh",
