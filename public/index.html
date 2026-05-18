@@ -280,6 +280,20 @@
     </div>
   </div>
 
+  <!-- ── MULTI-COMPANY VIEW ───────────────────────────────────────── -->
+  <div id="multiCompanyView" class="hidden body">
+    <div class="cv-header">
+      <div>
+        <div class="cv-title">Selecionar Empresa</div>
+        <div class="cv-sub">Escolha a empresa que deseja acessar</div>
+      </div>
+      <button class="back-btn" onclick="doLogout()">&#8594; Sair</button>
+    </div>
+    <div class="su-company-grid" id="mcCompanyGrid">
+      <div class="adm-empty">Carregando empresas...</div>
+    </div>
+  </div>
+
   <!-- ── COMPANY VIEW ────────────────────────────────────────────── -->
   <div id="companyView" class="hidden body">
 
@@ -709,6 +723,7 @@
           <label>Perfil de acesso</label>
           <select id="ufRole" onchange="ufRoleChange()">
             <option value="admin">Administrador</option>
+            <option value="multicompany">Gestao de Multiplas Empresas</option>
             <option value="company">Gestao de Empresa</option>
             <option value="department">Departamental</option>
           </select>

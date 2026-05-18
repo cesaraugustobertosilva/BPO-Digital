@@ -86,7 +86,7 @@ function hideLogin() {
 
 async function setupFromUser(user) {
   AUTH.user = user;
-  const roleLabels = { admin: 'Administrador', company: 'Gestao de Empresa', department: 'Departamental' };
+  const roleLabels = { admin: 'Administrador', multicompany: 'Gestao de Multiplas Empresas', company: 'Gestao de Empresa', department: 'Departamental' };
   gel('userName').textContent  = user.name;
   gel('userRole').textContent  = roleLabels[user.role] || user.role;
   gel('userAvatar').textContent = user.name.charAt(0).toUpperCase();
@@ -100,6 +100,14 @@ async function setupFromUser(user) {
     STATE.department = null;
     updateContextBar();
     enterAdminView();
+    return;
+  }
+
+  if (user.role === 'multicompany') {
+    STATE.company    = null;
+    STATE.department = null;
+    updateContextBar();
+    enterMultiCompanyView();
     return;
   }
 
@@ -221,7 +229,7 @@ function resetChecklistFromDept() {
 
 /* ── VIEW CONTROL ────────────────────────────────────────────────── */
 function showView(name) {
-  ['mainView','incView','adminView','companyView','trabalhistaView','nfView','contratosView','painelView'].forEach(id => {
+  ['mainView','incView','adminView','companyView','multiCompanyView','trabalhistaView','nfView','contratosView','painelView'].forEach(id => {
     const e = gel(id);
     if (e) { e.classList.add('hidden'); e.classList.remove('active'); }
   });
@@ -229,7 +237,7 @@ function showView(name) {
   if (['main','inc','trabalhista','nf','contratos','painel'].includes(name)) nav?.classList.remove('hidden');
   else nav?.classList.add('hidden');
 
-  const idMap = { main:'mainView', inc:'incView', admin:'adminView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView', painel:'painelView' };
+  const idMap = { main:'mainView', inc:'incView', admin:'adminView', multiCompanyView:'multiCompanyView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView', painel:'painelView' };
   const target = gel(idMap[name] || 'companyView');
   if (target) { target.classList.remove('hidden'); if (name === 'inc') target.classList.add('active'); }
 
@@ -247,6 +255,12 @@ function updateContextBar() {
   const deptEl = gel('ctxDept');
   if (STATE.profile === 'admin') {
     compEl.textContent = 'Administrador';
+    sepEl.classList.add('hidden'); deptEl.classList.add('hidden');
+    return;
+  }
+  if (STATE.profile === 'multicompany' && !STATE.company) {
+    compEl.textContent = 'Multiplas Empresas';
+    compEl.style.cursor = ''; compEl.title = ''; compEl.onclick = null;
     sepEl.classList.add('hidden'); deptEl.classList.add('hidden');
     return;
   }
@@ -364,7 +378,10 @@ function enterCompanyView() {
   // Update back button for admin (goes back to panel) vs company user (logs out)
   const backBtn = gel('cvBackBtn');
   if (backBtn) {
-    backBtn.textContent = AUTH.user?.role === 'admin' ? '← Painel Admin' : '→ Sair';
+    const role = AUTH.user?.role;
+    if (role === 'admin') backBtn.textContent = '← Painel Admin';
+    else if (role === 'multicompany') backBtn.textContent = '← Selecionar Empresa';
+    else backBtn.textContent = '→ Sair';
   }
   renderCompanyView();
 }
@@ -387,6 +404,34 @@ function enterDeptView() {
   }
   renderChecklist(); renderDocs(); updateIncBadge();
   renderIndexedDossies();
+}
+
+async function enterMultiCompanyView() {
+  showView('multiCompanyView');
+  const grid = gel('mcCompanyGrid');
+  grid.innerHTML = '<div class="adm-empty">Carregando...</div>';
+  const companies = await apiGetCompanies();
+  if (!companies.length) {
+    grid.innerHTML = '<div class="adm-empty">Nenhuma empresa cadastrada. Contate o administrador.</div>';
+    return;
+  }
+  grid.innerHTML = companies.map(c => {
+    const safe = encodeURIComponent(JSON.stringify(c));
+    return `<div class="su-company-card" onclick="mcSelectCompany(decodeURIComponent('${safe}'))">
+      <div class="su-cc-ico">&#127970;</div>
+      <div>
+        <div class="su-cc-name">${c.name}</div>
+        <div class="su-cc-sub">${c.departments.length} departamento${c.departments.length !== 1 ? 's' : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function mcSelectCompany(companyJson) {
+  STATE.company = JSON.parse(typeof companyJson === 'string' ? companyJson : JSON.stringify(companyJson));
+  STATE.department = null;
+  updateContextBar();
+  enterCompanyView();
 }
 
 /* ── API: COMPANIES ──────────────────────────────────────────────── */
@@ -618,9 +663,13 @@ function adminViewDept(coJson, deptJson) {
 }
 
 function goBackFromCompanyView() {
-  if (AUTH.user?.role === 'admin') {
+  const role = AUTH.user?.role;
+  if (role === 'admin') {
     STATE.company = null; STATE.department = null;
     updateContextBar(); enterAdminView();
+  } else if (role === 'multicompany') {
+    STATE.company = null; STATE.department = null;
+    updateContextBar(); enterMultiCompanyView();
   } else {
     doLogout();
   }
@@ -1313,8 +1362,9 @@ async function showIncView() {
 
 function hideIncView() {
   document.getElementById('incView').classList.remove('active');
-  if (!STATE.department && STATE.profile === 'admin')   { enterAdminView(); return; }
-  if (STATE.profile === 'company' && !STATE.department) { enterCompanyView(); return; }
+  if (!STATE.department && STATE.profile === 'admin')        { enterAdminView(); return; }
+  if (!STATE.department && STATE.profile === 'multicompany') { STATE.company ? enterCompanyView() : enterMultiCompanyView(); return; }
+  if (STATE.profile === 'company' && !STATE.department)      { enterCompanyView(); return; }
   document.getElementById('mainView').classList.remove('hidden');
 }
 
@@ -1506,7 +1556,7 @@ async function renderUserList() {
 
   if (!users.length) { list.innerHTML = '<div class="adm-empty">Nenhum usuario cadastrado.</div>'; return; }
 
-  const roleLbl = { admin:'Administrador', company:'Gestao de Empresa', department:'Departamental' };
+  const roleLbl = { admin:'Administrador', multicompany:'Multiplas Empresas', company:'Gestao de Empresa', department:'Departamental' };
   const modLabels = { rh:'RH', trabalhista:'Trabalhista', nf:'NF', contratos:'Contratos', documentos:'Docs' };
   list.innerHTML = `<table class="user-list-table">
     <thead><tr>
@@ -1515,7 +1565,7 @@ async function renderUserList() {
     <tbody>${users.map(u => {
       const co   = companies.find(c => c.id === u.companyId);
       const dept = co?.departments?.find(d => d.id === u.departmentId);
-      const scope = u.role === 'admin' ? 'Todos' : (co?.name || '') + (dept ? ' / ' + dept.name : '');
+      const scope = (u.role === 'admin' || u.role === 'multicompany') ? 'Todas' : (co?.name || '') + (dept ? ' / ' + dept.name : '');
       const safe  = encodeURIComponent(JSON.stringify(u));
       const mods  = u.modules?.length
         ? u.modules.map(m => `<span class="mod-chip">${modLabels[m]||m}</span>`).join('')
@@ -1583,7 +1633,7 @@ function ufSetModules(mods) {
 
 function ufRoleChange() {
   const role = gel('ufRole').value;
-  gel('ufCompanyField').classList.toggle('hidden', role === 'admin');
+  gel('ufCompanyField').classList.toggle('hidden', role === 'admin' || role === 'multicompany');
   gel('ufDeptField').classList.toggle('hidden',    role !== 'department');
 }
 
@@ -1980,9 +2030,10 @@ function enterTrabalhistaView() {
 
 function exitTrabalhistaView() {
   laborStopAutoTimer();
-  if (STATE.department)           { enterDeptView();    return; }
-  if (STATE.company)              { enterCompanyView(); return; }
-  if (STATE.profile === 'admin')  { enterAdminView();   return; }
+  if (STATE.department)                      { enterDeptView();            return; }
+  if (STATE.company)                         { enterCompanyView();          return; }
+  if (STATE.profile === 'admin')             { enterAdminView();            return; }
+  if (STATE.profile === 'multicompany')      { enterMultiCompanyView();     return; }
   enterDeptView();
 }
 
