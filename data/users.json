@@ -30,7 +30,7 @@
     "id": "user_1778845865364",
     "username": "cesar.silva",
     "name": "César Augusto",
-    "role": "company",
+    "role": "multicompany",
     "companyId": "comp_1778862382389",
     "departmentId": null,
     "modules": [
