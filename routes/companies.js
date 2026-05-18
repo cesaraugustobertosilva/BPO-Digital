@@ -100,6 +100,23 @@ router.put('/:id/departments/:deptId', requireAuth, async (req, res) => {
     if (idx < 0) return res.status(404).json({ error: 'Departamento nao encontrado.' });
     co.departments[idx] = { ...co.departments[idx], ...req.body, id: co.departments[idx].id };
     await writeData('companies', list);
+
+    const newChecklist = co.departments[idx].checklist;
+    if (Array.isArray(newChecklist)) {
+      const dossies = await readData('dossies') || [];
+      let changed = false;
+      dossies.forEach(d => {
+        if (d.companyId !== req.params.id || d.departmentId !== req.params.deptId) return;
+        const uploaded = new Set((d.docs || []).map(n => n.toLowerCase()));
+        d.missing_req = newChecklist
+          .filter(item => item.req && !uploaded.has(item.name.toLowerCase()))
+          .map(item => item.name);
+        d.req = newChecklist.filter(item => item.req && uploaded.has(item.name.toLowerCase())).length;
+        changed = true;
+      });
+      if (changed) await writeData('dossies', dossies);
+    }
+
     res.json(co.departments[idx]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
