@@ -2050,6 +2050,14 @@ html, body {
 .dm-item-name { font-size: 12px; color: var(--sbk-dark); }
 .dm-item.dm-miss .dm-item-name { color: #94a3b8; }
 .dm-item-name em { font-style: normal; color: #94a3b8; font-size: 10px; }
+.dm-item.dm-new-req { background: #fff7ed; border: 1px solid #fed7aa; }
+.dm-item.dm-new-req .dm-icon { color: #ea580c; }
+.dm-item.dm-new-req .dm-item-name { color: #9a3412; }
+.dm-new-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 10px;
+  background: #ea580c; color: #fff; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .4px; margin-left: 5px; vertical-align: middle;
+}
 
 /* ── MODULE CHECKBOXES IN USER FORM ─────────────────────────────── */
 .uf-modules-wrap {

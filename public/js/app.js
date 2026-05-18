@@ -827,7 +827,14 @@ async function saveClEditor() {
     const idx = STATE.company.departments.findIndex(d => d.id === updated.id);
     if (idx >= 0) STATE.company.departments[idx] = updated;
     resetChecklistFromDept(); renderChecklist(); closeClEditor();
-    toast('Checklist do departamento atualizado.');
+    renderIndexedDossies();
+    const dossies  = await loadDossies();
+    const pending  = dossies.filter(d => (d.missing_req || []).length > 0).length;
+    if (pending > 0) {
+      toast(`Checklist atualizado. ${pending} prontuario${pending !== 1 ? 's' : ''} com documentos pendentes.`);
+    } else {
+      toast('Checklist do departamento atualizado.');
+    }
   }
 }
 
@@ -1758,6 +1765,9 @@ async function showDossierModal(dossieId) {
   const filesMap = {};
   (d.files || []).forEach(f => { filesMap[f.name.toLowerCase()] = f; });
 
+  const deptCl   = STATE.company?.departments?.find(dep => dep.id === d.departmentId);
+  const checklist = deptCl?.checklist || CHECKLIST_DEF;
+
   gel('dmName').textContent = d.name;
   gel('dmMeta').textContent =
     'CPF: ' + (d.cpf || 'nao informado') +
@@ -1770,15 +1780,16 @@ async function showDossierModal(dossieId) {
     const openBtn = (present && file?.previewUrl)
       ? `<a class="dm-open-btn" href="${file.previewUrl}" target="_blank" rel="noopener" title="Abrir documento">&#128065; Abrir</a>`
       : '';
-    return `<div class="dm-item ${present ? 'dm-ok' : 'dm-miss'}">
+    const isNew = !present && item.req && !(d.missing_req || []).map(m => m.toLowerCase()).includes(item.name.toLowerCase());
+    return `<div class="dm-item ${present ? 'dm-ok' : 'dm-miss'}${isNew ? ' dm-new-req' : ''}">
       <span class="dm-icon">${present ? '&#10003;' : '&#9711;'}</span>
-      <span class="dm-item-name" style="flex:1;">${item.name}</span>
+      <span class="dm-item-name" style="flex:1;">${item.name}${isNew ? ' <span class="dm-new-badge">novo</span>' : ''}</span>
       ${openBtn}
     </div>`;
   }).join('');
 
-  gel('dmRequired').innerHTML = buildItems(CHECKLIST_DEF.filter(i => i.req));
-  gel('dmOptional').innerHTML = buildItems(CHECKLIST_DEF.filter(i => !i.req));
+  gel('dmRequired').innerHTML = buildItems(checklist.filter(i => i.req));
+  gel('dmOptional').innerHTML = buildItems(checklist.filter(i => !i.req));
 
   gel('dmEditBtn').onclick = () => { closeDossierModal(); loadDossie(d.id); window.scrollTo({top:0,behavior:'smooth'}); };
   gel('dossierModal').classList.remove('hidden');
@@ -2219,7 +2230,9 @@ function laborRenderRhChecklist(el, dossie) {
   const filesMap = {};
   (dossie.files || []).forEach(f => { filesMap[f.name.toLowerCase()] = f; });
 
-  const items = CHECKLIST_DEF.map(item => {
+  const lbrDept    = STATE.company?.departments?.find(dep => dep.id === dossie.departmentId);
+  const lbrCl      = lbrDept?.checklist || CHECKLIST_DEF;
+  const items = lbrCl.map(item => {
     const ok   = docsSet.has(item.name.toLowerCase());
     const file = filesMap[item.name.toLowerCase()];
     const openBtn = (ok && file?.previewUrl)
