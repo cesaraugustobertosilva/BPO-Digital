@@ -1391,9 +1391,10 @@ html, body {
   display: inline-block; padding: 3px 9px; border-radius: 20px;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
 }
-.role-badge.admin      { background: #e8f0fe; color: #1a4db0; }
-.role-badge.company    { background: #e8f4ec; color: #1a6b32; }
-.role-badge.department { background: #fff3e0; color: #8a4500; }
+.role-badge.admin         { background: #e8f0fe; color: #1a4db0; }
+.role-badge.multicompany  { background: #f0e8fe; color: #5a1ab0; }
+.role-badge.company       { background: #e8f4ec; color: #1a6b32; }
+.role-badge.department    { background: #fff3e0; color: #8a4500; }
 .user-actions { display: flex; gap: 6px; }
 .user-edit-btn, .user-del-btn {
   padding: 4px 10px; border-radius: 5px; border: none;
