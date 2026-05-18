@@ -410,9 +410,11 @@ async function enterMultiCompanyView() {
   showView('multiCompanyView');
   const grid = gel('mcCompanyGrid');
   grid.innerHTML = '<div class="adm-empty">Carregando...</div>';
-  const companies = await apiGetCompanies();
+  const all = await apiGetCompanies();
+  const allowed = AUTH.user?.allowedCompanies || [];
+  const companies = allowed.length ? all.filter(c => allowed.includes(c.id)) : all;
   if (!companies.length) {
-    grid.innerHTML = '<div class="adm-empty">Nenhuma empresa cadastrada. Contate o administrador.</div>';
+    grid.innerHTML = '<div class="adm-empty">Nenhuma empresa disponivel. Contate o administrador.</div>';
     return;
   }
   grid.innerHTML = companies.map(c => {
@@ -1593,6 +1595,8 @@ async function openUserForm(userJson) {
   coSel.innerHTML = '<option value="">Selecione...</option>' +
     userFormCompanies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
+  ufBuildCompanyCheckboxes(userFormCompanies);
+
   if (userJson) {
     const u = JSON.parse(typeof userJson === 'string' ? userJson : JSON.stringify(userJson));
     editingUserId = u.id;
@@ -1609,6 +1613,7 @@ async function openUserForm(userJson) {
       setTimeout(() => { gel('ufDept').value = u.departmentId; }, 50);
     }
     ufSetModules(u.modules || []);
+    ufSetAllowedCompanies(u.allowedCompanies || []);
   } else {
     editingUserId = null;
     gel('userFormTitle').textContent = 'Novo usuario';
@@ -1617,6 +1622,7 @@ async function openUserForm(userJson) {
     gel('ufRole').value = 'department';
     ufRoleChange();
     ufSetModules([]);
+    ufSetAllowedCompanies([]);
   }
 
   gel('ufError').classList.add('hidden');
@@ -1631,10 +1637,30 @@ function ufSetModules(mods) {
   });
 }
 
+function ufBuildCompanyCheckboxes(companies) {
+  const grid = gel('ufCompaniesGrid');
+  if (!companies.length) {
+    grid.innerHTML = '<span style="font-size:12px;color:#94a3b8">Nenhuma empresa cadastrada.</span>';
+    return;
+  }
+  grid.innerHTML = companies.map(c =>
+    `<label class="uf-mod-item">
+      <input type="checkbox" class="uf-co-cb" value="${c.id}">&#127970; ${c.name}
+    </label>`
+  ).join('');
+}
+
+function ufSetAllowedCompanies(ids) {
+  document.querySelectorAll('.uf-co-cb').forEach(cb => {
+    cb.checked = ids.includes(cb.value);
+  });
+}
+
 function ufRoleChange() {
   const role = gel('ufRole').value;
-  gel('ufCompanyField').classList.toggle('hidden', role === 'admin' || role === 'multicompany');
-  gel('ufDeptField').classList.toggle('hidden',    role !== 'department');
+  gel('ufCompanyField').classList.toggle('hidden',   role === 'admin' || role === 'multicompany');
+  gel('ufDeptField').classList.toggle('hidden',      role !== 'department');
+  gel('ufCompaniesWrap').classList.toggle('hidden',  role !== 'multicompany');
 }
 
 function ufCompanyChange() {
@@ -1659,8 +1685,9 @@ async function saveUserForm() {
   if (!editingUserId && !password) { errEl.textContent = 'Senha obrigatoria para novo usuario.'; errEl.classList.remove('hidden'); return; }
   if (password && password.length < 6) { errEl.textContent = 'Senha deve ter ao menos 6 caracteres.'; errEl.classList.remove('hidden'); return; }
 
-  const modules = Array.from(document.querySelectorAll('.uf-mod-cb:checked')).map(cb => cb.value);
-  const payload = { name, username, role, companyId: coId, departmentId: deptId, modules };
+  const modules          = Array.from(document.querySelectorAll('.uf-mod-cb:checked')).map(cb => cb.value);
+  const allowedCompanies = Array.from(document.querySelectorAll('.uf-co-cb:checked')).map(cb => cb.value);
+  const payload = { name, username, role, companyId: coId, departmentId: deptId, modules, allowedCompanies };
   if (password) payload.password = password;
 
   const url  = editingUserId ? '/api/users/' + editingUserId : '/api/users';
