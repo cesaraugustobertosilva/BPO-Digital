@@ -13,7 +13,7 @@ function laborDemoSeed() {
   return [
     {
       id: 'dl1', ts: now - 86400000 * 2, companyId: 'comp_demo', departmentId: 'dept_rh',
-      name: 'Carlos Eduardo Mendes', cpf: '342.891.074-55', mat: '00841', cargo: 'Analista de Logistica',
+      name: 'Carlos Eduardo Mendes', cpf: '342.891.074-55', mat: '00841', cargo: 'Analista de Logistica', status: 'ativo',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao', 'Comprovante de Residencia'],
       missing_req: ['Exame Admissional'], total: 5, req: 4,
       files: [
@@ -26,7 +26,7 @@ function laborDemoSeed() {
     },
     {
       id: 'dl2', ts: now - 86400000 * 5, companyId: 'comp_demo', departmentId: 'dept_rh',
-      name: 'Aline Cristina Fonseca', cpf: '521.047.389-81', mat: '00523', cargo: 'Auxiliar Administrativo',
+      name: 'Aline Cristina Fonseca', cpf: '521.047.389-81', mat: '00523', cargo: 'Auxiliar Administrativo', status: 'ativo',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao', 'Exame Admissional', 'Comprovante de Residencia', 'Foto 3x4'],
       missing_req: [], total: 7, req: 5,
       files: [
@@ -41,7 +41,7 @@ function laborDemoSeed() {
     },
     {
       id: 'dl3', ts: now - 86400000 * 8, companyId: 'comp_demo', departmentId: 'dept_rh',
-      name: 'Ricardo Viana Barbosa', cpf: '089.345.671-22', mat: '00317', cargo: 'Supervisor de Operacoes',
+      name: 'Ricardo Viana Barbosa', cpf: '089.345.671-22', mat: '00317', cargo: 'Supervisor de Operacoes', status: 'inativo', dataDesligamento: '2024-06-30',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Exame Admissional', 'Foto 3x4'],
       missing_req: ['Contrato de Trabalho', 'Ficha de Admissao'], total: 4, req: 2,
       files: [
@@ -53,7 +53,7 @@ function laborDemoSeed() {
     },
     {
       id: 'dl4', ts: now - 86400000 * 3, companyId: 'comp_demo', departmentId: 'dept_rh',
-      name: 'Fernanda Lima Carvalho', cpf: '673.890.234-09', mat: '00620', cargo: 'Coordenadora de RH',
+      name: 'Fernanda Lima Carvalho', cpf: '673.890.234-09', mat: '00620', cargo: 'Coordenadora de RH', status: 'ativo',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao', 'Exame Admissional', 'Comprovante de Residencia', 'Foto 3x4'],
       missing_req: [], total: 7, req: 5,
       files: [
@@ -68,7 +68,7 @@ function laborDemoSeed() {
     },
     {
       id: 'dl5', ts: now - 86400000 * 1, companyId: 'comp_demo', departmentId: 'dept_rh',
-      name: 'Marcelo dos Santos Pereira', cpf: '815.234.067-44', mat: '00423', cargo: 'Motorista',
+      name: 'Marcelo dos Santos Pereira', cpf: '815.234.067-44', mat: '00423', cargo: 'Motorista', status: 'ativo',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao', 'Exame Admissional', 'Foto 3x4'],
       missing_req: [], total: 6, req: 5,
       files: [
@@ -82,7 +82,7 @@ function laborDemoSeed() {
     },
     {
       id: 'dl6', ts: now - 86400000 * 4, companyId: 'comp_demo', departmentId: 'dept_rh',
-      name: 'Patricia Gomes Alves', cpf: '198.076.523-37', mat: '00912', cargo: 'Assistente Fiscal',
+      name: 'Patricia Gomes Alves', cpf: '198.076.523-37', mat: '00912', cargo: 'Assistente Fiscal', status: 'ativo',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao', 'Exame Admissional', 'Comprovante de Residencia', 'Foto 3x4'],
       missing_req: [], total: 7, req: 5,
       files: [
@@ -104,7 +104,7 @@ function seed() {
     ...laborDemoSeed(),
     {
       id: 'demo1', ts: now - 86400000 * 10, companyId: 'comp_demo', departmentId: 'dept_rh',
-      name: 'Ana Beatriz Souza', cpf: '123.456.789-00', mat: '00541', cargo: 'Analista',
+      name: 'Ana Beatriz Souza', cpf: '123.456.789-00', mat: '00541', cargo: 'Analista', status: 'ativo',
       docs: ['CNH / RG / Documento de Identidade', 'CPF', 'Contrato de Trabalho', 'Ficha de Admissao', 'Exame Admissional'],
       missing_req: [], total: 5, req: 5,
     },

@@ -1221,6 +1221,8 @@ async function renderPainelGerencial() {
 }
 
 /* ── API: DOSSIES ────────────────────────────────────────────────── */
+let _dossiesCache = [];
+
 async function loadDossies() {
   try {
     const params = new URLSearchParams();
@@ -1228,7 +1230,9 @@ async function loadDossies() {
     if (STATE.department) params.set('departmentId', STATE.department.id);
     const resp = await apiFetch('/api/dossies' + (params.toString() ? '?' + params : ''));
     if (!resp) return [];
-    return resp.ok ? resp.json() : [];
+    const list = resp.ok ? await resp.json() : [];
+    _dossiesCache = list;
+    return list;
   } catch { return []; }
 }
 
@@ -1337,6 +1341,7 @@ async function finalize() {
     companyId:    STATE.company?.id,
     departmentId: STATE.department?.id,
     name, cpf, mat,
+    status:      'ativo',
     docs:        docs.filter(d => d.status === 'done').map(d => d.result || d.name),
     missing_req: CHECKLIST.filter(i => i.req && !i.checked).map(i => i.name),
     total:       CHECKLIST.filter(i => i.checked).length,
@@ -1361,7 +1366,8 @@ function closeSuccess() {
 }
 
 /* ── INCONSISTENCIES VIEW ────────────────────────────────────────── */
-let incFilter = 'all';
+let incFilter       = 'all';
+let incStatusFilter = 'ativo';
 
 async function showIncView() {
   document.getElementById('mainView').classList.add('hidden');
@@ -1383,6 +1389,12 @@ function setIncFilter(f, btn) {
   btn.classList.add('active'); renderIncTable();
 }
 
+function setIncStatusFilter(f, btn) {
+  incStatusFilter = f;
+  document.querySelectorAll('.inc-status-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); renderIncTable();
+}
+
 function getSeverity(d) {
   const n = (d.missing_req || []).length;
   return n >= 2 ? 'critical' : n === 1 ? 'warning' : 'ok';
@@ -1391,28 +1403,37 @@ function getSeverity(d) {
 async function renderIncTable() {
   const list  = await loadDossies();
   const query = (document.getElementById('incSearchInput')?.value || '').toLowerCase();
+  const ativos   = list.filter(d => (d.status || 'ativo') === 'ativo').length;
+  const inativos = list.filter(d => (d.status || 'ativo') === 'inativo').length;
   let total = list.length, critical = 0, warning = 0, ok = 0;
   list.forEach(d => { const s = getSeverity(d); if (s === 'critical') critical++; else if (s === 'warning') warning++; else ok++; });
   document.getElementById('incTotalCount').textContent    = total;
   document.getElementById('incCriticalCount').textContent = critical;
   document.getElementById('incWarningCount').textContent  = warning;
   document.getElementById('incOkCount').textContent       = ok;
+  const elAtivos   = document.getElementById('incAtivosCount');
+  const elInativos = document.getElementById('incInativosCount');
+  if (elAtivos)   elAtivos.textContent   = ativos;
+  if (elInativos) elInativos.textContent = inativos;
   const incCount = critical + warning;
   document.getElementById('incBadge').textContent         = incCount;
   const pill = document.getElementById('ntIncPill');
   if (pill) pill.classList.toggle('hidden', incCount === 0);
   const filtered = list.filter(d => {
-    const s = getSeverity(d);
+    const s      = getSeverity(d);
+    const status = d.status || 'ativo';
     return (incFilter === 'all' || s === incFilter) &&
+           (incStatusFilter === 'all' || status === incStatusFilter) &&
            (!query || d.name.toLowerCase().includes(query) || (d.cpf||'').includes(query));
   });
   const tbody = document.getElementById('incTableBody');
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="inc-empty"><div class="inc-empty-icon">&#9989;</div>Nenhum dossie encontrado.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="inc-empty"><div class="inc-empty-icon">&#9989;</div>Nenhum colaborador encontrado.</div></td></tr>`;
     return;
   }
   tbody.innerHTML = filtered.map(d => {
     const sev      = getSeverity(d);
+    const status   = d.status || 'ativo';
     const initials = d.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
     const date     = new Date(d.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
     const missing  = d.missing_req || [];
@@ -1424,6 +1445,13 @@ async function renderIncTable() {
       : sev === 'warning'
       ? `<span class="inc-severity sev-warning">&#9888; Atencao</span>`
       : `<span class="inc-severity sev-ok">&#10003; Completo</span>`;
+    let statusHtml;
+    if (status === 'ativo') {
+      statusHtml = `<span class="inc-colab-status status-ativo" onclick="event.stopPropagation();openStatusModal('${d.id}')">Ativo</span>`;
+    } else {
+      const desl = d.dataDesligamento ? new Date(d.dataDesligamento + 'T00:00:00').toLocaleDateString('pt-BR') : '';
+      statusHtml = `<span class="inc-colab-status status-inativo" onclick="event.stopPropagation();openStatusModal('${d.id}')">Inativo${desl ? '<br><small>' + desl + '</small>' : ''}</span>`;
+    }
     return `<tr onclick="toggleDrawer('${d.id}')">
       <td><div class="inc-name-cell">
         <div class="inc-avatar">${initials}</div>
@@ -1432,17 +1460,70 @@ async function renderIncTable() {
           <div class="inc-name-sub">CPF: ${d.cpf||'nao informado'} &middot; Mat.: ${d.mat||'nao informada'}</div>
         </div>
       </div></td>
+      <td>${statusHtml}</td>
       <td><div class="inc-missing-list">${missingHtml}</div></td>
       <td>${sevHtml}</td>
       <td><span class="inc-date">${date}</span></td>
       <td><button class="inc-action-btn" onclick="event.stopPropagation();loadAndGo('${d.id}')">Completar &rarr;</button></td>
     </tr>
     <tr id="drawer_${d.id}" style="background:#f4f7fa;">
-      <td colspan="5" style="padding:0;">
+      <td colspan="6" style="padding:0;">
         <div class="inc-drawer" id="drawerContent_${d.id}">${buildDrawerContent(d)}</div>
       </td>
     </tr>`;
   }).join('');
+}
+
+let _statusModalDossieId = null;
+
+function openStatusModal(id) {
+  _statusModalDossieId = id;
+  const d = _dossiesCache.find(x => x.id === id);
+  if (!d) return;
+  const currentStatus = d.status || 'ativo';
+  const el = document.getElementById('statusModalName');
+  if (el) el.textContent = d.name;
+  const sel = document.getElementById('statusModalSelect');
+  if (sel) sel.value = currentStatus;
+  const desligRow = document.getElementById('statusModalDesligRow');
+  if (desligRow) desligRow.classList.toggle('hidden', currentStatus === 'ativo');
+  const desligInput = document.getElementById('statusModalDesligInput');
+  if (desligInput) desligInput.value = d.dataDesligamento || '';
+  const modal = document.getElementById('statusModal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeStatusModal() {
+  const modal = document.getElementById('statusModal');
+  if (modal) modal.classList.add('hidden');
+  _statusModalDossieId = null;
+}
+
+function onStatusModalChange(val) {
+  const desligRow = document.getElementById('statusModalDesligRow');
+  if (desligRow) desligRow.classList.toggle('hidden', val === 'ativo');
+}
+
+async function saveStatusModal() {
+  const id = _statusModalDossieId;
+  if (!id) return;
+  const status = document.getElementById('statusModalSelect')?.value || 'ativo';
+  const dataDesligamento = status === 'inativo' ? (document.getElementById('statusModalDesligInput')?.value || '') : '';
+  const d = _dossiesCache.find(x => x.id === id);
+  if (!d) { toast('Colaborador nao encontrado.'); return; }
+  const updated = { ...d, status, dataDesligamento };
+  const r = await apiFetch('/api/dossies', {
+    method: 'POST',
+    body:   JSON.stringify(updated),
+  });
+  if (r?.ok) {
+    const label = status === 'ativo' ? 'Ativo' : 'Inativo';
+    toast(`Status de ${d.name} atualizado para ${label}.`);
+    closeStatusModal();
+    renderIncTable();
+  } else {
+    toast('Erro ao salvar status. Tente novamente.');
+  }
 }
 
 function buildDrawerContent(d) {
@@ -3116,7 +3197,7 @@ async function ctLoad() {
   CT.list   = (r && r.ok) ? await r.json() : [];
   const cfgBtn = gel('ctBtnCfgSchema');
   if (cfgBtn) {
-    const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company');
+    const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company' || AUTH.user?.role === 'department');
     cfgBtn.classList.toggle('hidden', !canCfg);
   }
   ctRenderHead();

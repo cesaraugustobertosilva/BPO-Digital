@@ -541,7 +541,15 @@
     <div class="inc-summary">
       <div class="inc-stat">
         <div class="inc-stat-val slate" id="incTotalCount">0</div>
-        <div class="inc-stat-lbl">Total de dossies</div>
+        <div class="inc-stat-lbl">Total de colaboradores</div>
+      </div>
+      <div class="inc-stat">
+        <div class="inc-stat-val green" id="incAtivosCount">0</div>
+        <div class="inc-stat-lbl">Ativos</div>
+      </div>
+      <div class="inc-stat">
+        <div class="inc-stat-val slate" id="incInativosCount">0</div>
+        <div class="inc-stat-lbl">Inativos</div>
       </div>
       <div class="inc-stat">
         <div class="inc-stat-val red" id="incCriticalCount">0</div>
@@ -558,10 +566,19 @@
     </div>
 
     <div class="inc-filters">
-      <button class="inc-filter-btn active" onclick="setIncFilter('all', this)">Todos</button>
-      <button class="inc-filter-btn" onclick="setIncFilter('critical', this)">&#9940; Criticos</button>
-      <button class="inc-filter-btn" onclick="setIncFilter('warning', this)">&#9888; Atencao</button>
-      <button class="inc-filter-btn" onclick="setIncFilter('ok', this)">&#10003; Completos</button>
+      <div class="inc-filter-group">
+        <span class="inc-filter-label">Status:</span>
+        <button class="inc-status-filter-btn" onclick="setIncStatusFilter('all', this)">Todos</button>
+        <button class="inc-status-filter-btn active" onclick="setIncStatusFilter('ativo', this)">Ativos</button>
+        <button class="inc-status-filter-btn" onclick="setIncStatusFilter('inativo', this)">Inativos</button>
+      </div>
+      <div class="inc-filter-group">
+        <span class="inc-filter-label">Documentos:</span>
+        <button class="inc-filter-btn active" onclick="setIncFilter('all', this)">Todos</button>
+        <button class="inc-filter-btn" onclick="setIncFilter('critical', this)">&#9940; Criticos</button>
+        <button class="inc-filter-btn" onclick="setIncFilter('warning', this)">&#9888; Atencao</button>
+        <button class="inc-filter-btn" onclick="setIncFilter('ok', this)">&#10003; Completos</button>
+      </div>
       <input class="inc-search-input" id="incSearchInput" placeholder="&#128269;  Filtrar por nome ou CPF..." oninput="renderIncTable()">
     </div>
 
@@ -570,6 +587,7 @@
         <thead>
           <tr>
             <th>Colaborador</th>
+            <th>Status</th>
             <th>Documentos faltando</th>
             <th>Situacao</th>
             <th>Ultima atualizacao</th>
@@ -578,6 +596,34 @@
         </thead>
         <tbody id="incTableBody"></tbody>
       </table>
+    </div>
+
+    <!-- Status Modal -->
+    <div class="ct-modal hidden" id="statusModal" onclick="if(event.target===this)closeStatusModal()">
+      <div class="ct-modal-box" style="max-width:420px;">
+        <div class="ct-modal-header">
+          <span class="ct-modal-title">Alterar status do colaborador</span>
+          <button class="ct-modal-close" onclick="closeStatusModal()">&#10005;</button>
+        </div>
+        <div style="padding:20px 24px;">
+          <p style="margin:0 0 16px;font-size:14px;color:#4a5568;">Colaborador: <strong id="statusModalName"></strong></p>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Status</label>
+            <select id="statusModalSelect" onchange="onStatusModalChange(this.value)" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;background:#fff;">
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+          <div id="statusModalDesligRow" class="hidden" style="margin-bottom:16px;">
+            <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Data de desligamento</label>
+            <input type="date" id="statusModalDesligInput" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;">
+          </div>
+        </div>
+        <div class="ct-form-actions" style="padding:0 24px 20px;">
+          <button type="button" class="ct-btn-sec" onclick="closeStatusModal()">Cancelar</button>
+          <button type="button" class="ct-btn-primary" onclick="saveStatusModal()">Salvar</button>
+        </div>
+      </div>
     </div>
 
   </div><!-- /#incView -->
