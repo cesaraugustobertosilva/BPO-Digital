@@ -1796,21 +1796,37 @@ async function deleteUser(id, name) {
 }
 
 /* ── INDEXED DOSSIE LIST ─────────────────────────────────────────── */
+let _idxStatusFilter = 'all';
+
+function setIdxStatusFilter(f, btn) {
+  _idxStatusFilter = f;
+  ['idxBtnAll','idxBtnAtivo','idxBtnInativo'].forEach(id => { const b = gel(id); if (b) b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  renderIndexedDossies();
+}
+
 async function renderIndexedDossies() {
   const el = gel('indexedDossieList');
   if (!el) return;
   el.innerHTML = '<div class="adm-empty" style="padding:16px;">Carregando...</div>';
-  const list = await loadDossies();
+  const all  = await loadDossies();
+  const list = _idxStatusFilter === 'all'
+    ? all
+    : all.filter(d => (d.status || 'ativo') === _idxStatusFilter);
   const count = gel('indexedDossieCount');
   if (count) count.textContent = list.length + (list.length === 1 ? ' prontuario' : ' prontuarios');
-  if (!list.length) { el.innerHTML = '<div class="adm-empty" style="padding:16px;">Nenhum prontuario indexado.</div>'; return; }
+  if (!list.length) { el.innerHTML = '<div class="adm-empty" style="padding:16px;">Nenhum prontuario encontrado.</div>'; return; }
   el.innerHTML = list.map(d => {
     const sev  = (d.missing_req||[]).length >= 2 ? 'critical' : (d.missing_req||[]).length === 1 ? 'warning' : 'ok';
-    const badge = sev === 'critical'
+    const docBadge = sev === 'critical'
       ? '<span class="inc-severity sev-critical" style="font-size:10px;">&#9940; Critico</span>'
       : sev === 'warning'
       ? '<span class="inc-severity sev-warning" style="font-size:10px;">&#9888; Atencao</span>'
       : '<span class="inc-severity sev-ok" style="font-size:10px;">&#10003; Completo</span>';
+    const status = d.status || 'ativo';
+    const statusBadge = status === 'ativo'
+      ? '<span class="inc-colab-status status-ativo" style="font-size:9px;">Ativo</span>'
+      : '<span class="inc-colab-status status-inativo" style="font-size:9px;">Inativo</span>';
     const date = new Date(d.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
     const initials = d.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
     return `<div class="idx-dossie-row" onclick="showDossierModal('${d.id}')">
@@ -1819,7 +1835,8 @@ async function renderIndexedDossies() {
         <div class="idx-name">${d.name}</div>
         <div class="idx-sub">CPF: ${d.cpf||'nao informado'} &middot; Mat.: ${d.mat||'nao informada'}</div>
       </div>
-      ${badge}
+      ${statusBadge}
+      ${docBadge}
       <div class="idx-date">${date}</div>
       <div class="idx-arrow">&#8250;</div>
     </div>`;
@@ -1873,10 +1890,80 @@ async function showDossierModal(dossieId) {
   gel('dmOptional').innerHTML = buildItems(checklist.filter(i => !i.req));
 
   gel('dmEditBtn').onclick = () => { closeDossierModal(); loadDossie(d.id); window.scrollTo({top:0,behavior:'smooth'}); };
+
+  const status = d.status || 'ativo';
+  const dmBadge = gel('dmStatusBadge');
+  if (dmBadge) {
+    dmBadge.className = 'inc-colab-status ' + (status === 'ativo' ? 'status-ativo' : 'status-inativo');
+    const desl = (status === 'inativo' && d.dataDesligamento)
+      ? ' - ' + new Date(d.dataDesligamento + 'T00:00:00').toLocaleDateString('pt-BR')
+      : '';
+    dmBadge.textContent = (status === 'ativo' ? 'Ativo' : 'Inativo') + desl;
+    dmBadge.dataset.dossieId = d.id;
+  }
+  dmCancelStatus();
+
   gel('dossierModal').classList.remove('hidden');
 }
 
-function closeDossierModal() { gel('dossierModal').classList.add('hidden'); }
+function closeDossierModal() {
+  gel('dossierModal').classList.add('hidden');
+  dmCancelStatus();
+}
+
+function dmToggleStatus() {
+  const row = gel('dmStatusRow');
+  if (!row) return;
+  const isOpen = row.style.display === 'block';
+  if (isOpen) { dmCancelStatus(); return; }
+  const badge = gel('dmStatusBadge');
+  const id = badge?.dataset.dossieId;
+  const d = _dossiesCache.find(x => x.id === id);
+  if (!d) return;
+  const status = d.status || 'ativo';
+  const sel = gel('dmStatusSelect');
+  if (sel) sel.value = status;
+  const desligRow = gel('dmDesligRow');
+  const desligInput = gel('dmDesligInput');
+  if (desligRow) desligRow.style.display = status === 'inativo' ? 'block' : 'none';
+  if (desligInput) desligInput.value = d.dataDesligamento || '';
+  row.style.display = 'block';
+}
+
+function dmOnStatusChange(val) {
+  const desligRow = gel('dmDesligRow');
+  if (desligRow) desligRow.style.display = val === 'inativo' ? 'block' : 'none';
+}
+
+function dmCancelStatus() {
+  const row = gel('dmStatusRow');
+  if (row) row.style.display = 'none';
+}
+
+async function dmSaveStatus() {
+  const badge = gel('dmStatusBadge');
+  const id = badge?.dataset.dossieId;
+  if (!id) return;
+  const status = gel('dmStatusSelect')?.value || 'ativo';
+  const dataDesligamento = status === 'inativo' ? (gel('dmDesligInput')?.value || '') : '';
+  const d = _dossiesCache.find(x => x.id === id);
+  if (!d) return;
+  const updated = { ...d, status, dataDesligamento };
+  const r = await apiFetch('/api/dossies', { method: 'POST', body: JSON.stringify(updated) });
+  if (r?.ok) {
+    const label = status === 'ativo' ? 'Ativo' : 'Inativo';
+    const desl = (status === 'inativo' && dataDesligamento)
+      ? ' - ' + new Date(dataDesligamento + 'T00:00:00').toLocaleDateString('pt-BR')
+      : '';
+    badge.className = 'inc-colab-status ' + (status === 'ativo' ? 'status-ativo' : 'status-inativo');
+    badge.textContent = label + desl;
+    toast(`Status de ${d.name} atualizado para ${label}.`);
+    dmCancelStatus();
+    renderIndexedDossies();
+  } else {
+    toast('Erro ao salvar status.');
+  }
+}
 
 /* ── TRABALHISTA VIEW ────────────────────────────────────────────── */
 
@@ -3197,7 +3284,7 @@ async function ctLoad() {
   CT.list   = (r && r.ok) ? await r.json() : [];
   const cfgBtn = gel('ctBtnCfgSchema');
   if (cfgBtn) {
-    const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company' || AUTH.user?.role === 'department');
+    const canCfg = !!companyId;
     cfgBtn.classList.toggle('hidden', !canCfg);
   }
   ctRenderHead();

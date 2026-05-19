@@ -459,7 +459,12 @@
     <div class="indexed-section">
       <div class="indexed-header">
         <div class="indexed-title">&#128203; Prontuarios indexados</div>
-        <div class="indexed-count" id="indexedDossieCount">0 prontuarios</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="idx-status-btn active" id="idxBtnAll"    onclick="setIdxStatusFilter('all',this)">Todos</button>
+          <button class="idx-status-btn"        id="idxBtnAtivo"  onclick="setIdxStatusFilter('ativo',this)">Ativos</button>
+          <button class="idx-status-btn"        id="idxBtnInativo" onclick="setIdxStatusFilter('inativo',this)">Inativos</button>
+          <div class="indexed-count" id="indexedDossieCount">0 prontuarios</div>
+        </div>
       </div>
       <div id="indexedDossieList"></div>
     </div>
@@ -842,8 +847,27 @@
       <div class="dm-checklist" id="dmOptional"></div>
     </div>
     <div class="dossier-modal-foot">
+      <span id="dmStatusBadge" class="inc-colab-status status-ativo" onclick="dmToggleStatus()" style="cursor:pointer;margin-right:auto;" title="Clique para alterar status">Ativo</span>
       <button class="ibtn-sec" onclick="closeDossierModal()">Fechar</button>
       <button class="ibtn-pri" id="dmEditBtn">&#128393; Editar prontuario</button>
+    </div>
+    <!-- Status inline no modal -->
+    <div id="dmStatusRow" style="padding:12px 24px 0;display:none;">
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">Status</label>
+          <select id="dmStatusSelect" onchange="dmOnStatusChange(this.value)" style="padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:13px;background:#fff;">
+            <option value="ativo">Ativo</option>
+            <option value="inativo">Inativo</option>
+          </select>
+        </div>
+        <div id="dmDesligRow" style="display:none;">
+          <label style="display:block;font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">Data de desligamento</label>
+          <input type="date" id="dmDesligInput" style="padding:7px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:13px;">
+        </div>
+        <button onclick="dmSaveStatus()" style="padding:7px 16px;background:#1a2e3b;color:white;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;">Salvar</button>
+        <button onclick="dmCancelStatus()" style="padding:7px 16px;background:transparent;color:#6b7280;border:1px solid #d1d5db;border-radius:7px;font-size:12px;cursor:pointer;">Cancelar</button>
+      </div>
     </div>
   </div>
 </div>
