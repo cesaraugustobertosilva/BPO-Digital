@@ -229,21 +229,22 @@ function resetChecklistFromDept() {
 
 /* ── VIEW CONTROL ────────────────────────────────────────────────── */
 function showView(name) {
-  ['mainView','incView','adminView','companyView','multiCompanyView','trabalhistaView','nfView','contratosView','painelView'].forEach(id => {
+  ['mainView','incView','adminView','companyView','multiCompanyView','trabalhistaView','nfView','contratosView','docVariadosView','painelView'].forEach(id => {
     const e = gel(id);
     if (e) { e.classList.add('hidden'); e.classList.remove('active'); }
   });
   const nav = gel('mainNav');
-  if (['main','inc','trabalhista','nf','contratos','painel'].includes(name)) nav?.classList.remove('hidden');
+  if (['main','inc','trabalhista','nf','contratos','docVariados','painel'].includes(name)) nav?.classList.remove('hidden');
   else nav?.classList.add('hidden');
 
-  const idMap = { main:'mainView', inc:'incView', admin:'adminView', multiCompanyView:'multiCompanyView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView', painel:'painelView' };
+  const idMap = { main:'mainView', inc:'incView', admin:'adminView', multiCompanyView:'multiCompanyView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView', docVariados:'docVariadosView', painel:'painelView' };
   const target = gel(idMap[name] || 'companyView');
   if (target) { target.classList.remove('hidden'); if (name === 'inc') target.classList.add('active'); }
 
   gel('ntLabor')?.classList.toggle('active', name === 'trabalhista');
   gel('ntRH')?.classList.toggle('active', name === 'main');
   gel('ntPainel')?.classList.toggle('active', name === 'painel');
+  gel('ntDocVariados')?.classList.toggle('active', name === 'docVariados');
 }
 
 function updateContextBar() {
@@ -3189,17 +3190,17 @@ async function apiGetCtSchema(companyId) {
 /* ── LOAD ── */
 async function ctLoad() {
   const companyId = STATE.company?.id;
-  const [schemaData, r] = await Promise.all([
+  const [schemaData, clTpl, r] = await Promise.all([
     apiGetCtSchema(companyId),
+    apiGetCtChecklist(companyId),
     apiFetch('/api/contratos' + (companyId ? '?companyId=' + companyId : '')),
   ]);
   CT.schema = schemaData || DEFAULT_CT_SCHEMA.map(f => ({ ...f }));
+  ctChecklistTemplate = Array.isArray(clTpl) ? clTpl : [];
   CT.list   = (r && r.ok) ? await r.json() : [];
-  const cfgBtn = gel('ctBtnCfgSchema');
-  if (cfgBtn) {
-    const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company' || AUTH.user?.role === 'department');
-    cfgBtn.classList.toggle('hidden', !canCfg);
-  }
+  const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company' || AUTH.user?.role === 'department');
+  gel('ctBtnCfgSchema')?.classList.toggle('hidden', !canCfg);
+  gel('ctBtnCfgChecklist')?.classList.toggle('hidden', !canCfg);
   ctRenderHead();
   ctRenderStats();
   ctRenderTable();
@@ -3311,6 +3312,11 @@ function ctOpenForm(id) {
     filesSection.classList.toggle('hidden', !id);
     if (id) ctRenderFiles();
   }
+  const clSection = gel('ctChecklistSection');
+  if (clSection) {
+    clSection.classList.toggle('hidden', !id);
+    if (id) ctRenderChecklist();
+  }
 }
 
 function ctCloseForm() {
@@ -3364,14 +3370,25 @@ async function ctSubmit(e) {
     toast('Contrato atualizado.');
     ctCloseForm();
   } else {
-    // Apos criar, transiciona para edicao para permitir anexar arquivos
-    toast('Contrato cadastrado. Adicione arquivos se necessario.');
     CT.editingId = saved.id;
+    // Inicializa checklist a partir do template padrao
+    if (ctChecklistTemplate.length) {
+      const defaultCl = ctChecklistTemplate.map(t => ({
+        id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        name: t.name, checked: false,
+      }));
+      await apiFetch(`/api/contratos/${saved.id}`, { method: 'PUT', body: JSON.stringify({ checklist: defaultCl }) });
+      const ct = CT.list.find(c => c.id === saved.id);
+      if (ct) ct.checklist = defaultCl;
+    }
+    toast('Contrato cadastrado. Adicione arquivos e preencha o checklist.');
     gel('ctModalTitle').textContent = 'Editar Contrato';
     gel('ctBtnSave').textContent    = 'Salvar alteracoes';
     gel('ctBtnDel').classList.remove('hidden');
     const filesSection = gel('ctFilesSection');
     if (filesSection) { filesSection.classList.remove('hidden'); ctRenderFiles(); }
+    const clSection = gel('ctChecklistSection');
+    if (clSection) { clSection.classList.remove('hidden'); ctRenderChecklist(); }
   }
 }
 
@@ -3555,6 +3572,658 @@ async function ctDeleteFile(fid) {
   const ct = CT.list.find(c => c.id === CT.editingId);
   if (ct) ct.files = (ct.files || []).filter(f => f.id !== fid);
   ctRenderFiles();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CHECKLIST DE CONTRATOS
+   ════════════════════════════════════════════════════════════════════ */
+
+let ctChecklistTemplate = [];
+let ctChecklistTplDraft = [];
+
+async function apiGetCtChecklist(companyId) {
+  if (!companyId) return [];
+  try {
+    const r = await apiFetch(`/api/companies/${companyId}/ct-checklist`);
+    return (r && r.ok) ? (await r.json() || []) : [];
+  } catch { return []; }
+}
+
+function ctChecklistGet() {
+  if (!CT.editingId) return [];
+  return CT.list.find(c => c.id === CT.editingId)?.checklist || [];
+}
+
+function ctChecklistSet(items) {
+  const ct = CT.list.find(c => c.id === CT.editingId);
+  if (ct) ct.checklist = items;
+}
+
+function ctRenderChecklist() {
+  const items  = ctChecklistGet();
+  const el     = gel('ctChecklistList');
+  const pill   = gel('ctChecklistPill');
+  const loadEl = gel('ctChecklistLoadTpl');
+  if (!el) return;
+
+  const checked = items.filter(i => i.checked).length;
+  const total   = items.length;
+  if (pill) {
+    pill.textContent = total ? `${checked}/${total}` : '';
+    pill.className   = 'ct-checklist-pill' + (total && checked === total ? ' ct-cl-complete' : '');
+  }
+  if (loadEl) loadEl.classList.toggle('hidden', items.length > 0 || !ctChecklistTemplate.length);
+
+  if (!items.length) {
+    el.innerHTML = '<div class="ct-files-empty">Nenhum item. Clique em "+ Item" para adicionar' + (ctChecklistTemplate.length ? ' ou carregue o modelo.' : '.') + '</div>';
+    return;
+  }
+  el.innerHTML = items.map(item => `
+    <div class="ct-cl-item">
+      <label class="ct-cl-label">
+        <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="ctChecklistToggle('${item.id}', this.checked)">
+        <span class="ct-cl-name ${item.checked ? 'ct-cl-done' : ''}">${item.name}</span>
+      </label>
+      <button class="ct-file-del" onclick="ctChecklistRemoveItem('${item.id}')" title="Remover">&#215;</button>
+    </div>`).join('');
+}
+
+async function ctChecklistToggle(id, checked) {
+  const items = ctChecklistGet();
+  const item  = items.find(i => i.id === id);
+  if (!item) return;
+  item.checked = checked;
+  ctRenderChecklist();
+  await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+}
+
+async function ctChecklistRemoveItem(id) {
+  const items = ctChecklistGet().filter(i => i.id !== id);
+  ctChecklistSet(items);
+  ctRenderChecklist();
+  await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+}
+
+function ctChecklistAddItem() {
+  openPrompt('Novo item do checklist', 'Ex.: Contrato assinado', async (name) => {
+    const items = ctChecklistGet();
+    items.push({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name, checked: false });
+    ctChecklistSet(items);
+    ctRenderChecklist();
+    await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+  });
+}
+
+async function ctChecklistLoadTemplate() {
+  if (!ctChecklistTemplate.length) return;
+  const items       = ctChecklistGet();
+  const existingSet = new Set(items.map(i => i.name.toLowerCase()));
+  const newItems    = ctChecklistTemplate
+    .filter(t => !existingSet.has(t.name.toLowerCase()))
+    .map(t => ({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name: t.name, checked: false }));
+  const merged = [...items, ...newItems];
+  ctChecklistSet(merged);
+  ctRenderChecklist();
+  if (newItems.length) {
+    await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: merged }) });
+    toast(newItems.length + ' item(ns) carregado(s) do modelo.');
+  }
+}
+
+function ctOpenChecklistTplModal() {
+  ctChecklistTplDraft = ctChecklistTemplate.map(i => ({ ...i }));
+  ctRenderChecklistTplModal();
+  gel('ctChecklistTplModal').classList.remove('hidden');
+}
+
+function ctCloseChecklistTplModal() { gel('ctChecklistTplModal').classList.add('hidden'); }
+
+function ctRenderChecklistTplModal() {
+  const el = gel('ctChecklistTplList');
+  if (!el) return;
+  el.innerHTML = ctChecklistTplDraft.map((item, i) => `
+    <div class="ct-schema-row">
+      <span class="ct-schema-num">${i + 1}</span>
+      <input class="ct-input ct-schema-label-input" value="${(item.name + '').replace(/"/g, '&quot;')}"
+        oninput="ctChecklistTplDraft[${i}].name = this.value" placeholder="Nome do item">
+      <button class="ct-schema-del-btn" onclick="ctChecklistTplDraft.splice(${i},1);ctRenderChecklistTplModal()">&#215;</button>
+    </div>`).join('');
+}
+
+function ctChecklistTplAddItem() {
+  ctChecklistTplDraft.push({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name: '' });
+  ctRenderChecklistTplModal();
+  const inputs = gel('ctChecklistTplList').querySelectorAll('.ct-schema-label-input');
+  if (inputs.length) setTimeout(() => inputs[inputs.length - 1].focus(), 30);
+}
+
+async function ctSaveChecklistTemplate() {
+  const companyId = STATE.company?.id;
+  if (!companyId) { toast('Nenhuma empresa selecionada.'); return; }
+  const inputs = gel('ctChecklistTplList').querySelectorAll('.ct-schema-label-input');
+  const items  = ctChecklistTplDraft.map((item, i) => ({
+    id:   item.id,
+    name: (inputs[i] ? inputs[i].value : item.name).trim(),
+  })).filter(i => i.name);
+  const r = await apiFetch(`/api/companies/${companyId}/ct-checklist`, { method: 'PUT', body: JSON.stringify({ items }) });
+  if (!r || !r.ok) { toast('Erro ao salvar modelo.'); return; }
+  ctChecklistTemplate = await r.json();
+  ctCloseChecklistTplModal();
+  toast('Modelo de checklist salvo.');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MODULO: DOCUMENTOS VARIADOS
+   ════════════════════════════════════════════════════════════════════ */
+
+const DEFAULT_DV_SCHEMA = [
+  { id: 'f1', label: 'Identificacao',  required: true  },
+  { id: 'f2', label: 'Tipo',           required: false },
+  { id: 'f3', label: 'Descricao',      required: false },
+  { id: 'f4', label: 'Responsavel',    required: false },
+  { id: 'f5', label: 'Data',           required: false },
+];
+
+const DV = {
+  list:      [],
+  editingId: null,
+  sortField: 'f1',
+  sortAsc:   true,
+  schema:    DEFAULT_DV_SCHEMA.map(f => ({ ...f })),
+};
+
+let dvSchemaDraft        = [];
+let dvChecklistTemplate  = [];
+let dvChecklistTplDraft  = [];
+
+/* ── ENTRY ── */
+function enterDocVariadosView(tabEl) {
+  document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+  showView('docVariados');
+  dvLoad();
+}
+
+/* ── SCHEMA API ── */
+async function apiGetDvSchema(companyId) {
+  if (!companyId) return null;
+  try {
+    const r = await apiFetch(`/api/companies/${companyId}/dv-schema`);
+    if (!r || !r.ok) return null;
+    const data = await r.json();
+    return Array.isArray(data) && data.length ? data : null;
+  } catch { return null; }
+}
+
+async function apiGetDvChecklist(companyId) {
+  if (!companyId) return [];
+  try {
+    const r = await apiFetch(`/api/companies/${companyId}/dv-checklist`);
+    return (r && r.ok) ? (await r.json() || []) : [];
+  } catch { return []; }
+}
+
+/* ── LOAD ── */
+async function dvLoad() {
+  const companyId = STATE.company?.id;
+  const [schemaData, clTpl, r] = await Promise.all([
+    apiGetDvSchema(companyId),
+    apiGetDvChecklist(companyId),
+    apiFetch('/api/documentos' + (companyId ? '?companyId=' + companyId : '')),
+  ]);
+  DV.schema = schemaData || DEFAULT_DV_SCHEMA.map(f => ({ ...f }));
+  dvChecklistTemplate = Array.isArray(clTpl) ? clTpl : [];
+  DV.list   = (r && r.ok) ? await r.json() : [];
+  const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company' || AUTH.user?.role === 'department');
+  gel('dvBtnCfgSchema')?.classList.toggle('hidden', !canCfg);
+  gel('dvBtnCfgChecklist')?.classList.toggle('hidden', !canCfg);
+  dvRenderHead();
+  dvRenderStats();
+  dvRenderTable();
+}
+
+/* ── TABLE HEAD ── */
+function dvRenderHead() {
+  const thead = gel('dvThead');
+  if (!thead) return;
+  thead.innerHTML = '<tr>' +
+    DV.schema.map(f =>
+      `<th onclick="dvSort('${f.id}')">${f.label} <span class="ct-sort-icon" id="dvsi_${f.id}"></span></th>`
+    ).join('') +
+    '<th class="ct-th-action"></th></tr>';
+}
+
+/* ── STATS ── */
+function dvRenderStats() {
+  const total = DV.list.length;
+  const el    = gel('dvStats');
+  if (!el) return;
+  const extras = DV.schema.slice(1, 3).map(f => {
+    const unique = new Set(DV.list.map(d => (d.fields || {})[f.id]).filter(Boolean)).size;
+    return `<div class="ct-stat"><div class="ct-sv">${unique}</div><div class="ct-sl">${f.label}s</div></div>`;
+  }).join('');
+  el.innerHTML = `<div class="ct-stat"><div class="ct-sv">${total}</div><div class="ct-sl">Documentos</div></div>${extras}`;
+}
+
+/* ── SORT ── */
+function dvSort(field) {
+  if (DV.sortField === field) DV.sortAsc = !DV.sortAsc;
+  else { DV.sortField = field; DV.sortAsc = true; }
+  dvRenderTable();
+}
+
+/* ── TABLE ── */
+function dvRenderTable() {
+  const q     = (gel('dvSearch')?.value || '').toLowerCase();
+  const body  = gel('dvBody');
+  const empty = gel('dvEmpty');
+  if (!body) return;
+
+  DV.schema.forEach(f => {
+    const el = gel('dvsi_' + f.id);
+    if (el) el.textContent = DV.sortField === f.id ? (DV.sortAsc ? ' ▲' : ' ▼') : '';
+  });
+
+  let list = DV.list.filter(d => {
+    if (!q) return true;
+    return Object.values(d.fields || {}).some(v => (v || '').toLowerCase().includes(q));
+  });
+
+  list = list.slice().sort((a, b) => {
+    const va = ((a.fields || {})[DV.sortField] || '').toLowerCase();
+    const vb = ((b.fields || {})[DV.sortField] || '').toLowerCase();
+    return DV.sortAsc ? va.localeCompare(vb, 'pt-BR') : vb.localeCompare(va, 'pt-BR');
+  });
+
+  if (!list.length) {
+    body.innerHTML = '';
+    empty?.classList.remove('hidden');
+    return;
+  }
+  empty?.classList.add('hidden');
+
+  body.innerHTML = list.map(d => {
+    const fields = d.fields || {};
+    const cells  = DV.schema.map((f, i) => {
+      const v   = fields[f.id] || '—';
+      const cls = i === 0 ? 'ct-td ct-td-name' : 'ct-td';
+      return `<td class="${cls}">${v}</td>`;
+    }).join('');
+    const cl      = d.checklist || [];
+    const clDone  = cl.filter(i => i.checked).length;
+    const clTotal = cl.length;
+    const clBadge = clTotal ? `<span class="ct-checklist-pill${clDone === clTotal ? ' ct-cl-complete' : ''}" style="font-size:10px;">${clDone}/${clTotal}</span>` : '';
+    return `<tr class="ct-row" onclick="dvOpenForm('${d.id}')">
+      ${cells}
+      <td class="ct-td ct-td-action" style="white-space:nowrap;">
+        ${clBadge}
+        <button class="ct-edit-btn" onclick="event.stopPropagation();dvOpenForm('${d.id}')">&#9998;</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── FORM ── */
+function dvOpenForm(id) {
+  DV.editingId = id || null;
+  const doc = id ? DV.list.find(d => d.id === id) : null;
+  gel('dvModalTitle').textContent = doc ? 'Editar Documento' : 'Novo Documento';
+  gel('dvBtnSave').textContent    = doc ? 'Salvar alteracoes' : 'Cadastrar';
+  gel('dvBtnDel').classList.toggle('hidden', !doc);
+
+  const existing = doc?.fields || {};
+  const grid = gel('dvFormFields');
+  if (grid) {
+    grid.innerHTML = DV.schema.map((f, i) => {
+      const val     = (existing[f.id] || '').replace(/"/g, '&quot;');
+      const spanCls = i === 0 ? ' ct-span2' : '';
+      const reqStar = f.required ? ' <span class="ct-req">*</span>' : '';
+      const reqAttr = f.required ? ' required' : '';
+      return `<div class="ct-field${spanCls}">
+        <label class="ct-label">${f.label}${reqStar}</label>
+        <input class="ct-input" id="dvf_${f.id}" type="text" value="${val}"${reqAttr}>
+      </div>`;
+    }).join('');
+  }
+
+  gel('dvModal').classList.remove('hidden');
+  const filesSection = gel('dvFilesSection');
+  if (filesSection) {
+    filesSection.classList.toggle('hidden', !id);
+    if (id) dvRenderFiles();
+  }
+  const clSection = gel('dvChecklistSection');
+  if (clSection) {
+    clSection.classList.toggle('hidden', !id);
+    if (id) dvRenderChecklist();
+  }
+}
+
+function dvCloseForm() {
+  gel('dvModal').classList.add('hidden');
+  DV.editingId = null;
+}
+
+/* ── SUBMIT ── */
+async function dvSubmit(e) {
+  e.preventDefault();
+  const fields = {};
+  DV.schema.forEach(f => {
+    const el = gel('dvf_' + f.id);
+    if (el) fields[f.id] = el.value.trim();
+  });
+  const payload = { fields, companyId: STATE.company?.id || null };
+  const isEdit  = !!DV.editingId;
+  const url     = isEdit ? `/api/documentos/${DV.editingId}` : '/api/documentos';
+  const method  = isEdit ? 'PUT' : 'POST';
+  const r = await apiFetch(url, { method, body: JSON.stringify(payload) });
+  if (!r || !r.ok) {
+    const err = r ? await r.json().catch(() => ({})) : {};
+    toast('Erro: ' + (err.error || `HTTP ${r?.status}`)); return;
+  }
+  const saved = await r.json();
+  await dvLoad();
+  if (isEdit) {
+    toast('Documento atualizado.');
+    dvCloseForm();
+  } else {
+    DV.editingId = saved.id;
+    if (dvChecklistTemplate.length) {
+      const defaultCl = dvChecklistTemplate.map(t => ({
+        id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        name: t.name, checked: false,
+      }));
+      await apiFetch(`/api/documentos/${saved.id}`, { method: 'PUT', body: JSON.stringify({ checklist: defaultCl }) });
+      const doc = DV.list.find(d => d.id === saved.id);
+      if (doc) doc.checklist = defaultCl;
+    }
+    toast('Documento cadastrado. Adicione arquivos e preencha o checklist.');
+    gel('dvModalTitle').textContent = 'Editar Documento';
+    gel('dvBtnSave').textContent    = 'Salvar alteracoes';
+    gel('dvBtnDel').classList.remove('hidden');
+    const filesSection = gel('dvFilesSection');
+    if (filesSection) { filesSection.classList.remove('hidden'); dvRenderFiles(); }
+    const clSection = gel('dvChecklistSection');
+    if (clSection) { clSection.classList.remove('hidden'); dvRenderChecklist(); }
+  }
+}
+
+/* ── SCHEMA MODAL ── */
+function dvOpenSchemaModal() {
+  dvSchemaDraft = DV.schema.map(f => ({ ...f }));
+  dvRenderSchemaFields();
+  gel('dvSchemaModal').classList.remove('hidden');
+}
+
+function dvCloseSchemaModal() { gel('dvSchemaModal').classList.add('hidden'); }
+
+function dvRenderSchemaFields() {
+  const el = gel('dvSchemaFields');
+  if (!el) return;
+  el.innerHTML = dvSchemaDraft.map((f, i) => {
+    const isFirst = i === 0;
+    const dis     = isFirst ? ' disabled' : '';
+    const chk     = (isFirst || f.required) ? ' checked' : '';
+    const safeVal = (f.label + '').replace(/"/g, '&quot;');
+    return `<div class="ct-schema-row">
+      <span class="ct-schema-num">${i + 1}</span>
+      <input class="ct-input ct-schema-label-input" id="dvsl_${f.id}" value="${safeVal}" placeholder="Nome do campo"${isFirst ? ' required' : ''}>
+      <label class="ct-schema-req-label">
+        <input type="checkbox" id="dvsr_${f.id}"${chk}${dis}> Obrig.
+      </label>
+      <button class="ct-schema-del-btn" onclick="dvSchemaRemoveField('${f.id}')"${dis} title="Remover">&#215;</button>
+    </div>`;
+  }).join('');
+  const addBtn = gel('dvSchemaAddBtn');
+  if (addBtn) addBtn.disabled = dvSchemaDraft.length >= 10;
+}
+
+function dvSchemaAddField() {
+  if (dvSchemaDraft.length >= 10) return;
+  const usedIds = new Set(dvSchemaDraft.map(f => f.id));
+  let nextId = null;
+  for (let n = 1; n <= 10; n++) {
+    if (!usedIds.has('f' + n)) { nextId = 'f' + n; break; }
+  }
+  if (!nextId) return;
+  dvSchemaDraft.push({ id: nextId, label: '', required: false });
+  dvRenderSchemaFields();
+  const inp = gel('dvsl_' + nextId);
+  if (inp) setTimeout(() => inp.focus(), 30);
+}
+
+function dvSchemaRemoveField(id) {
+  if (dvSchemaDraft[0]?.id === id) return;
+  dvSchemaDraft = dvSchemaDraft.filter(f => f.id !== id);
+  dvRenderSchemaFields();
+}
+
+async function dvSaveSchema() {
+  const schema = dvSchemaDraft.map((f, i) => {
+    const labelEl = gel('dvsl_' + f.id);
+    const reqEl   = gel('dvsr_' + f.id);
+    return {
+      id:       f.id,
+      label:    (labelEl?.value || '').trim(),
+      required: i === 0 ? true : (reqEl?.checked || false),
+    };
+  }).filter(f => f.label);
+
+  if (!schema.length) { toast('Adicione ao menos um campo com nome.'); return; }
+  const companyId = STATE.company?.id;
+  if (!companyId) { toast('Nenhuma empresa selecionada.'); return; }
+
+  const r = await apiFetch(`/api/companies/${companyId}/dv-schema`, {
+    method: 'PUT',
+    body:   JSON.stringify({ fields: schema }),
+  });
+  if (!r || !r.ok) {
+    const err = r ? await r.json().catch(() => ({})) : {};
+    toast('Erro: ' + (err.error || 'Falha ao salvar.')); return;
+  }
+  DV.schema = await r.json();
+  dvCloseSchemaModal();
+  dvRenderHead();
+  dvRenderStats();
+  dvRenderTable();
+  toast('Campos atualizados.');
+}
+
+/* ── DELETE ── */
+async function dvDelete() {
+  if (!DV.editingId || !confirm('Excluir este documento?')) return;
+  const r = await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'DELETE' });
+  if (!r || !r.ok) { toast('Erro ao excluir.'); return; }
+  toast('Documento excluido.');
+  dvCloseForm();
+  await dvLoad();
+}
+
+/* ── DV FILES ── */
+function dvRenderFiles() {
+  const el = gel('dvFilesList');
+  if (!el || !DV.editingId) return;
+  const doc   = DV.list.find(d => d.id === DV.editingId);
+  const files = doc?.files || [];
+  if (!files.length) {
+    el.innerHTML = '<div class="ct-files-empty">Nenhum arquivo anexado.</div>';
+    return;
+  }
+  el.innerHTML = files.map(f => `
+    <div class="ct-file-item" id="dvfi_${f.id}">
+      <span class="ct-file-icon">${ctFileIcon(f.mime)}</span>
+      <div class="ct-file-info">
+        <div class="ct-file-name">${f.name}</div>
+        <div class="ct-file-meta">${ctFileSize(f.size)} &bull; ${f.uploadedAt ? new Date(f.uploadedAt).toLocaleDateString('pt-BR') : ''}</div>
+      </div>
+      <a class="ct-file-open" href="/api/documentos/${DV.editingId}/files/${f.id}" target="_blank" rel="noopener">Abrir</a>
+      <button class="ct-file-del" onclick="dvDeleteFile('${f.id}')" title="Remover">&#128465;</button>
+    </div>`).join('');
+}
+
+async function dvUploadFiles(filesRaw) {
+  const files = Array.from(filesRaw);
+  if (!files.length || !DV.editingId) return;
+  const el = gel('dvFilesList');
+  for (const file of files) {
+    const tmpId = 'tmp_' + Date.now();
+    const ph = document.createElement('div');
+    ph.className = 'ct-file-item ct-file-uploading';
+    ph.id = 'dvfi_' + tmpId;
+    ph.innerHTML = `<span class="ct-file-icon">&#128257;</span><div class="ct-file-info"><div class="ct-file-name">${file.name}</div><div class="ct-file-meta">Enviando...</div></div>`;
+    el?.appendChild(ph);
+    try {
+      const ext  = file.name.split('.').pop().toLowerCase();
+      const mime = file.type || (ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : 'image/jpeg');
+      const b64  = await fileToBase64(file);
+      const r = await apiFetch(`/api/documentos/${DV.editingId}/files`, {
+        method: 'POST',
+        body:   JSON.stringify({ name: file.name, mime, data: b64 }),
+      });
+      if (!r || !r.ok) { const err = r ? await r.json().catch(() => ({})) : {}; throw new Error(err.error || `HTTP ${r?.status}`); }
+      const saved = await r.json();
+      const doc = DV.list.find(d => d.id === DV.editingId);
+      if (doc) { doc.files = doc.files || []; doc.files.push(saved); }
+      toast(`"${file.name}" anexado.`);
+    } catch (e) { toast(`Erro ao enviar "${file.name}": ${e.message}`); }
+    ph.remove();
+  }
+  gel('dvFileInput').value = '';
+  dvRenderFiles();
+}
+
+async function dvDeleteFile(fid) {
+  if (!DV.editingId || !confirm('Remover este arquivo?')) return;
+  const r = await apiFetch(`/api/documentos/${DV.editingId}/files/${fid}`, { method: 'DELETE' });
+  if (!r || !r.ok) { toast('Erro ao remover arquivo.'); return; }
+  const doc = DV.list.find(d => d.id === DV.editingId);
+  if (doc) doc.files = (doc.files || []).filter(f => f.id !== fid);
+  dvRenderFiles();
+}
+
+/* ── DV CHECKLIST ── */
+function dvChecklistGet() {
+  if (!DV.editingId) return [];
+  return DV.list.find(d => d.id === DV.editingId)?.checklist || [];
+}
+
+function dvChecklistSet(items) {
+  const doc = DV.list.find(d => d.id === DV.editingId);
+  if (doc) doc.checklist = items;
+}
+
+function dvRenderChecklist() {
+  const items  = dvChecklistGet();
+  const el     = gel('dvChecklistList');
+  const pill   = gel('dvChecklistPill');
+  const loadEl = gel('dvChecklistLoadTpl');
+  if (!el) return;
+
+  const checked = items.filter(i => i.checked).length;
+  const total   = items.length;
+  if (pill) {
+    pill.textContent = total ? `${checked}/${total}` : '';
+    pill.className   = 'ct-checklist-pill' + (total && checked === total ? ' ct-cl-complete' : '');
+  }
+  if (loadEl) loadEl.classList.toggle('hidden', items.length > 0 || !dvChecklistTemplate.length);
+
+  if (!items.length) {
+    el.innerHTML = '<div class="ct-files-empty">Nenhum item. Clique em "+ Item" para adicionar' + (dvChecklistTemplate.length ? ' ou carregue o modelo.' : '.') + '</div>';
+    return;
+  }
+  el.innerHTML = items.map(item => `
+    <div class="ct-cl-item">
+      <label class="ct-cl-label">
+        <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="dvChecklistToggle('${item.id}', this.checked)">
+        <span class="ct-cl-name ${item.checked ? 'ct-cl-done' : ''}">${item.name}</span>
+      </label>
+      <button class="ct-file-del" onclick="dvChecklistRemoveItem('${item.id}')" title="Remover">&#215;</button>
+    </div>`).join('');
+}
+
+async function dvChecklistToggle(id, checked) {
+  const items = dvChecklistGet();
+  const item  = items.find(i => i.id === id);
+  if (!item) return;
+  item.checked = checked;
+  dvRenderChecklist();
+  await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+}
+
+async function dvChecklistRemoveItem(id) {
+  const items = dvChecklistGet().filter(i => i.id !== id);
+  dvChecklistSet(items);
+  dvRenderChecklist();
+  await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+}
+
+function dvChecklistAddItem() {
+  openPrompt('Novo item do checklist', 'Ex.: Documento enviado', async (name) => {
+    const items = dvChecklistGet();
+    items.push({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name, checked: false });
+    dvChecklistSet(items);
+    dvRenderChecklist();
+    await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+  });
+}
+
+async function dvChecklistLoadTemplate() {
+  if (!dvChecklistTemplate.length) return;
+  const items       = dvChecklistGet();
+  const existingSet = new Set(items.map(i => i.name.toLowerCase()));
+  const newItems    = dvChecklistTemplate
+    .filter(t => !existingSet.has(t.name.toLowerCase()))
+    .map(t => ({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name: t.name, checked: false }));
+  const merged = [...items, ...newItems];
+  dvChecklistSet(merged);
+  dvRenderChecklist();
+  if (newItems.length) {
+    await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: merged }) });
+    toast(newItems.length + ' item(ns) carregado(s) do modelo.');
+  }
+}
+
+/* ── DV CHECKLIST TEMPLATE MODAL ── */
+function dvOpenChecklistTplModal() {
+  dvChecklistTplDraft = dvChecklistTemplate.map(i => ({ ...i }));
+  dvRenderChecklistTplModal();
+  gel('dvChecklistTplModal').classList.remove('hidden');
+}
+
+function dvCloseChecklistTplModal() { gel('dvChecklistTplModal').classList.add('hidden'); }
+
+function dvRenderChecklistTplModal() {
+  const el = gel('dvChecklistTplList');
+  if (!el) return;
+  el.innerHTML = dvChecklistTplDraft.map((item, i) => `
+    <div class="ct-schema-row">
+      <span class="ct-schema-num">${i + 1}</span>
+      <input class="ct-input ct-schema-label-input" value="${(item.name + '').replace(/"/g, '&quot;')}"
+        oninput="dvChecklistTplDraft[${i}].name = this.value" placeholder="Nome do item">
+      <button class="ct-schema-del-btn" onclick="dvChecklistTplDraft.splice(${i},1);dvRenderChecklistTplModal()">&#215;</button>
+    </div>`).join('');
+}
+
+function dvChecklistTplAddItem() {
+  dvChecklistTplDraft.push({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name: '' });
+  dvRenderChecklistTplModal();
+  const inputs = gel('dvChecklistTplList').querySelectorAll('.ct-schema-label-input');
+  if (inputs.length) setTimeout(() => inputs[inputs.length - 1].focus(), 30);
+}
+
+async function dvSaveChecklistTemplate() {
+  const companyId = STATE.company?.id;
+  if (!companyId) { toast('Nenhuma empresa selecionada.'); return; }
+  const inputs = gel('dvChecklistTplList').querySelectorAll('.ct-schema-label-input');
+  const items  = dvChecklistTplDraft.map((item, i) => ({
+    id:   item.id,
+    name: (inputs[i] ? inputs[i].value : item.name).trim(),
+  })).filter(i => i.name);
+  const r = await apiFetch(`/api/companies/${companyId}/dv-checklist`, { method: 'PUT', body: JSON.stringify({ items }) });
+  if (!r || !r.ok) { toast('Erro ao salvar modelo.'); return; }
+  dvChecklistTemplate = await r.json();
+  dvCloseChecklistTplModal();
+  toast('Modelo de checklist salvo.');
 }
 
 /* ── INIT ────────────────────────────────────────────────────────── */

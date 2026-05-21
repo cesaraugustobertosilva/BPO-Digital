@@ -161,4 +161,82 @@ router.put('/:id/ct-schema', requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/companies/:id/ct-checklist
+router.get('/:id/ct-checklist', requireAuth, async (req, res) => {
+  try {
+    const checklists = await readData('ct_checklists') || {};
+    res.json(checklists[req.params.id] || []);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT /api/companies/:id/ct-checklist
+router.put('/:id/ct-checklist', requireAuth, async (req, res) => {
+  try {
+    const { role, companyId: uCo } = req.user;
+    if (role !== 'admin' && !((role === 'company' || role === 'department') && uCo === req.params.id))
+      return res.status(403).json({ error: 'Acesso negado.' });
+    const { items } = req.body;
+    if (!Array.isArray(items)) return res.status(400).json({ error: 'items deve ser um array.' });
+    const checklists = await readData('ct_checklists') || {};
+    checklists[req.params.id] = items
+      .map(i => ({ id: String(i.id || ('ci_' + Date.now() + Math.random().toString(36).slice(2,5))), name: String(i.name || '').trim() }))
+      .filter(i => i.name);
+    await writeData('ct_checklists', checklists);
+    res.json(checklists[req.params.id]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/companies/:id/dv-schema
+router.get('/:id/dv-schema', requireAuth, async (req, res) => {
+  try {
+    const schemas = await readData('dv_schemas') || {};
+    res.json(schemas[req.params.id] || null);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT /api/companies/:id/dv-schema
+router.put('/:id/dv-schema', requireAuth, async (req, res) => {
+  try {
+    const { role, companyId: uCo } = req.user;
+    if (role !== 'admin' && !(role === 'company' && uCo === req.params.id))
+      return res.status(403).json({ error: 'Acesso negado.' });
+    const { fields } = req.body;
+    if (!Array.isArray(fields) || fields.length < 1 || fields.length > 10)
+      return res.status(400).json({ error: 'Schema deve ter entre 1 e 10 campos.' });
+    const schemas = await readData('dv_schemas') || {};
+    schemas[req.params.id] = fields
+      .map(f => ({ id: String(f.id), label: String(f.label || '').trim(), required: !!f.required }))
+      .filter(f => f.id && f.label);
+    if (!schemas[req.params.id].length)
+      return res.status(400).json({ error: 'Nenhum campo valido enviado.' });
+    await writeData('dv_schemas', schemas);
+    res.json(schemas[req.params.id]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/companies/:id/dv-checklist
+router.get('/:id/dv-checklist', requireAuth, async (req, res) => {
+  try {
+    const checklists = await readData('dv_checklists') || {};
+    res.json(checklists[req.params.id] || []);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT /api/companies/:id/dv-checklist
+router.put('/:id/dv-checklist', requireAuth, async (req, res) => {
+  try {
+    const { role, companyId: uCo } = req.user;
+    if (role !== 'admin' && !((role === 'company' || role === 'department') && uCo === req.params.id))
+      return res.status(403).json({ error: 'Acesso negado.' });
+    const { items } = req.body;
+    if (!Array.isArray(items)) return res.status(400).json({ error: 'items deve ser um array.' });
+    const checklists = await readData('dv_checklists') || {};
+    checklists[req.params.id] = items
+      .map(i => ({ id: String(i.id || ('ci_' + Date.now() + Math.random().toString(36).slice(2,5))), name: String(i.name || '').trim() }))
+      .filter(i => i.name);
+    await writeData('dv_checklists', checklists);
+    res.json(checklists[req.params.id]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;
