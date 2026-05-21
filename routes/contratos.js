@@ -41,12 +41,14 @@ router.post('/', async (req, res) => {
     const sanitized = Object.fromEntries(
       Object.entries(fields).map(([k, v]) => [k, String(v || '').trim()])
     );
+    const rawCl = Array.isArray(req.body.checklist) ? req.body.checklist : [];
     const ct = {
       id:          'ct_' + Date.now(),
       companyId:   companyId || null,
       fields:      sanitized,
       nomeCliente: sanitized.f1, // backward compat
       files:       [],
+      checklist:   rawCl.map(i => ({ id: String(i.id), name: String(i.name||'').trim(), checked: !!i.checked })).filter(i => i.id && i.name),
       createdAt:   new Date().toISOString(),
       createdBy:   req.user?.username || 'sistema',
     };

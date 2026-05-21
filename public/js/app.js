@@ -3144,11 +3144,12 @@ const DEFAULT_CT_SCHEMA = [
 ];
 
 const CT = {
-  list:      [],
-  editingId: null,
-  sortField: 'f1',
-  sortAsc:   true,
-  schema:    DEFAULT_CT_SCHEMA.map(f => ({ ...f })),
+  list:             [],
+  editingId:        null,
+  sortField:        'f1',
+  sortAsc:          true,
+  schema:           DEFAULT_CT_SCHEMA.map(f => ({ ...f })),
+  pendingChecklist: [],
 };
 
 let ctSchemaDraft = [];
@@ -3314,14 +3315,21 @@ function ctOpenForm(id) {
   }
   const clSection = gel('ctChecklistSection');
   if (clSection) {
-    clSection.classList.toggle('hidden', !id);
-    if (id) ctRenderChecklist();
+    clSection.classList.remove('hidden');
+    if (!id) {
+      CT.pendingChecklist = ctChecklistTemplate.map(t => ({
+        id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        name: t.name, checked: false,
+      }));
+    }
+    ctRenderChecklist();
   }
 }
 
 function ctCloseForm() {
   gel('ctModal').classList.add('hidden');
-  CT.editingId = null;
+  CT.editingId        = null;
+  CT.pendingChecklist = [];
 }
 
 /* ── MASKS ── */
@@ -3355,8 +3363,9 @@ async function ctSubmit(e) {
     const el = gel('ctf_' + f.id);
     if (el) fields[f.id] = el.value.trim();
   });
-  const payload = { fields, companyId: STATE.company?.id || null };
   const isEdit = !!CT.editingId;
+  const payload = { fields, companyId: STATE.company?.id || null };
+  if (!isEdit && CT.pendingChecklist.length) payload.checklist = CT.pendingChecklist;
   const url    = isEdit ? `/api/contratos/${CT.editingId}` : '/api/contratos';
   const method = isEdit ? 'PUT' : 'POST';
   const r = await apiFetch(url, { method, body: JSON.stringify(payload) });
@@ -3370,17 +3379,8 @@ async function ctSubmit(e) {
     toast('Contrato atualizado.');
     ctCloseForm();
   } else {
-    CT.editingId = saved.id;
-    // Inicializa checklist a partir do template padrao
-    if (ctChecklistTemplate.length) {
-      const defaultCl = ctChecklistTemplate.map(t => ({
-        id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
-        name: t.name, checked: false,
-      }));
-      await apiFetch(`/api/contratos/${saved.id}`, { method: 'PUT', body: JSON.stringify({ checklist: defaultCl }) });
-      const ct = CT.list.find(c => c.id === saved.id);
-      if (ct) ct.checklist = defaultCl;
-    }
+    CT.editingId        = saved.id;
+    CT.pendingChecklist = [];
     toast('Contrato cadastrado. Adicione arquivos e preencha o checklist.');
     gel('ctModalTitle').textContent = 'Editar Contrato';
     gel('ctBtnSave').textContent    = 'Salvar alteracoes';
@@ -3590,11 +3590,12 @@ async function apiGetCtChecklist(companyId) {
 }
 
 function ctChecklistGet() {
-  if (!CT.editingId) return [];
+  if (!CT.editingId) return CT.pendingChecklist;
   return CT.list.find(c => c.id === CT.editingId)?.checklist || [];
 }
 
 function ctChecklistSet(items) {
+  if (!CT.editingId) { CT.pendingChecklist = items; return; }
   const ct = CT.list.find(c => c.id === CT.editingId);
   if (ct) ct.checklist = items;
 }
@@ -3633,15 +3634,16 @@ async function ctChecklistToggle(id, checked) {
   const item  = items.find(i => i.id === id);
   if (!item) return;
   item.checked = checked;
+  ctChecklistSet(items);
   ctRenderChecklist();
-  await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+  if (CT.editingId) await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
 }
 
 async function ctChecklistRemoveItem(id) {
   const items = ctChecklistGet().filter(i => i.id !== id);
   ctChecklistSet(items);
   ctRenderChecklist();
-  await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+  if (CT.editingId) await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
 }
 
 function ctChecklistAddItem() {
@@ -3650,7 +3652,7 @@ function ctChecklistAddItem() {
     items.push({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name, checked: false });
     ctChecklistSet(items);
     ctRenderChecklist();
-    await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+    if (CT.editingId) await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
   });
 }
 
@@ -3665,7 +3667,7 @@ async function ctChecklistLoadTemplate() {
   ctChecklistSet(merged);
   ctRenderChecklist();
   if (newItems.length) {
-    await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: merged }) });
+    if (CT.editingId) await apiFetch(`/api/contratos/${CT.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: merged }) });
     toast(newItems.length + ' item(ns) carregado(s) do modelo.');
   }
 }
@@ -3725,11 +3727,12 @@ const DEFAULT_DV_SCHEMA = [
 ];
 
 const DV = {
-  list:      [],
-  editingId: null,
-  sortField: 'f1',
-  sortAsc:   true,
-  schema:    DEFAULT_DV_SCHEMA.map(f => ({ ...f })),
+  list:             [],
+  editingId:        null,
+  sortField:        'f1',
+  sortAsc:          true,
+  schema:           DEFAULT_DV_SCHEMA.map(f => ({ ...f })),
+  pendingChecklist: [],
 };
 
 let dvSchemaDraft        = [];
@@ -3894,14 +3897,21 @@ function dvOpenForm(id) {
   }
   const clSection = gel('dvChecklistSection');
   if (clSection) {
-    clSection.classList.toggle('hidden', !id);
-    if (id) dvRenderChecklist();
+    clSection.classList.remove('hidden');
+    if (!id) {
+      DV.pendingChecklist = dvChecklistTemplate.map(t => ({
+        id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        name: t.name, checked: false,
+      }));
+    }
+    dvRenderChecklist();
   }
 }
 
 function dvCloseForm() {
   gel('dvModal').classList.add('hidden');
-  DV.editingId = null;
+  DV.editingId        = null;
+  DV.pendingChecklist = [];
 }
 
 /* ── SUBMIT ── */
@@ -3912,8 +3922,9 @@ async function dvSubmit(e) {
     const el = gel('dvf_' + f.id);
     if (el) fields[f.id] = el.value.trim();
   });
-  const payload = { fields, companyId: STATE.company?.id || null };
   const isEdit  = !!DV.editingId;
+  const payload = { fields, companyId: STATE.company?.id || null };
+  if (!isEdit && DV.pendingChecklist.length) payload.checklist = DV.pendingChecklist;
   const url     = isEdit ? `/api/documentos/${DV.editingId}` : '/api/documentos';
   const method  = isEdit ? 'PUT' : 'POST';
   const r = await apiFetch(url, { method, body: JSON.stringify(payload) });
@@ -3927,16 +3938,8 @@ async function dvSubmit(e) {
     toast('Documento atualizado.');
     dvCloseForm();
   } else {
-    DV.editingId = saved.id;
-    if (dvChecklistTemplate.length) {
-      const defaultCl = dvChecklistTemplate.map(t => ({
-        id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
-        name: t.name, checked: false,
-      }));
-      await apiFetch(`/api/documentos/${saved.id}`, { method: 'PUT', body: JSON.stringify({ checklist: defaultCl }) });
-      const doc = DV.list.find(d => d.id === saved.id);
-      if (doc) doc.checklist = defaultCl;
-    }
+    DV.editingId        = saved.id;
+    DV.pendingChecklist = [];
     toast('Documento cadastrado. Adicione arquivos e preencha o checklist.');
     gel('dvModalTitle').textContent = 'Editar Documento';
     gel('dvBtnSave').textContent    = 'Salvar alteracoes';
@@ -4103,11 +4106,12 @@ async function dvDeleteFile(fid) {
 
 /* ── DV CHECKLIST ── */
 function dvChecklistGet() {
-  if (!DV.editingId) return [];
+  if (!DV.editingId) return DV.pendingChecklist;
   return DV.list.find(d => d.id === DV.editingId)?.checklist || [];
 }
 
 function dvChecklistSet(items) {
+  if (!DV.editingId) { DV.pendingChecklist = items; return; }
   const doc = DV.list.find(d => d.id === DV.editingId);
   if (doc) doc.checklist = items;
 }
@@ -4146,15 +4150,16 @@ async function dvChecklistToggle(id, checked) {
   const item  = items.find(i => i.id === id);
   if (!item) return;
   item.checked = checked;
+  dvChecklistSet(items);
   dvRenderChecklist();
-  await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+  if (DV.editingId) await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
 }
 
 async function dvChecklistRemoveItem(id) {
   const items = dvChecklistGet().filter(i => i.id !== id);
   dvChecklistSet(items);
   dvRenderChecklist();
-  await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+  if (DV.editingId) await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
 }
 
 function dvChecklistAddItem() {
@@ -4163,7 +4168,7 @@ function dvChecklistAddItem() {
     items.push({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name, checked: false });
     dvChecklistSet(items);
     dvRenderChecklist();
-    await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
+    if (DV.editingId) await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: items }) });
   });
 }
 
@@ -4178,7 +4183,7 @@ async function dvChecklistLoadTemplate() {
   dvChecklistSet(merged);
   dvRenderChecklist();
   if (newItems.length) {
-    await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: merged }) });
+    if (DV.editingId) await apiFetch(`/api/documentos/${DV.editingId}`, { method: 'PUT', body: JSON.stringify({ checklist: merged }) });
     toast(newItems.length + ' item(ns) carregado(s) do modelo.');
   }
 }
