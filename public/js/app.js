@@ -3699,6 +3699,18 @@ function ctChecklistTplAddItem() {
   if (inputs.length) setTimeout(() => inputs[inputs.length - 1].focus(), 30);
 }
 
+function ctChecklistTplImportFields() {
+  const existingNames = new Set(ctChecklistTplDraft.map(i => i.name.toLowerCase()));
+  CT.schema.forEach(f => {
+    const name = f.label;
+    if (!existingNames.has(name.toLowerCase())) {
+      ctChecklistTplDraft.push({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name });
+      existingNames.add(name.toLowerCase());
+    }
+  });
+  ctRenderChecklistTplModal();
+}
+
 async function ctSaveChecklistTemplate() {
   const companyId = STATE.company?.id;
   if (!companyId) { toast('Nenhuma empresa selecionada.'); return; }
@@ -4214,6 +4226,18 @@ function dvChecklistTplAddItem() {
   dvRenderChecklistTplModal();
   const inputs = gel('dvChecklistTplList').querySelectorAll('.ct-schema-label-input');
   if (inputs.length) setTimeout(() => inputs[inputs.length - 1].focus(), 30);
+}
+
+function dvChecklistTplImportFields() {
+  const existingNames = new Set(dvChecklistTplDraft.map(i => i.name.toLowerCase()));
+  DV.schema.forEach(f => {
+    const name = f.label;
+    if (!existingNames.has(name.toLowerCase())) {
+      dvChecklistTplDraft.push({ id: 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name });
+      existingNames.add(name.toLowerCase());
+    }
+  });
+  dvRenderChecklistTplModal();
 }
 
 async function dvSaveChecklistTemplate() {

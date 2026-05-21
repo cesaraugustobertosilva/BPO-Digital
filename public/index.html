@@ -252,7 +252,10 @@
         <div class="ct-schema-body">
           <p class="ct-schema-hint">Defina os itens padrao do checklist. Ao criar um novo contrato, esses itens serao carregados automaticamente.</p>
           <div id="ctChecklistTplList"></div>
-          <button class="ct-schema-add" onclick="ctChecklistTplAddItem()">&#43; Adicionar item</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+            <button class="ct-schema-add" onclick="ctChecklistTplAddItem()">&#43; Adicionar item</button>
+            <button class="ct-schema-add" onclick="ctChecklistTplImportFields()" style="background:#e0f2fe;color:#0369a1;">&#8614; Importar campos do formulario</button>
+          </div>
         </div>
         <div class="ct-form-actions" style="padding:0 22px 22px;">
           <button type="button" class="ct-btn-sec" onclick="ctCloseChecklistTplModal()">Cancelar</button>
@@ -359,7 +362,10 @@
         <div class="ct-schema-body">
           <p class="ct-schema-hint">Defina os itens padrao do checklist. Ao criar um novo documento, esses itens serao carregados automaticamente.</p>
           <div id="dvChecklistTplList"></div>
-          <button class="ct-schema-add" onclick="dvChecklistTplAddItem()">&#43; Adicionar item</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+            <button class="ct-schema-add" onclick="dvChecklistTplAddItem()">&#43; Adicionar item</button>
+            <button class="ct-schema-add" onclick="dvChecklistTplImportFields()" style="background:#e0f2fe;color:#0369a1;">&#8614; Importar campos do formulario</button>
+          </div>
         </div>
         <div class="ct-form-actions" style="padding:0 22px 22px;">
           <button type="button" class="ct-btn-sec" onclick="dvCloseChecklistTplModal()">Cancelar</button>
