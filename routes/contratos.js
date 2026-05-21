@@ -67,6 +67,11 @@ router.put('/:id', async (req, res) => {
       );
       ct.nomeCliente = ct.fields.f1 || ct.nomeCliente; // backward compat
     }
+    if (Array.isArray(req.body.checklist)) {
+      ct.checklist = req.body.checklist
+        .map(i => ({ id: String(i.id), name: String(i.name || '').trim(), checked: !!i.checked }))
+        .filter(i => i.id && i.name);
+    }
     ct.updatedAt = new Date().toISOString();
     await saveContrato(ct);
     res.json({ ...ct, files: (ct.files||[]).map(f => ({ id:f.id, name:f.name, size:f.size, mime:f.mime, uploadedAt:f.uploadedAt })) });

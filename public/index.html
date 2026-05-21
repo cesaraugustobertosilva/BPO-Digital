@@ -91,7 +91,7 @@
     <div class="nt" id="ntPainel" onclick="enterPainelView(this)">&#128202; Painel Gerencial</div>
     <div class="nt" id="ntNF" onclick="enterNfView(this)">&#129534; Notas Fiscais</div>
     <div class="nt" id="ntContratos" onclick="enterContratosView(this)">&#128203; Contratos</div>
-    <div class="nt" onclick="switchTab(this)">&#128194; Documentos Variados</div>
+    <div class="nt" id="ntDocVariados" onclick="enterDocVariadosView(this)">&#128194; Documentos Variados</div>
     <div class="nt nt-labor" id="ntLabor" onclick="enterTrabalhistaView()">&#9878; Trabalhista</div>
   </nav>
 
@@ -167,6 +167,7 @@
       <div class="ct-header-actions">
         <input class="ct-search" id="ctSearch" type="text" placeholder="Buscar..." oninput="ctRenderTable()">
         <button class="ct-btn-cfg hidden" id="ctBtnCfgSchema" onclick="ctOpenSchemaModal()">&#9881; Configurar Campos</button>
+        <button class="ct-btn-cfg hidden" id="ctBtnCfgChecklist" onclick="ctOpenChecklistTplModal()">&#10003; Modelo de Checklist</button>
         <button class="ct-btn-primary" onclick="ctOpenForm(null)">&#43; Novo Contrato</button>
       </div>
     </div>
@@ -208,6 +209,17 @@
           </div>
           <div class="ct-files-list" id="ctFilesList"></div>
         </div>
+
+        <!-- Checklist section (shown only when editing an existing contract) -->
+        <div class="ct-files-section hidden" id="ctChecklistSection">
+          <div class="ct-files-header">
+            <span class="ct-files-title">&#10003; Checklist</span>
+            <span class="ct-checklist-pill" id="ctChecklistPill"></span>
+            <div class="ct-checklist-load-tpl hidden" id="ctChecklistLoadTpl" onclick="ctChecklistLoadTemplate()">Carregar modelo</div>
+            <button class="ct-files-add-btn" onclick="ctChecklistAddItem()">&#43; Item</button>
+          </div>
+          <div id="ctChecklistList"></div>
+        </div>
       </div>
     </div>
 
@@ -226,6 +238,132 @@
         <div class="ct-form-actions" style="padding:0 22px 22px;">
           <button type="button" class="ct-btn-sec" onclick="ctCloseSchemaModal()">Cancelar</button>
           <button type="button" class="ct-btn-primary" onclick="ctSaveSchema()">Salvar configuracao</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checklist template modal -->
+    <div class="ct-modal hidden" id="ctChecklistTplModal" onclick="if(event.target===this)ctCloseChecklistTplModal()">
+      <div class="ct-modal-box">
+        <div class="ct-modal-header">
+          <span class="ct-modal-title">&#10003; Modelo de Checklist</span>
+          <button class="ct-modal-close" onclick="ctCloseChecklistTplModal()">&#10005;</button>
+        </div>
+        <div class="ct-schema-body">
+          <p class="ct-schema-hint">Defina os itens padrao do checklist. Ao criar um novo contrato, esses itens serao carregados automaticamente.</p>
+          <div id="ctChecklistTplList"></div>
+          <button class="ct-schema-add" onclick="ctChecklistTplAddItem()">&#43; Adicionar item</button>
+        </div>
+        <div class="ct-form-actions" style="padding:0 22px 22px;">
+          <button type="button" class="ct-btn-sec" onclick="ctCloseChecklistTplModal()">Cancelar</button>
+          <button type="button" class="ct-btn-primary" onclick="ctSaveChecklistTemplate()">Salvar modelo</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── DOCUMENTOS VARIADOS VIEW ───────────────────────────────── -->
+  <div id="docVariadosView" class="hidden body">
+
+    <div class="ct-header">
+      <div>
+        <div class="ct-title">&#128194; Documentos Variados</div>
+        <div class="ct-sub">Gestao de documentos por cliente</div>
+      </div>
+      <div class="ct-header-actions">
+        <input class="ct-search" id="dvSearch" type="text" placeholder="Buscar..." oninput="dvRenderTable()">
+        <button class="ct-btn-cfg hidden" id="dvBtnCfgSchema" onclick="dvOpenSchemaModal()">&#9881; Configurar Campos</button>
+        <button class="ct-btn-cfg hidden" id="dvBtnCfgChecklist" onclick="dvOpenChecklistTplModal()">&#10003; Modelo de Checklist</button>
+        <button class="ct-btn-primary" onclick="dvOpenForm(null)">&#43; Novo Documento</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="ct-stats" id="dvStats"></div>
+
+    <!-- Table -->
+    <div class="ct-table-wrap">
+      <table class="ct-table" id="dvTable">
+        <thead id="dvThead"><tr><th></th></tr></thead>
+        <tbody id="dvBody"></tbody>
+      </table>
+      <div class="ct-empty hidden" id="dvEmpty">Nenhum documento encontrado.</div>
+    </div>
+
+    <!-- Form modal -->
+    <div class="ct-modal hidden" id="dvModal" onclick="if(event.target===this)dvCloseForm()">
+      <div class="ct-modal-box">
+        <div class="ct-modal-header">
+          <span class="ct-modal-title" id="dvModalTitle">Novo Documento</span>
+          <button class="ct-modal-close" onclick="dvCloseForm()">&#10005;</button>
+        </div>
+        <form class="ct-form" id="dvForm" onsubmit="dvSubmit(event)">
+          <div class="ct-form-grid" id="dvFormFields"></div>
+          <div class="ct-form-actions">
+            <button type="button" class="ct-btn-del hidden" id="dvBtnDel" onclick="dvDelete()">&#128465; Excluir</button>
+            <button type="button" class="ct-btn-sec" onclick="dvCloseForm()">Cancelar</button>
+            <button type="submit" class="ct-btn-primary" id="dvBtnSave">Salvar</button>
+          </div>
+        </form>
+
+        <!-- Files section -->
+        <div class="ct-files-section hidden" id="dvFilesSection">
+          <div class="ct-files-header">
+            <span class="ct-files-title">&#128196; Arquivos anexados</span>
+            <label class="ct-files-add-btn" for="dvFileInput">&#43; Adicionar arquivo</label>
+            <input type="file" id="dvFileInput" multiple style="display:none" onchange="dvUploadFiles(this.files)">
+          </div>
+          <div class="ct-files-list" id="dvFilesList"></div>
+        </div>
+
+        <!-- Checklist section -->
+        <div class="ct-files-section hidden" id="dvChecklistSection">
+          <div class="ct-files-header">
+            <span class="ct-files-title">&#10003; Checklist</span>
+            <span class="ct-checklist-pill" id="dvChecklistPill"></span>
+            <div class="ct-checklist-load-tpl hidden" id="dvChecklistLoadTpl" onclick="dvChecklistLoadTemplate()">Carregar modelo</div>
+            <button class="ct-files-add-btn" onclick="dvChecklistAddItem()">&#43; Item</button>
+          </div>
+          <div id="dvChecklistList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schema config modal -->
+    <div class="ct-modal hidden" id="dvSchemaModal" onclick="if(event.target===this)dvCloseSchemaModal()">
+      <div class="ct-modal-box">
+        <div class="ct-modal-header">
+          <span class="ct-modal-title">&#9881; Configurar Campos</span>
+          <button class="ct-modal-close" onclick="dvCloseSchemaModal()">&#10005;</button>
+        </div>
+        <div class="ct-schema-body">
+          <p class="ct-schema-hint">Defina ate 10 campos. O campo 1 e o identificador principal e sempre obrigatorio.</p>
+          <div id="dvSchemaFields"></div>
+          <button class="ct-schema-add" id="dvSchemaAddBtn" onclick="dvSchemaAddField()">&#43; Adicionar campo</button>
+        </div>
+        <div class="ct-form-actions" style="padding:0 22px 22px;">
+          <button type="button" class="ct-btn-sec" onclick="dvCloseSchemaModal()">Cancelar</button>
+          <button type="button" class="ct-btn-primary" onclick="dvSaveSchema()">Salvar configuracao</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checklist template modal -->
+    <div class="ct-modal hidden" id="dvChecklistTplModal" onclick="if(event.target===this)dvCloseChecklistTplModal()">
+      <div class="ct-modal-box">
+        <div class="ct-modal-header">
+          <span class="ct-modal-title">&#10003; Modelo de Checklist</span>
+          <button class="ct-modal-close" onclick="dvCloseChecklistTplModal()">&#10005;</button>
+        </div>
+        <div class="ct-schema-body">
+          <p class="ct-schema-hint">Defina os itens padrao do checklist. Ao criar um novo documento, esses itens serao carregados automaticamente.</p>
+          <div id="dvChecklistTplList"></div>
+          <button class="ct-schema-add" onclick="dvChecklistTplAddItem()">&#43; Adicionar item</button>
+        </div>
+        <div class="ct-form-actions" style="padding:0 22px 22px;">
+          <button type="button" class="ct-btn-sec" onclick="dvCloseChecklistTplModal()">Cancelar</button>
+          <button type="button" class="ct-btn-primary" onclick="dvSaveChecklistTemplate()">Salvar modelo</button>
         </div>
       </div>
     </div>
