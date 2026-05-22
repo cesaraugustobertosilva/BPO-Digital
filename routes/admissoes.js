@@ -6,8 +6,136 @@ const { requireAuth } = require('./auth-middleware');
 
 /* ── helpers ── */
 
+const DEMO_IDS = new Set(['adm_demo1', 'adm_demo2', 'adm_demo3', 'adm_demo4']);
+
+function demoSeed() {
+  const now = Date.now();
+  return [
+    {
+      id: 'adm_demo1',
+      companyId: 'comp_demo',
+      departmentId: 'dept_rh',
+      name: 'Juliana Ferreira Costa',
+      cpf: '432.109.876-55',
+      email: 'juliana.costa@email.com',
+      phone: '5511987654321',
+      cargo: 'Analista de Marketing',
+      dataInicio: '2025-06-02',
+      mat: '',
+      status: 'aguardando_candidato',
+      createdAt: new Date(now - 86400000 * 2).toISOString(),
+      createdBy: 'admin',
+      migratedDossieId: null,
+      linkToken: 'demo-token-juliana-001',
+      contrato: { modo: 'manual', status: 'pendente', file: null },
+      checklist: [
+        { id: 'ci_rg',      name: 'RG ou CNH',                           required: true,  status: 'aprovado', aiResult: { ok: true,  reason: 'Documento de identidade legivel e valido.' },        file: { id: 'f1', name: 'rg.jpg', mime: 'image/jpeg', uploadedAt: new Date(now - 86400000).toISOString() } },
+        { id: 'ci_cpf',     name: 'CPF',                                  required: true,  status: 'aprovado', aiResult: { ok: true,  reason: 'CPF legivel e no formato correto.' },                 file: { id: 'f2', name: 'cpf.jpg', mime: 'image/jpeg', uploadedAt: new Date(now - 86400000).toISOString() } },
+        { id: 'ci_res',     name: 'Comprovante de Residencia',            required: true,  status: 'reprovado', aiResult: { ok: false, reason: 'Documento com data superior a 90 dias.' },          file: { id: 'f3', name: 'comp_res.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 43200000).toISOString() } },
+        { id: 'ci_foto',    name: 'Foto 3x4',                             required: true,  status: 'enviado',  aiResult: null, file: { id: 'f4', name: 'foto.jpg', mime: 'image/jpeg', uploadedAt: new Date(now - 3600000).toISOString() } },
+        { id: 'ci_cert',    name: 'Certidao de Nascimento ou Casamento',  required: true,  status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_ctps',    name: 'Carteira de Trabalho (CTPS)',          required: true,  status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_titulo',  name: 'Titulo de Eleitor',                    required: false, status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_diploma', name: 'Certificado Escolar / Diploma',        required: false, status: 'aprovado', aiResult: { ok: true, reason: 'Diploma de graduacao legivel e autenticado.' }, file: { id: 'f5', name: 'diploma.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 86400000).toISOString() } },
+      ],
+    },
+    {
+      id: 'adm_demo2',
+      companyId: 'comp_demo',
+      departmentId: 'dept_rh',
+      name: 'Rafael Souza Almeida',
+      cpf: '521.876.043-19',
+      email: 'rafael.almeida@email.com',
+      phone: '5521996543210',
+      cargo: 'Desenvolvedor Backend',
+      dataInicio: '2025-06-09',
+      mat: '',
+      status: 'completo',
+      createdAt: new Date(now - 86400000 * 5).toISOString(),
+      createdBy: 'admin',
+      migratedDossieId: null,
+      linkToken: 'demo-token-rafael-002',
+      contrato: { modo: 'd4sign', status: 'aguardando_assinatura', d4signDocUuid: 'uuid-demo-001', d4signSignatories: 'rafael.almeida@email.com', d4signStatus: 'enviado' },
+      checklist: [
+        { id: 'ci_rg',      name: 'RG ou CNH',                           required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'CNH valida e dentro do prazo de validade.' },    file: { id: 'f10', name: 'cnh.jpg', mime: 'image/jpeg', uploadedAt: new Date(now - 86400000 * 3).toISOString() } },
+        { id: 'ci_cpf',     name: 'CPF',                                  required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'CPF legivel e no formato correto.' },             file: { id: 'f11', name: 'cpf.jpg', mime: 'image/jpeg', uploadedAt: new Date(now - 86400000 * 3).toISOString() } },
+        { id: 'ci_res',     name: 'Comprovante de Residencia',            required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'Comprovante recente e legivel.' },                 file: { id: 'f12', name: 'res.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 86400000 * 2).toISOString() } },
+        { id: 'ci_foto',    name: 'Foto 3x4',                             required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'Foto adequada para documentos.' },                 file: { id: 'f13', name: 'foto.jpg', mime: 'image/jpeg', uploadedAt: new Date(now - 86400000 * 2).toISOString() } },
+        { id: 'ci_cert',    name: 'Certidao de Nascimento ou Casamento',  required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'Certidao de nascimento legivel.' },                file: { id: 'f14', name: 'certidao.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 86400000 * 1).toISOString() } },
+        { id: 'ci_ctps',    name: 'Carteira de Trabalho (CTPS)',          required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'CTPS com todas as paginas necessarias.' },         file: { id: 'f15', name: 'ctps.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 86400000 * 1).toISOString() } },
+        { id: 'ci_diploma', name: 'Certificado Escolar / Diploma',        required: false, status: 'aprovado', aiResult: { ok: true, reason: 'Diploma de tecnologia legivel.' },                  file: { id: 'f16', name: 'diploma.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 43200000).toISOString() } },
+      ],
+    },
+    {
+      id: 'adm_demo3',
+      companyId: 'comp_demo',
+      departmentId: 'dept_rh',
+      name: 'Camila Rodrigues Nunes',
+      cpf: '876.543.210-33',
+      email: 'camila.nunes@email.com',
+      phone: '5531988887777',
+      cargo: 'Assistente Comercial',
+      dataInicio: '2025-06-16',
+      mat: '',
+      status: 'em_andamento',
+      createdAt: new Date(now - 86400000 * 1).toISOString(),
+      createdBy: 'admin',
+      migratedDossieId: null,
+      linkToken: 'demo-token-camila-003',
+      contrato: { modo: 'manual', status: 'pendente', file: null },
+      checklist: [
+        { id: 'ci_rg',      name: 'RG ou CNH',                           required: true,  status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_cpf',     name: 'CPF',                                  required: true,  status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_res',     name: 'Comprovante de Residencia',            required: true,  status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_foto',    name: 'Foto 3x4',                             required: true,  status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_cert',    name: 'Certidao de Nascimento ou Casamento',  required: true,  status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_ctps',    name: 'Carteira de Trabalho (CTPS)',          required: true,  status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_titulo',  name: 'Titulo de Eleitor',                    required: false, status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_reserv',  name: 'Certificado de Reservista',            required: false, status: 'pendente', aiResult: null, file: null },
+        { id: 'ci_pis',     name: 'PIS/PASEP',                            required: false, status: 'pendente', aiResult: null, file: null },
+      ],
+    },
+    {
+      id: 'adm_demo4',
+      companyId: 'comp_demo',
+      departmentId: 'dept_rh',
+      name: 'Bruno Henrique Oliveira',
+      cpf: '109.234.567-88',
+      email: 'bruno.oliveira@email.com',
+      phone: '5541977776666',
+      cargo: 'Coordenador Financeiro',
+      dataInicio: '2025-05-26',
+      mat: '01045',
+      status: 'migrado',
+      createdAt: new Date(now - 86400000 * 10).toISOString(),
+      createdBy: 'admin',
+      migratedDossieId: 'dossie_adm_demo4',
+      linkToken: 'demo-token-bruno-004',
+      contrato: { modo: 'manual', status: 'assinado', file: { id: 'cf_demo4', name: 'contrato_assinado.pdf', mime: 'application/pdf' } },
+      checklist: [
+        { id: 'ci_rg',      name: 'RG ou CNH',                           required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'RG legivel e dentro da validade.' },    file: { id: 'f20', name: 'rg.jpg', mime: 'image/jpeg', uploadedAt: new Date(now - 86400000 * 8).toISOString() } },
+        { id: 'ci_cpf',     name: 'CPF',                                  required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'CPF legivel.' },                         file: { id: 'f21', name: 'cpf.jpg', mime: 'image/jpeg', uploadedAt: new Date(now - 86400000 * 8).toISOString() } },
+        { id: 'ci_res',     name: 'Comprovante de Residencia',            required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'Comprovante valido e recente.' },         file: { id: 'f22', name: 'res.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 86400000 * 7).toISOString() } },
+        { id: 'ci_foto',    name: 'Foto 3x4',                             required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'Foto adequada.' },                        file: { id: 'f23', name: 'foto.jpg', mime: 'image/jpeg', uploadedAt: new Date(now - 86400000 * 7).toISOString() } },
+        { id: 'ci_cert',    name: 'Certidao de Nascimento ou Casamento',  required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'Certidao valida.' },                      file: { id: 'f24', name: 'cert.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 86400000 * 6).toISOString() } },
+        { id: 'ci_ctps',    name: 'Carteira de Trabalho (CTPS)',          required: true,  status: 'aprovado', aiResult: { ok: true, reason: 'CTPS completa.' },                        file: { id: 'f25', name: 'ctps.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 86400000 * 6).toISOString() } },
+        { id: 'ci_diploma', name: 'Certificado Escolar / Diploma',        required: false, status: 'aprovado', aiResult: { ok: true, reason: 'Diploma de administracao legivel.' },    file: { id: 'f26', name: 'diploma.pdf', mime: 'application/pdf', uploadedAt: new Date(now - 86400000 * 5).toISOString() } },
+      ],
+    },
+  ];
+}
+
 async function getAll() {
-  return (await readData('admissoes')) || [];
+  let list = (await readData('admissoes')) || [];
+  const existingIds = new Set(list.map(a => a.id));
+  const demos = demoSeed();
+  const missingDemos = demos.filter(d => !existingIds.has(d.id));
+  if (missingDemos.length) {
+    list = list.filter(a => !DEMO_IDS.has(a.id));
+    list = [...demos, ...list];
+    await writeData('admissoes', list);
+  }
+  return list;
 }
 
 async function saveAll(list) {
