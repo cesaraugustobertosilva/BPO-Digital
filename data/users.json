@@ -37,7 +37,9 @@
       "rh",
       "trabalhista",
       "nf",
-      "contratos"
+      "contratos",
+      "documentos",
+      "admissional"
     ],
     "passwordHash": "b17e1cd5cc38f9d788a1b4356bfb3bca:04ff70a4316019d40fd881ad7a02375984a7fd3a3214281b8d0ed80acd4ddb396787805d8f7c220a2880d186a53a9eaf94f358288521f53c8806c99a94ea7b2c",
     "allowedCompanies": [
