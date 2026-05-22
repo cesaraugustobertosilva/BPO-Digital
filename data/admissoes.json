@@ -60,7 +60,7 @@
         "status": "reprovado",
         "aiResult": {
           "ok": false,
-          "reason": "Documento com data superior a 90 dias."
+          "reason": "Servico de IA indisponivel."
         },
         "file": {
           "id": "f3",
