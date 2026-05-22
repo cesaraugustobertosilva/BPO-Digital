@@ -141,7 +141,7 @@ async function setupFromUser(user) {
 }
 
 /* ── MODULE NAV FILTER ───────────────────────────────────────────── */
-const ALL_MODULES = ['rh','trabalhista','nf','contratos','documentos'];
+const ALL_MODULES = ['rh','trabalhista','nf','contratos','documentos','admissional'];
 
 function setupNavModules() {
   const mods = AUTH.user?.modules;
@@ -1663,7 +1663,7 @@ async function renderUserList() {
   if (!users.length) { list.innerHTML = '<div class="adm-empty">Nenhum usuario cadastrado.</div>'; return; }
 
   const roleLbl = { admin:'Administrador', multicompany:'Multiplas Empresas', company:'Gestao de Empresa', department:'Departamental' };
-  const modLabels = { rh:'RH', trabalhista:'Trabalhista', nf:'NF', contratos:'Contratos', documentos:'Docs' };
+  const modLabels = { rh:'RH', trabalhista:'Trabalhista', nf:'NF', contratos:'Contratos', documentos:'Docs', admissional:'Admissional' };
   list.innerHTML = `<table class="user-list-table">
     <thead><tr>
       <th>Nome</th><th>Usuario</th><th>Perfil</th><th>Empresa / Departamento</th><th>Modulos</th><th></th>
@@ -4500,8 +4500,13 @@ async function admOpenDetail(id) {
   const r = await apiFetch('/api/admissoes/' + id);
   if (!r || !r.ok) { toast('Erro ao carregar processo.'); return; }
   ADM.current = await r.json();
-  admRenderDetail();
   gel('admDetailModal').classList.remove('hidden');
+  try {
+    admRenderDetail();
+  } catch (e) {
+    console.error('[admRenderDetail]', e);
+    toast('Erro ao renderizar detalhes: ' + e.message);
+  }
 }
 
 function admCloseDetail() {

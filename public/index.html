@@ -85,7 +85,7 @@
 
   <!-- NAV -->
   <nav class="nav" id="mainNav">
-    <div class="nt" id="ntAdmissional" onclick="enterAdmissionalView(this)">&#128221; Admissional</div>
+    <div class="nt" id="ntAdmissional" data-mod="admissional" onclick="enterAdmissionalView(this)">&#128221; Admissional</div>
     <div class="nt active" id="ntRH" onclick="switchTabRH(this)">&#128101; RH
       <span class="nt-inc-pill hidden" id="ntIncPill" onclick="event.stopPropagation(); showIncView()">&#9888; <span id="incBadge">0</span></span>
     </div>
@@ -1067,6 +1067,7 @@
           <label class="uf-mod-item"><input type="checkbox" class="uf-mod-cb" value="nf">&#129534; Notas Fiscais</label>
           <label class="uf-mod-item"><input type="checkbox" class="uf-mod-cb" value="contratos">&#128203; Contratos</label>
           <label class="uf-mod-item"><input type="checkbox" class="uf-mod-cb" value="documentos">&#128194; Documentos Variados</label>
+          <label class="uf-mod-item"><input type="checkbox" class="uf-mod-cb" value="admissional">&#128221; Admissional</label>
         </div>
       </div>
       <!-- Empresas permitidas (apenas perfil multicompany) -->
