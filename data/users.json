@@ -56,5 +56,21 @@
     "departmentId": null,
     "modules": [],
     "passwordHash": "23a47318c394fa4bcc75f284e953c49e:febdf036eccf312e882b905fec9a5408c3baac1dd0d032b7a1f8ba53db7280ad7602378d469cb7f9e732eda980745f3ec596505fce5ba232972280f037381343"
+  },
+  {
+    "id": "user_1779479048171",
+    "username": "alvaro",
+    "name": "Alvaro",
+    "role": "admin",
+    "companyId": null,
+    "departmentId": null,
+    "modules": [
+      "rh",
+      "trabalhista",
+      "nf",
+      "contratos",
+      "documentos"
+    ],
+    "passwordHash": "b38b178b7f14a47158379c914bc9dc21:229ae3dc4cf90b701db176dfd0906f2fc22c8dc8fe0c211dae96957f63fb4850c93ebf57629aef7ea9d0d35a40bf41110fab248397bb03df57f8e6b4c827a70f"
   }
 ]
