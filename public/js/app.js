@@ -1144,6 +1144,8 @@ async function enterPainelView(tabEl) {
 async function renderPainelGerencial() {
   const list = await loadDossies();
   const total = list.length;
+  const ativos      = list.filter(d => (d.status || 'ativo') === 'ativo').length;
+  const inativos    = total - ativos;
   const completos   = list.filter(d => (d.missing_req || []).length === 0).length;
   const incompletos = total - completos;
   const taxa = total > 0 ? Math.round((completos / total) * 100) : 0;
@@ -1157,6 +1159,18 @@ async function renderPainelGerencial() {
       <div class="pg-card-val">${total}</div>
       <div class="pg-card-lbl">Total de Prontuarios</div>
       <div class="pg-card-sub">colaboradores cadastrados</div>
+    </div>
+    <div class="pg-card pg-card-green">
+      <div class="pg-card-icon">&#9711;</div>
+      <div class="pg-card-val green">${ativos}</div>
+      <div class="pg-card-lbl">Colaboradores Ativos</div>
+      <div class="pg-card-sub">em atividade</div>
+    </div>
+    <div class="pg-card pg-card-red">
+      <div class="pg-card-icon">&#9940;</div>
+      <div class="pg-card-val red">${inativos}</div>
+      <div class="pg-card-lbl">Colaboradores Inativos</div>
+      <div class="pg-card-sub">desligados</div>
     </div>
     <div class="pg-card pg-card-green">
       <div class="pg-card-icon">&#10003;</div>
@@ -1802,8 +1816,11 @@ async function renderIndexedDossies() {
   if (!el) return;
   el.innerHTML = '<div class="adm-empty" style="padding:16px;">Carregando...</div>';
   const list = await loadDossies();
+  const ativos   = list.filter(d => (d.status || 'ativo') === 'ativo').length;
+  const inativos = list.length - ativos;
   const count = gel('indexedDossieCount');
-  if (count) count.textContent = list.length + (list.length === 1 ? ' prontuario' : ' prontuarios');
+  if (count) count.textContent = list.length + (list.length === 1 ? ' prontuario' : ' prontuarios') +
+    (list.length ? ` • ${ativos} ativo${ativos !== 1 ? 's' : ''} / ${inativos} inativo${inativos !== 1 ? 's' : ''}` : '');
   if (!list.length) { el.innerHTML = '<div class="adm-empty" style="padding:16px;">Nenhum prontuario indexado.</div>'; return; }
   el.innerHTML = list.map(d => {
     const sev  = (d.missing_req||[]).length >= 2 ? 'critical' : (d.missing_req||[]).length === 1 ? 'warning' : 'ok';
@@ -1812,14 +1829,21 @@ async function renderIndexedDossies() {
       : sev === 'warning'
       ? '<span class="inc-severity sev-warning" style="font-size:10px;">&#9888; Atencao</span>'
       : '<span class="inc-severity sev-ok" style="font-size:10px;">&#10003; Completo</span>';
+    const status = d.status || 'ativo';
+    const desl   = status === 'inativo' && d.dataDesligamento
+      ? new Date(d.dataDesligamento + 'T00:00:00').toLocaleDateString('pt-BR') : '';
+    const statusBadge = status === 'ativo'
+      ? `<span class="idx-status-ativo" onclick="event.stopPropagation();openStatusModal('${d.id}')">Ativo</span>`
+      : `<span class="idx-status-inativo" onclick="event.stopPropagation();openStatusModal('${d.id}')">${desl ? 'Inativo<br><small>' + desl + '</small>' : 'Inativo'}</span>`;
     const date = new Date(d.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
     const initials = d.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
-    return `<div class="idx-dossie-row" onclick="showDossierModal('${d.id}')">
-      <div class="idx-avatar">${initials}</div>
+    return `<div class="idx-dossie-row${status === 'inativo' ? ' idx-row-inativo' : ''}" onclick="showDossierModal('${d.id}')">
+      <div class="idx-avatar${status === 'inativo' ? ' idx-avatar-inativo' : ''}">${initials}</div>
       <div class="idx-meta">
         <div class="idx-name">${d.name}</div>
         <div class="idx-sub">CPF: ${d.cpf||'nao informado'} &middot; Mat.: ${d.mat||'nao informada'}</div>
       </div>
+      ${statusBadge}
       ${badge}
       <div class="idx-date">${date}</div>
       <div class="idx-arrow">&#8250;</div>
@@ -3199,7 +3223,7 @@ async function ctLoad() {
   CT.schema = schemaData || DEFAULT_CT_SCHEMA.map(f => ({ ...f }));
   ctChecklistTemplate = Array.isArray(clTpl) ? clTpl : [];
   CT.list   = (r && r.ok) ? await r.json() : [];
-  const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company' || AUTH.user?.role === 'department');
+  const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company' || AUTH.user?.role === 'department' || AUTH.user?.role === 'multicompany');
   gel('ctBtnCfgSchema')?.classList.toggle('hidden', !canCfg);
   gel('ctBtnCfgChecklist')?.classList.toggle('hidden', !canCfg);
   ctRenderHead();
@@ -3789,7 +3813,7 @@ async function dvLoad() {
   DV.schema = schemaData || DEFAULT_DV_SCHEMA.map(f => ({ ...f }));
   dvChecklistTemplate = Array.isArray(clTpl) ? clTpl : [];
   DV.list   = (r && r.ok) ? await r.json() : [];
-  const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company' || AUTH.user?.role === 'department');
+  const canCfg = companyId && (AUTH.user?.role === 'admin' || AUTH.user?.role === 'company' || AUTH.user?.role === 'department' || AUTH.user?.role === 'multicompany');
   gel('dvBtnCfgSchema')?.classList.toggle('hidden', !canCfg);
   gel('dvBtnCfgChecklist')?.classList.toggle('hidden', !canCfg);
   dvRenderHead();

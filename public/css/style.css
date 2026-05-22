@@ -2463,3 +2463,22 @@ html, body {
 .ct-cl-label input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--sbk-mid); flex-shrink: 0; cursor: pointer; }
 .ct-cl-name { font-size: 13px; color: var(--sbk-dark); line-height: 1.4; }
 .ct-cl-done { color: #94a3b8; text-decoration: line-through; }
+
+/* ── Status badges no indexed list ────────────────────────────── */
+.idx-status-ativo {
+  font-size: 10px; font-weight: 600; padding: 2px 8px;
+  background: #dcfce7; color: #16a34a; border-radius: 10px;
+  white-space: nowrap; cursor: pointer; flex-shrink: 0; line-height: 1.8;
+  border: 1px solid #bbf7d0;
+}
+.idx-status-ativo:hover { background: #bbf7d0; }
+.idx-status-inativo {
+  font-size: 10px; font-weight: 600; padding: 2px 8px;
+  background: #fee2e2; color: #b91c1c; border-radius: 10px;
+  white-space: nowrap; cursor: pointer; flex-shrink: 0; line-height: 1.4;
+  text-align: center; border: 1px solid #fca5a5;
+}
+.idx-status-inativo small { font-size: 9px; display: block; font-weight: 300; }
+.idx-status-inativo:hover { background: #fca5a5; }
+.idx-row-inativo { opacity: 0.75; }
+.idx-avatar-inativo { background: #94a3b8; }

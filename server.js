@@ -21,12 +21,15 @@ app.use('/api/labor',     requireAuth, require('./routes/labor'));
 app.use('/api/nf',        requireAuth, require('./routes/nf'));
 app.use('/api/contratos',  requireAuth, require('./routes/contratos'));
 app.use('/api/documentos', requireAuth, require('./routes/documentos'));
+app.use('/api/admissoes', require('./routes/admissoes'));
 
 // Diagnostico de storage (admin only via token)
 app.get('/api/status', requireAuth, (req, res) => {
   if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Admin apenas.' });
   res.json({ ok: true, storage: storageStatus(), user: req.user?.username });
 });
+
+app.get('/admissao/:token', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'admissao.html')));
 
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
