@@ -996,6 +996,123 @@
 <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.docx" onchange="handleFiles(event)" style="display:none">
 <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" onchange="handleXlsx(event)" style="display:none">
 
+<!-- ADMISSIONAL VIEW -->
+<div class="ct-view hidden" id="admissionalView">
+  <div class="ct-toolbar">
+    <div class="ct-toolbar-left">
+      <span class="ct-view-title">Admissional</span>
+      <span class="ct-count" id="admCount">0 processos</span>
+    </div>
+    <div class="ct-toolbar-right">
+      <button class="ct-btn-primary" onclick="admOpenNew()">&#43; Novo Processo</button>
+    </div>
+  </div>
+  <div class="ct-stats-bar" id="admStatsBar"></div>
+  <div class="ct-table-wrap">
+    <table class="ct-table">
+      <thead><tr>
+        <th>Candidato</th><th>Cargo</th><th>Inicio</th>
+        <th>Documentos</th><th>Contrato</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="admBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADMISSIONAL FORM MODAL -->
+<div class="ct-modal hidden" id="admFormModal" onclick="if(event.target===this)admCloseForm()">
+  <div class="ct-modal-box" style="max-width:620px;max-height:90vh;overflow-y:auto;">
+    <div class="ct-modal-header" style="position:sticky;top:0;background:#fff;z-index:1;">
+      <span class="ct-modal-title" id="admFormTitle">Novo Processo Admissional</span>
+      <button class="ct-modal-close" onclick="admCloseForm()">&#10005;</button>
+    </div>
+    <div style="padding:20px 24px 0;">
+      <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+        <div>
+          <label class="ct-label">Nome do Candidato *</label>
+          <input class="ct-input" id="admFName" placeholder="Nome completo">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label class="ct-label">CPF</label>
+            <input class="ct-input" id="admFCpf" placeholder="000.000.000-00">
+          </div>
+          <div>
+            <label class="ct-label">Cargo *</label>
+            <input class="ct-input" id="admFCargo" placeholder="Cargo a ser admitido">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label class="ct-label">E-mail</label>
+            <input class="ct-input" id="admFEmail" type="email" placeholder="email@exemplo.com">
+          </div>
+          <div>
+            <label class="ct-label">Telefone / WhatsApp</label>
+            <input class="ct-input" id="admFPhone" placeholder="5511999999999">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label class="ct-label">Data de Inicio</label>
+            <input class="ct-input" id="admFDataInicio" type="date">
+          </div>
+          <div>
+            <label class="ct-label">Matricula (opcional)</label>
+            <input class="ct-input" id="admFMat" placeholder="Numero de matricula">
+          </div>
+        </div>
+        <div>
+          <label class="ct-label">Departamento</label>
+          <select class="ct-input" id="admFDept"><option value="">-- Selecione --</option></select>
+        </div>
+      </div>
+      <div style="margin-top:20px;">
+        <div style="font-size:13px;font-weight:600;color:#1e3a5f;margin-bottom:10px;">Checklist de Documentos</div>
+        <div id="admFormChecklist"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <button class="ct-schema-add" style="width:auto;padding:7px 14px;" onclick="admAddChecklistItem()">&#43; Adicionar documento</button>
+          <button class="ct-schema-add" style="width:auto;padding:7px 14px;background:#e0f2fe;color:#0369a1;" onclick="admLoadDefaultChecklist()">&#8614; Usar padrao admissional</button>
+        </div>
+      </div>
+    </div>
+    <div class="ct-form-actions" style="padding:20px 24px 24px;margin-top:8px;">
+      <button type="button" class="ct-btn-sec" onclick="admCloseForm()">Cancelar</button>
+      <button type="button" class="ct-btn-primary" onclick="admSaveForm()">Salvar Processo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMISSIONAL DETAIL MODAL -->
+<div class="ct-modal hidden" id="admDetailModal" onclick="if(event.target===this)admCloseDetail()">
+  <div class="ct-modal-box adm-detail-box">
+    <div class="ct-modal-header adm-detail-header">
+      <div>
+        <span class="ct-modal-title" id="admDetailName">Processo Admissional</span>
+        <div id="admDetailMeta" style="font-size:12px;color:#64748b;margin-top:2px;"></div>
+      </div>
+      <button class="ct-modal-close" onclick="admCloseDetail()">&#10005;</button>
+    </div>
+    <div style="padding:20px 24px;">
+      <div id="admDetailStatusBar" style="margin-bottom:16px;"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #f1f5f9;">
+        <button class="adm-share-btn adm-share-wa"  onclick="admShareWhatsApp()">WhatsApp</button>
+        <button class="adm-share-btn adm-share-email" onclick="admShareEmail()">E-mail</button>
+        <button class="adm-share-btn adm-share-link" onclick="admCopyLink()">Copiar link</button>
+        <button class="ct-btn-sec" style="font-size:12px;padding:5px 12px;margin-left:auto;" onclick="admEditCurrent()">Editar</button>
+        <button class="ct-btn-sec" style="font-size:12px;padding:5px 12px;color:#dc2626;border-color:#dc2626;" onclick="admDeleteCurrent()">Excluir</button>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">Documentos do Candidato</div>
+      <div id="admDetailChecklist"></div>
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid #f1f5f9;">
+        <div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">Contrato de Trabalho</div>
+        <div id="admDetailContrato"></div>
+      </div>
+      <div id="admMigrateSection" style="margin-top:24px;padding-top:20px;border-top:1px solid #f1f5f9;"></div>
+    </div>
+  </div>
+</div>
+
 <script src="/js/app.js"></script>
 </body>
 </html>

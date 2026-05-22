@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Envio de Documentos Admissionais</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1e3a5f;
+      min-height: 100vh;
+    }
+    .header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #2d6a8f 100%);
+      color: #fff;
+      padding: 24px 20px;
+      text-align: center;
+    }
+    .header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .header p  { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+    .container { max-width: 600px; margin: 0 auto; padding: 24px 16px 48px; }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .card-title {
+      font-size: 14px; font-weight: 700; color: #1e3a5f;
+      margin-bottom: 4px;
+    }
+    .card-sub { font-size: 12px; color: #64748b; }
+    .candidate-meta {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+    }
+    .meta-chip {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 20px; background: #e0f2fe; color: #0369a1;
+    }
+    .section-title {
+      font-size: 13px; font-weight: 700; color: #1e3a5f;
+      margin-bottom: 12px;
+    }
+    .doc-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 14px; border-radius: 10px;
+      border: 1.5px solid #e2e8f0; margin-bottom: 10px;
+      background: #fff; transition: border-color .2s;
+    }
+    .doc-item.status-enviado  { border-color: #bae6fd; background: #f0f9ff; }
+    .doc-item.status-aprovado { border-color: #bbf7d0; background: #f0fdf4; }
+    .doc-item.status-reprovado{ border-color: #fca5a5; background: #fef2f2; }
+    .doc-icon { font-size: 20px; flex-shrink: 0; padding-top: 2px; }
+    .doc-body { flex: 1; min-width: 0; }
+    .doc-name { font-size: 13px; font-weight: 600; color: #1e3a5f; }
+    .doc-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+    .badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: 8px; display: inline-block;
+    }
+    .badge-req      { background: #fee2e2; color: #b91c1c; }
+    .badge-opt      { background: #f1f5f9; color: #64748b; }
+    .badge-pendente { background: #f1f5f9; color: #64748b; }
+    .badge-enviado  { background: #dbeafe; color: #1d4ed8; }
+    .badge-aprovado { background: #dcfce7; color: #16a34a; }
+    .badge-reprovado{ background: #fee2e2; color: #b91c1c; }
+    .doc-ai { font-size: 11px; margin-top: 6px; padding: 6px 10px; border-radius: 7px; }
+    .doc-ai.ok  { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .doc-ai.nok { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .doc-upload { flex-shrink: 0; }
+    .upload-btn {
+      display: inline-block; padding: 7px 14px; border-radius: 8px;
+      background: #1e3a5f; color: #fff; font-size: 12px; font-weight: 600;
+      cursor: pointer; border: none; transition: background .15s;
+      white-space: nowrap;
+    }
+    .upload-btn:hover { background: #2d6a8f; }
+    .upload-btn.uploading { background: #4a90a4; cursor: default; }
+    .upload-btn.done { background: #16a34a; cursor: default; }
+    .progress-bar-wrap {
+      margin-top: 6px; height: 4px; background: #e2e8f0; border-radius: 3px; overflow: hidden;
+    }
+    .progress-bar { height: 100%; background: #2d6a8f; width: 0; transition: width .3s; border-radius: 3px; }
+    .upload-msg { font-size: 11px; color: #4a90a4; margin-top: 4px; }
+    .upload-err { font-size: 11px; color: #b91c1c; margin-top: 4px; }
+    .congrats {
+      text-align: center; padding: 32px 20px;
+      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+      border: 2px solid #bbf7d0; border-radius: 14px;
+    }
+    .congrats-icon { font-size: 40px; margin-bottom: 10px; }
+    .congrats h2 { font-size: 18px; font-weight: 700; color: #16a34a; margin-bottom: 6px; }
+    .congrats p  { font-size: 13px; color: #15803d; }
+    .note-card {
+      background: #fef9c3; border: 1px solid #fde047; border-radius: 10px;
+      padding: 12px 16px; font-size: 12px; color: #854d0e;
+      margin-top: 16px; line-height: 1.5;
+    }
+    .loading-state {
+      text-align: center; padding: 60px 20px; color: #64748b; font-size: 14px;
+    }
+    .error-state {
+      text-align: center; padding: 60px 20px; color: #b91c1c; font-size: 14px;
+    }
+    @media (max-width: 480px) {
+      .doc-item { flex-wrap: wrap; }
+      .doc-upload { width: 100%; margin-top: 8px; }
+      .upload-btn { width: 100%; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Envio de Documentos Admissionais</h1>
+    <p>Faca o upload dos documentos solicitados para concluir seu processo de admissao.</p>
+  </div>
+
+  <div class="container">
+    <div id="app">
+      <div class="loading-state">Carregando informacoes do processo...</div>
+    </div>
+  </div>
+
+  <script>
+    var token = '';
+    var process = null;
+
+    function getToken() {
+      var parts = window.location.pathname.split('/');
+      return parts[parts.length - 1] || '';
+    }
+
+    function statusIcon(s) {
+      if (s === 'aprovado')  return '&#10003;';
+      if (s === 'reprovado') return '&#10007;';
+      if (s === 'enviado')   return '&#128206;';
+      return '&#9711;';
+    }
+
+    function statusLabel(s) {
+      var map = { pendente: 'Pendente', enviado: 'Enviado', aprovado: 'Aprovado', reprovado: 'Reprovado' };
+      return map[s] || s;
+    }
+
+    function allRequiredUploaded() {
+      if (!process) return false;
+      var items = process.checklist || [];
+      var required = items.filter(function(c) { return c.required; });
+      if (!required.length) return true;
+      return required.every(function(c) { return c.status === 'enviado' || c.status === 'aprovado'; });
+    }
+
+    function render() {
+      var el = document.getElementById('app');
+      if (!process) return;
+
+      var metaHtml = '';
+      if (process.cargo) metaHtml += '<span class="meta-chip">Cargo: ' + esc(process.cargo) + '</span>';
+      if (process.dataInicio) {
+        var d = new Date(process.dataInicio + 'T00:00:00');
+        metaHtml += '<span class="meta-chip">Inicio: ' + d.toLocaleDateString('pt-BR') + '</span>';
+      }
+
+      var docHtml = (process.checklist || []).map(function(item) {
+        var statusClass = 'status-' + item.status;
+        var aiHtml = '';
+        if (item.aiResult) {
+          aiHtml = '<div class="doc-ai ' + (item.aiResult.ok ? 'ok' : 'nok') + '">' +
+            'Validacao IA: ' + esc(item.aiResult.reason || (item.aiResult.ok ? 'Documento aprovado.' : 'Documento reprovado.')) + '</div>';
+        }
+        var uploadable = item.status !== 'aprovado' && process.status !== 'migrado';
+        var uploadHtml = '';
+        if (uploadable) {
+          uploadHtml = '<div class="doc-upload">' +
+            '<label class="upload-btn" id="lbl_' + item.id + '">' +
+            (item.status === 'enviado' ? 'Reenviar' : 'Enviar') +
+            '<input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="uploadFile(event, \'' + item.id + '\')">' +
+            '</label>' +
+            '<div class="progress-bar-wrap" id="pbw_' + item.id + '" style="display:none;"><div class="progress-bar" id="pb_' + item.id + '"></div></div>' +
+            '<div id="msg_' + item.id + '"></div>' +
+            '</div>';
+        }
+        return '<div class="doc-item ' + statusClass + '" id="docitem_' + item.id + '">' +
+          '<div class="doc-icon">' + statusIcon(item.status) + '</div>' +
+          '<div class="doc-body">' +
+            '<div class="doc-name">' + esc(item.name) + '</div>' +
+            '<div class="doc-badges">' +
+              '<span class="badge ' + (item.required ? 'badge-req' : 'badge-opt') + '">' + (item.required ? 'Obrigatorio' : 'Opcional') + '</span>' +
+              '<span class="badge badge-' + item.status + '">' + statusLabel(item.status) + '</span>' +
+            '</div>' +
+            aiHtml +
+          '</div>' +
+          uploadHtml +
+          '</div>';
+      }).join('');
+
+      var congratsHtml = allRequiredUploaded() ?
+        '<div class="congrats">' +
+          '<div class="congrats-icon">&#10003;</div>' +
+          '<h2>Documentos enviados!</h2>' +
+          '<p>Todos os documentos obrigatorios foram enviados. Aguarde a analise do RH.</p>' +
+        '</div>' : '';
+
+      el.innerHTML =
+        '<div class="card">' +
+          '<div class="card-title">' + esc(process.name || 'Candidato') + '</div>' +
+          '<div class="card-sub">Processo de admissao</div>' +
+          (metaHtml ? '<div class="candidate-meta">' + metaHtml + '</div>' : '') +
+        '</div>' +
+        (congratsHtml ? congratsHtml : '') +
+        '<div class="card">' +
+          '<div class="section-title">Documentos Solicitados</div>' +
+          (docHtml || '<div style="font-size:13px;color:#94a3b8;">Nenhum documento solicitado.</div>') +
+        '</div>' +
+        '<div class="note-card">Seus documentos serao validados e voce sera notificado sobre o resultado do processo admissional.</div>';
+    }
+
+    function esc(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function uploadFile(e, itemId) {
+      var file = e.target.files[0];
+      if (!file) return;
+
+      var lbl = document.getElementById('lbl_' + itemId);
+      var pbw = document.getElementById('pbw_' + itemId);
+      var pb  = document.getElementById('pb_' + itemId);
+      var msg = document.getElementById('msg_' + itemId);
+
+      if (file.size > 10 * 1024 * 1024) {
+        if (msg) { msg.className = 'upload-err'; msg.textContent = 'Arquivo muito grande. Limite: 10MB.'; }
+        return;
+      }
+
+      if (lbl) { lbl.className = 'upload-btn uploading'; lbl.childNodes[0].textContent = 'Enviando...'; }
+      if (pbw) { pbw.style.display = 'block'; }
+      if (pb)  { pb.style.width = '40%'; }
+      if (msg) { msg.className = 'upload-msg'; msg.textContent = 'Lendo arquivo...'; }
+
+      try {
+        var base64 = await readAsBase64(file);
+        if (pb) pb.style.width = '70%';
+        if (msg) msg.textContent = 'Enviando para o servidor...';
+
+        var resp = await fetch('/api/admissoes/pub/' + token + '/upload/' + itemId, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: base64, name: file.name, mime: file.type }),
+        });
+
+        if (!resp.ok) {
+          var err = await resp.json().catch(function() { return {}; });
+          throw new Error(err.error || 'Erro no servidor.');
+        }
+
+        if (pb) pb.style.width = '100%';
+        if (msg) { msg.className = 'upload-msg'; msg.textContent = 'Documento enviado com sucesso.'; }
+        if (lbl) { lbl.className = 'upload-btn done'; lbl.childNodes[0].textContent = 'Enviado'; }
+
+        // Update local state and re-render
+        var item = (process.checklist || []).find(function(c) { return c.id === itemId; });
+        if (item) { item.status = 'enviado'; item.hasFile = true; item.aiResult = null; }
+        setTimeout(function() { render(); }, 800);
+
+      } catch (err) {
+        if (pb) pb.style.width = '0';
+        if (pbw) pbw.style.display = 'none';
+        if (lbl) { lbl.className = 'upload-btn'; lbl.childNodes[0].textContent = 'Tentar novamente'; }
+        if (msg) { msg.className = 'upload-err'; msg.textContent = err.message || 'Falha ao enviar.'; }
+      }
+    }
+
+    function readAsBase64(file) {
+      return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload  = function(e) { resolve(e.target.result.split(',')[1]); };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function init() {
+      token = getToken();
+      if (!token) {
+        document.getElementById('app').innerHTML = '<div class="error-state">Link invalido. Solicite um novo link ao RH.</div>';
+        return;
+      }
+
+      try {
+        var resp = await fetch('/api/admissoes/pub/' + token);
+        if (!resp.ok) {
+          var err = await resp.json().catch(function() { return {}; });
+          document.getElementById('app').innerHTML = '<div class="error-state">' + (err.error || 'Link invalido ou expirado.') + '</div>';
+          return;
+        }
+        process = await resp.json();
+        render();
+      } catch (err) {
+        document.getElementById('app').innerHTML = '<div class="error-state">Erro ao carregar processo. Tente novamente.</div>';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

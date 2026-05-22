@@ -237,7 +237,7 @@ function showView(name) {
   if (['main','inc','trabalhista','nf','contratos','docVariados','painel'].includes(name)) nav?.classList.remove('hidden');
   else nav?.classList.add('hidden');
 
-  const idMap = { main:'mainView', inc:'incView', admin:'adminView', multiCompanyView:'multiCompanyView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView', docVariados:'docVariadosView', painel:'painelView' };
+  const idMap = { main:'mainView', inc:'incView', admin:'adminView', multiCompanyView:'multiCompanyView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView', docVariados:'docVariadosView', painel:'painelView', admissional:'admissionalView' };
   const target = gel(idMap[name] || 'companyView');
   if (target) { target.classList.remove('hidden'); if (name === 'inc') target.classList.add('active'); }
 
@@ -245,6 +245,7 @@ function showView(name) {
   gel('ntRH')?.classList.toggle('active', name === 'main');
   gel('ntPainel')?.classList.toggle('active', name === 'painel');
   gel('ntDocVariados')?.classList.toggle('active', name === 'docVariados');
+  gel('ntAdmissional')?.classList.toggle('active', name === 'admissional');
 }
 
 function updateContextBar() {
@@ -4280,4 +4281,570 @@ async function dvSaveChecklistTemplate() {
 }
 
 /* ── INIT ────────────────────────────────────────────────────────── */
+
+/* ══════════════════════════════════════════════════════════════
+   ADMISSIONAL MODULE
+══════════════════════════════════════════════════════════════ */
+
+const ADM = {
+  list:      [],
+  current:   null,
+  formId:    null,
+  formDraft: [],
+  linkCache: {},
+};
+
+const ADM_DEFAULT_CHECKLIST = [
+  { name: 'RG ou CNH',                              required: true },
+  { name: 'CPF',                                    required: true },
+  { name: 'Comprovante de Residencia',              required: true },
+  { name: 'Foto 3x4',                               required: true },
+  { name: 'Certidao de Nascimento ou Casamento',    required: true },
+  { name: 'Carteira de Trabalho (CTPS)',            required: true },
+  { name: 'Titulo de Eleitor',                      required: false },
+  { name: 'Certificado de Reservista',              required: false },
+  { name: 'PIS/PASEP',                              required: false },
+  { name: 'Certificado Escolar / Diploma',          required: false },
+];
+
+function enterAdmissionalView(tabEl) {
+  document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+  showView('admissional');
+  admLoad();
+}
+
+async function admLoad() {
+  const companyId = STATE.company?.id;
+  const url = '/api/admissoes' + (companyId ? '?companyId=' + companyId : '');
+  const r = await apiFetch(url);
+  ADM.list = (r && r.ok) ? await r.json() : [];
+  admRenderStats();
+  admRenderTable();
+  gel('admCount').textContent = ADM.list.length + (ADM.list.length === 1 ? ' processo' : ' processos');
+}
+
+function admRenderStats() {
+  const total = ADM.list.length;
+  const counts = { em_andamento: 0, aguardando_candidato: 0, completo: 0, migrado: 0 };
+  ADM.list.forEach(a => { counts[a.status] = (counts[a.status] || 0) + 1; });
+  gel('admStatsBar').innerHTML = `
+    <span class="ct-stat-chip">Total: ${total}</span>
+    <span class="ct-stat-chip" style="background:#fef9c3;color:#854d0e;">Em Andamento: ${counts.em_andamento}</span>
+    <span class="ct-stat-chip" style="background:#dbeafe;color:#1d4ed8;">Aguardando Candidato: ${counts.aguardando_candidato}</span>
+    <span class="ct-stat-chip" style="background:#dcfce7;color:#16a34a;">Completo: ${counts.completo}</span>
+    <span class="ct-stat-chip" style="background:#e9d5ff;color:#7e22ce;">Migrado: ${counts.migrado}</span>
+  `;
+}
+
+function admRenderTable() {
+  const tbody = gel('admBody');
+  if (!ADM.list.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="ct-empty-state" style="padding:40px;text-align:center;color:#94a3b8;">Nenhum processo admissional cadastrado. Clique em "+ Novo Processo" para comecar.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = ADM.list.map(a => {
+    const req      = (a.checklist || []).filter(c => c.required).length;
+    const reqDone  = (a.checklist || []).filter(c => c.required && (c.status === 'aprovado' || c.status === 'enviado')).length;
+    const docPct   = req > 0 ? Math.round((reqDone / req) * 100) : 0;
+    const contratoStatus = a.contrato?.status || 'pendente';
+    const cBadge = contratoStatus === 'assinado'
+      ? `<span class="adm-badge-aprovado adm-doc-badge">Assinado</span>`
+      : contratoStatus === 'aguardando_assinatura'
+      ? `<span class="adm-badge-enviado adm-doc-badge">Aguardando</span>`
+      : `<span class="adm-badge-pendente adm-doc-badge">Pendente</span>`;
+    const statusLabel = { em_andamento: 'Em Andamento', aguardando_candidato: 'Aguard. Candidato', completo: 'Completo', migrado: 'Migrado' }[a.status] || a.status;
+    const inicio = a.dataInicio ? new Date(a.dataInicio + 'T00:00:00').toLocaleDateString('pt-BR') : '-';
+    return `<tr onclick="admOpenDetail('${a.id}')" style="cursor:pointer;">
+      <td><div style="font-weight:500;font-size:13px;color:#1e3a5f;">${a.name || '-'}</div>
+          <div style="font-size:11px;color:#64748b;">${a.cpf || ''}</div></td>
+      <td style="font-size:13px;">${a.cargo || '-'}</td>
+      <td style="font-size:12px;color:#64748b;">${inicio}</td>
+      <td>
+        <div style="font-size:11px;color:#64748b;margin-bottom:3px;">${reqDone}/${req} obrigatorios</div>
+        <div style="height:5px;background:#e2e8f0;border-radius:3px;width:80px;">
+          <div style="height:100%;background:${docPct===100?'#16a34a':docPct>50?'#d97706':'#dc2626'};border-radius:3px;width:${docPct}%;"></div>
+        </div>
+      </td>
+      <td>${cBadge}</td>
+      <td><span class="adm-status-badge adm-status-${a.status}">${statusLabel}</span></td>
+      <td>
+        <button class="ct-row-btn" onclick="event.stopPropagation();admOpenDetail('${a.id}')">Abrir</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── FORM MODAL ── */
+
+function admOpenNew() {
+  ADM.formId = null;
+  ADM.formDraft = ADM_DEFAULT_CHECKLIST.map((c, i) => ({ id: 'ci_' + i, ...c }));
+  gel('admFormTitle').textContent = 'Novo Processo Admissional';
+  gel('admFName').value = '';
+  gel('admFCpf').value  = '';
+  gel('admFCargo').value = '';
+  gel('admFEmail').value = '';
+  gel('admFPhone').value = '';
+  gel('admFDataInicio').value = '';
+  gel('admFMat').value = '';
+  admPopulateDeptSelect();
+  admRenderFormChecklist();
+  gel('admFormModal').classList.remove('hidden');
+}
+
+function admEditCurrent() {
+  const a = ADM.current;
+  if (!a) return;
+  admCloseDetail();
+  ADM.formId = a.id;
+  ADM.formDraft = (a.checklist || []).map(c => ({ id: c.id, name: c.name, required: c.required }));
+  gel('admFormTitle').textContent = 'Editar Processo Admissional';
+  gel('admFName').value  = a.name || '';
+  gel('admFCpf').value   = a.cpf  || '';
+  gel('admFCargo').value = a.cargo || '';
+  gel('admFEmail').value = a.email || '';
+  gel('admFPhone').value = a.phone || '';
+  gel('admFDataInicio').value = a.dataInicio || '';
+  gel('admFMat').value   = a.mat  || '';
+  admPopulateDeptSelect(a.departmentId);
+  admRenderFormChecklist();
+  gel('admFormModal').classList.remove('hidden');
+}
+
+function admCloseForm() { gel('admFormModal').classList.add('hidden'); }
+
+function admPopulateDeptSelect(selectedId) {
+  const sel = gel('admFDept');
+  const depts = STATE.company?.departments || [];
+  sel.innerHTML = '<option value="">-- Selecione --</option>' +
+    depts.map(d => `<option value="${d.id}"${d.id === selectedId ? ' selected' : ''}>${d.name}</option>`).join('');
+}
+
+function admLoadDefaultChecklist() {
+  ADM.formDraft = ADM_DEFAULT_CHECKLIST.map((c, i) => ({ id: 'ci_' + Date.now() + '_' + i, ...c }));
+  admRenderFormChecklist();
+}
+
+function admAddChecklistItem() {
+  ADM.formDraft.push({ id: 'ci_' + Date.now(), name: '', required: true });
+  admRenderFormChecklist();
+  const inputs = gel('admFormChecklist').querySelectorAll('.adm-cl-input');
+  if (inputs.length) setTimeout(() => inputs[inputs.length - 1].focus(), 30);
+}
+
+function admRemoveChecklistItem(id) {
+  ADM.formDraft = ADM.formDraft.filter(c => c.id !== id);
+  admRenderFormChecklist();
+}
+
+function admRenderFormChecklist() {
+  gel('admFormChecklist').innerHTML = ADM.formDraft.map((c, i) => `
+    <div class="adm-cl-row">
+      <span style="font-size:11px;color:#94a3b8;min-width:18px;">${i + 1}</span>
+      <input class="ct-input adm-cl-input" style="flex:1;" id="admcl_${c.id}" value="${(c.name+'').replace(/"/g,'&quot;')}" placeholder="Nome do documento">
+      <label style="font-size:11px;color:#64748b;white-space:nowrap;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <input type="checkbox" id="admclr_${c.id}"${c.required ? ' checked' : ''}> Obrig.
+      </label>
+      <button class="ct-schema-del-btn" onclick="admRemoveChecklistItem('${c.id}')">&#215;</button>
+    </div>`).join('');
+}
+
+async function admSaveForm() {
+  const name = gel('admFName').value.trim();
+  if (!name) { toast('Informe o nome do candidato.'); return; }
+
+  const checklist = ADM.formDraft.map(c => {
+    const inp  = gel('admcl_' + c.id);
+    const req  = gel('admclr_' + c.id);
+    return {
+      id:       c.id,
+      name:     (inp ? inp.value : c.name).trim(),
+      required: req ? req.checked : c.required,
+      status:   c.status || 'pendente',
+      file:     c.file || null,
+      aiResult: c.aiResult || null,
+    };
+  }).filter(c => c.name);
+
+  const entry = {
+    id:           ADM.formId || ('adm_' + Date.now()),
+    companyId:    STATE.company?.id,
+    departmentId: gel('admFDept').value,
+    name,
+    cpf:          gel('admFCpf').value.trim(),
+    email:        gel('admFEmail').value.trim(),
+    phone:        gel('admFPhone').value.trim(),
+    cargo:        gel('admFCargo').value.trim(),
+    dataInicio:   gel('admFDataInicio').value,
+    mat:          gel('admFMat').value.trim(),
+    checklist,
+    contrato:     ADM.formId ? (ADM.current?.contrato || { modo: 'manual', status: 'pendente' }) : { modo: 'manual', status: 'pendente' },
+    linkToken:    ADM.formId ? ADM.current?.linkToken : null,
+    status:       ADM.formId ? (ADM.current?.status || 'em_andamento') : 'em_andamento',
+    createdAt:    ADM.formId ? ADM.current?.createdAt : new Date().toISOString(),
+    createdBy:    AUTH.user?.username || '',
+    migratedDossieId: ADM.formId ? ADM.current?.migratedDossieId : null,
+  };
+
+  const r = await apiFetch('/api/admissoes', { method: 'POST', body: JSON.stringify(entry) });
+  if (!r || !r.ok) { toast('Erro ao salvar processo.'); return; }
+  admCloseForm();
+  await admLoad();
+  toast('Processo salvo com sucesso.');
+}
+
+/* ── DETAIL MODAL ── */
+
+async function admOpenDetail(id) {
+  const r = await apiFetch('/api/admissoes/' + id);
+  if (!r || !r.ok) { toast('Erro ao carregar processo.'); return; }
+  ADM.current = await r.json();
+  admRenderDetail();
+  gel('admDetailModal').classList.remove('hidden');
+}
+
+function admCloseDetail() {
+  gel('admDetailModal').classList.add('hidden');
+  ADM.current = null;
+}
+
+function admRenderDetail() {
+  const a = ADM.current;
+  if (!a) return;
+  gel('admDetailName').textContent = a.name || 'Processo Admissional';
+  gel('admDetailMeta').textContent =
+    (a.cargo ? a.cargo : '') +
+    (a.cpf   ? ' · CPF: ' + a.cpf : '') +
+    (a.email ? ' · ' + a.email : '') +
+    (a.dataInicio ? ' · Inicio: ' + new Date(a.dataInicio + 'T00:00:00').toLocaleDateString('pt-BR') : '');
+
+  const statusLabel = { em_andamento: 'Em Andamento', aguardando_candidato: 'Aguardando Candidato', completo: 'Completo', migrado: 'Migrado' }[a.status] || a.status;
+  const req     = (a.checklist || []).filter(c => c.required).length;
+  const reqDone = (a.checklist || []).filter(c => c.required && (c.status === 'aprovado' || c.status === 'enviado')).length;
+  gel('admDetailStatusBar').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span class="adm-status-badge adm-status-${a.status}">${statusLabel}</span>
+      <span style="font-size:12px;color:#64748b;">${reqDone}/${req} documentos obrigatorios recebidos</span>
+      ${a.migratedDossieId ? `<span style="font-size:11px;background:#e9d5ff;color:#7e22ce;padding:2px 9px;border-radius:8px;font-weight:600;">Migrado para RH</span>` : ''}
+    </div>`;
+
+  gel('admDetailChecklist').innerHTML = (a.checklist || []).map(c => {
+    const statusClass = { aprovado: 'adm-doc-aprovado', reprovado: 'adm-doc-reprovado', enviado: 'adm-doc-enviado' }[c.status] || '';
+    const statusIcon  = { aprovado: '&#10003;', reprovado: '&#10007;', enviado: '&#128206;', pendente: '&#9711;' }[c.status] || '&#9711;';
+    const statusBadge = `<span class="adm-doc-badge adm-badge-${c.status}">${{ aprovado: 'Aprovado', reprovado: 'Reprovado', enviado: 'Enviado', pendente: 'Pendente' }[c.status] || c.status}</span>`;
+    const reqBadge = c.required
+      ? `<span class="adm-doc-badge adm-badge-req">Obrig.</span>`
+      : `<span class="adm-doc-badge adm-badge-opt">Opcional</span>`;
+    const aiHtml = c.aiResult ? `<div class="adm-ai-result ${c.aiResult.ok ? 'adm-ai-ok' : 'adm-ai-nok'}">IA: ${c.aiResult.reason || (c.aiResult.ok ? 'Documento aprovado.' : 'Documento reprovado.')}</div>` : '';
+    return `<div class="adm-doc-item ${statusClass}">
+      <div class="adm-doc-icon">${statusIcon}</div>
+      <div class="adm-doc-meta" style="flex:1;">
+        <div class="adm-doc-name">${c.name}</div>
+        <div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap;">${reqBadge}${statusBadge}</div>
+        ${aiHtml}
+      </div>
+      <div class="adm-doc-actions">
+        ${c.status !== 'migrado' && a.status !== 'migrado' ? `<label class="adm-doc-btn adm-doc-btn-upload" style="cursor:pointer;" title="Enviar arquivo">
+          Enviar
+          <input type="file" style="display:none;" accept=".pdf,.jpg,.jpeg,.png" onchange="admUploadDoc(event,'${a.id}','${c.id}')">
+        </label>` : ''}
+        ${(c.status === 'enviado' || c.status === 'reprovado') ? `<button class="adm-doc-btn adm-doc-btn-validate" onclick="admValidateDoc('${a.id}','${c.id}')">Validar IA</button>` : ''}
+        ${c.file ? `<button class="adm-doc-btn adm-doc-btn-view" onclick="admViewDoc('${a.id}','${c.id}')">Ver</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  admRenderContrato();
+  admRenderMigrateSection();
+}
+
+function admRenderContrato() {
+  const a = ADM.current;
+  const c = a.contrato || { modo: 'manual', status: 'pendente' };
+  const modos = [
+    { id: 'manual',   label: 'Upload Manual' },
+    { id: 'd4sign',   label: 'D4sign' },
+    { id: 'docusign', label: 'DocuSign' },
+  ];
+  const tabs = modos.map(m => `<button class="adm-contrato-tab${c.modo === m.id ? ' active' : ''}" onclick="admSetContratoModo('${m.id}')">${m.label}</button>`).join('');
+
+  let body = '';
+  if (c.modo === 'manual') {
+    const statusBadge = c.status === 'assinado'
+      ? `<span class="adm-badge-aprovado adm-doc-badge">Contrato Assinado</span>`
+      : c.file
+      ? `<span class="adm-badge-enviado adm-doc-badge">Arquivo Enviado</span>`
+      : `<span class="adm-badge-pendente adm-doc-badge">Pendente</span>`;
+    body = `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      ${statusBadge}
+      ${a.status !== 'migrado' ? `<label class="adm-doc-btn adm-doc-btn-upload" style="cursor:pointer;">
+        ${c.file ? 'Substituir arquivo' : 'Enviar contrato assinado'}
+        <input type="file" style="display:none;" accept=".pdf" onchange="admUploadContrato(event)">
+      </label>` : ''}
+      ${c.file ? `<button class="adm-doc-btn adm-doc-btn-validate" onclick="admMarkContratoAssinado()">Marcar como assinado</button>` : ''}
+    </div>`;
+  } else if (c.modo === 'd4sign') {
+    const signed = c.status === 'assinado';
+    body = `<div style="display:flex;flex-direction:column;gap:10px;">
+      ${signed ? `<span class="adm-badge-aprovado adm-doc-badge" style="align-self:flex-start;">Assinado no D4sign</span>` : `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label class="ct-label">API Key D4sign</label>
+          <input class="ct-input" id="d4signKey" value="${c.d4signApiKey||''}" placeholder="Token API D4sign" type="password"></div>
+        <div><label class="ct-label">UUID do Documento</label>
+          <input class="ct-input" id="d4signUuid" value="${c.d4signDocUuid||''}" placeholder="UUID do documento no D4sign"></div>
+      </div>
+      <div><label class="ct-label">E-mails dos Signatarios (separados por virgula)</label>
+        <input class="ct-input" id="d4signSignatories" placeholder="email1@ex.com, email2@ex.com" value="${c.d4signSignatories||a.email||''}"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="ct-btn-primary" onclick="admD4signSend()">Enviar para Assinatura</button>
+        <button class="ct-btn-sec" onclick="admD4signCheckStatus()">Verificar Status</button>
+      </div>`}
+    </div>`;
+  } else if (c.modo === 'docusign') {
+    body = `<div style="padding:14px;background:#f8fafc;border-radius:8px;font-size:13px;color:#64748b;">
+      <strong>Integracao DocuSign</strong><br>
+      Para usar o DocuSign, configure seu Envelope ID e informe o link de assinatura.<br>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr;gap:8px;">
+        <div><label class="ct-label">Envelope ID</label>
+          <input class="ct-input" id="docusignEnvId" value="${c.docusignEnvelopeId||''}" placeholder="ID do envelope DocuSign"></div>
+        <div><label class="ct-label">Status</label>
+          <select class="ct-input" id="docusignStatusSel">
+            <option value="pendente"${(!c.docusignStatus||c.docusignStatus==='pendente')?' selected':''}>Pendente</option>
+            <option value="aguardando_assinatura"${c.docusignStatus==='aguardando_assinatura'?' selected':''}>Enviado para assinatura</option>
+            <option value="assinado"${c.docusignStatus==='assinado'?' selected':''}>Assinado</option>
+          </select>
+        </div>
+        <button class="ct-btn-primary" onclick="admDocuSignSave()">Salvar configuracao DocuSign</button>
+      </div>
+    </div>`;
+  }
+
+  gel('admDetailContrato').innerHTML = `<div class="adm-contrato-card">
+    <div class="adm-contrato-tabs">${tabs}</div>
+    ${body}
+  </div>`;
+}
+
+function admRenderMigrateSection() {
+  const a = ADM.current;
+  const el = gel('admMigrateSection');
+  if (a.status === 'migrado') {
+    el.innerHTML = `<div style="text-align:center;padding:16px;background:#f0fdf4;border-radius:10px;border:1.5px solid #bbf7d0;">
+      <div style="font-size:22px;">&#10003;</div>
+      <div style="font-weight:700;color:#16a34a;margin-top:4px;">Processo migrado para RH</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px;">O colaborador foi cadastrado como ativo no modulo de RH.</div>
+    </div>`;
+    return;
+  }
+  const req     = (a.checklist || []).filter(c => c.required).length;
+  const reqDone = (a.checklist || []).filter(c => c.required && (c.status === 'aprovado' || c.status === 'enviado')).length;
+  const contratoOk = a.contrato?.status === 'assinado';
+  const allDocsOk  = req === 0 || reqDone >= req;
+  const canMigrate = allDocsOk;
+  const reasons = [];
+  if (!allDocsOk) reasons.push(`${req - reqDone} documento(s) obrigatorio(s) pendente(s)`);
+  el.innerHTML = `
+    ${reasons.length ? `<div style="font-size:12px;color:#b45309;background:#fef9c3;padding:8px 12px;border-radius:8px;margin-bottom:12px;">Pendencias: ${reasons.join('; ')}</div>` : ''}
+    ${!contratoOk ? `<div style="font-size:12px;color:#64748b;background:#f1f5f9;padding:8px 12px;border-radius:8px;margin-bottom:12px;">Contrato nao assinado. O processo pode ser migrado mesmo assim, mas recomenda-se aguardar a assinatura.</div>` : ''}
+    <button class="adm-migrate-btn" onclick="admMigrate()" ${canMigrate ? '' : 'disabled'}>
+      Migrar para RH como Colaborador Ativo
+    </button>`;
+}
+
+/* ── DOCUMENT UPLOAD AND VALIDATION ── */
+
+async function admUploadDoc(e, processId, itemId) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { toast('Arquivo muito grande. Limite: 10MB.'); return; }
+  toast('Enviando documento...');
+  const data  = await admReadFileAsBase64(file);
+  const entry = ADM.current;
+  const item  = (entry.checklist || []).find(c => c.id === itemId);
+  if (!item) return;
+  item.file = { id: 'f_' + Date.now(), name: file.name, mime: file.type, data, uploadedAt: new Date().toISOString() };
+  item.status   = 'enviado';
+  item.aiResult = null;
+  const saveR = await apiFetch('/api/admissoes', { method: 'POST', body: JSON.stringify(entry) });
+  if (!saveR || !saveR.ok) { toast('Erro ao salvar documento.'); return; }
+  toast('Documento enviado. Clique em "Validar IA" para verificar.');
+  await admOpenDetail(processId);
+}
+
+async function admValidateDoc(processId, itemId) {
+  toast('Validando com IA... aguarde.');
+  const r = await apiFetch('/api/admissoes/' + processId + '/validate/' + itemId, { method: 'POST', body: '{}' });
+  if (!r || !r.ok) { toast('Erro ao validar documento.'); return; }
+  const result = await r.json();
+  const msg = result.aiResult?.ok ? 'Documento aprovado pela IA.' : 'IA: ' + (result.aiResult?.reason || 'Documento reprovado.');
+  toast(msg);
+  await admOpenDetail(processId);
+}
+
+function admViewDoc(processId, itemId) {
+  const item = (ADM.current?.checklist || []).find(c => c.id === itemId);
+  if (!item?.file?.data) { toast('Arquivo nao disponivel.'); return; }
+  const mime = item.file.mime || 'application/octet-stream';
+  const url  = 'data:' + mime + ';base64,' + item.file.data;
+  window.open(url, '_blank');
+}
+
+async function admUploadContrato(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 20 * 1024 * 1024) { toast('Arquivo muito grande. Limite: 20MB.'); return; }
+  const data = await admReadFileAsBase64(file);
+  const entry = ADM.current;
+  entry.contrato = entry.contrato || {};
+  entry.contrato.file = { id: 'cf_' + Date.now(), name: file.name, mime: file.type, data };
+  entry.contrato.modo = 'manual';
+  const r = await apiFetch('/api/admissoes', { method: 'POST', body: JSON.stringify(entry) });
+  if (!r || !r.ok) { toast('Erro ao salvar contrato.'); return; }
+  toast('Contrato enviado. Marque como assinado quando aplicavel.');
+  await admOpenDetail(entry.id);
+}
+
+async function admMarkContratoAssinado() {
+  const entry = ADM.current;
+  entry.contrato = entry.contrato || {};
+  entry.contrato.status = 'assinado';
+  const r = await apiFetch('/api/admissoes', { method: 'POST', body: JSON.stringify(entry) });
+  if (!r || !r.ok) { toast('Erro ao atualizar status.'); return; }
+  toast('Contrato marcado como assinado.');
+  await admOpenDetail(entry.id);
+}
+
+async function admSetContratoModo(modo) {
+  const entry = ADM.current;
+  entry.contrato = entry.contrato || {};
+  entry.contrato.modo = modo;
+  const r = await apiFetch('/api/admissoes', { method: 'POST', body: JSON.stringify(entry) });
+  if (!r || !r.ok) return;
+  ADM.current.contrato.modo = modo;
+  admRenderContrato();
+}
+
+async function admD4signSend() {
+  const entry = ADM.current;
+  const apiKey       = gel('d4signKey')?.value.trim();
+  const docUuid      = gel('d4signUuid')?.value.trim();
+  const signatoryStr = gel('d4signSignatories')?.value.trim();
+  if (!apiKey || !docUuid) { toast('Preencha a API Key e o UUID do documento.'); return; }
+  const signatories = signatoryStr.split(',').map(s => ({ email: s.trim() })).filter(s => s.email);
+  toast('Enviando para assinatura no D4sign...');
+  const r = await apiFetch('/api/admissoes/' + entry.id + '/d4sign/send', {
+    method: 'POST',
+    body: JSON.stringify({ apiKey, docUuid, signatories }),
+  });
+  if (!r || !r.ok) {
+    const err = r ? await r.json().catch(() => ({})) : {};
+    toast('Erro D4sign: ' + (err.error || 'Falha ao enviar.')); return;
+  }
+  toast('Documento enviado para assinatura no D4sign.');
+  await admOpenDetail(entry.id);
+}
+
+async function admD4signCheckStatus() {
+  const entry = ADM.current;
+  toast('Verificando status no D4sign...');
+  const r = await apiFetch('/api/admissoes/' + entry.id + '/d4sign/status');
+  if (!r || !r.ok) { toast('Erro ao verificar status D4sign.'); return; }
+  const data = await r.json();
+  if (data.signed) toast('Contrato assinado no D4sign.');
+  else toast('Status D4sign: ' + (data.statusName || 'Aguardando assinatura.'));
+  await admOpenDetail(entry.id);
+}
+
+async function admDocuSignSave() {
+  const entry = ADM.current;
+  entry.contrato = entry.contrato || {};
+  entry.contrato.docusignEnvelopeId = gel('docusignEnvId')?.value.trim() || '';
+  entry.contrato.docusignStatus = gel('docusignStatusSel')?.value || 'pendente';
+  entry.contrato.status = entry.contrato.docusignStatus === 'assinado' ? 'assinado' : entry.contrato.docusignStatus === 'aguardando_assinatura' ? 'aguardando_assinatura' : 'pendente';
+  const r = await apiFetch('/api/admissoes', { method: 'POST', body: JSON.stringify(entry) });
+  if (!r || !r.ok) { toast('Erro ao salvar.'); return; }
+  toast('Configuracao DocuSign salva.');
+  await admOpenDetail(entry.id);
+}
+
+/* ── SHARING ── */
+
+async function admGetOrGenLink(entry) {
+  if (ADM.linkCache[entry.id]) return ADM.linkCache[entry.id];
+  const r = await apiFetch('/api/admissoes/' + entry.id + '/link');
+  if (!r || !r.ok) return null;
+  const { token } = await r.json();
+  ADM.linkCache[entry.id] = token;
+  if (ADM.current) ADM.current.linkToken = token;
+  return token;
+}
+
+async function admShareWhatsApp() {
+  const a = ADM.current;
+  if (!a) return;
+  const token = await admGetOrGenLink(a);
+  if (!token) { toast('Erro ao gerar link.'); return; }
+  const link  = window.location.origin + '/admissao/' + token;
+  const phone = a.phone?.replace(/\D/g, '') || '';
+  const msg   = encodeURIComponent(`Ola ${a.name}! Para iniciar seu processo de admissao, por favor envie seus documentos pelo link: ${link}`);
+  window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+}
+
+async function admShareEmail() {
+  const a = ADM.current;
+  if (!a) return;
+  const token = await admGetOrGenLink(a);
+  if (!token) { toast('Erro ao gerar link.'); return; }
+  const link    = window.location.origin + '/admissao/' + token;
+  const subject = encodeURIComponent('Processo Admissional - Envio de Documentos');
+  const body    = encodeURIComponent(`Ola ${a.name},\n\nVoce foi selecionado(a) para o cargo de ${a.cargo || 'colaborador'}.\nPara continuar o processo admissional, acesse o link abaixo e envie os documentos solicitados:\n\n${link}\n\nEm caso de duvidas, entre em contato com o RH.`);
+  window.open(`mailto:${a.email || ''}?subject=${subject}&body=${body}`, '_blank');
+}
+
+async function admCopyLink() {
+  const a = ADM.current;
+  if (!a) return;
+  const token = await admGetOrGenLink(a);
+  if (!token) { toast('Erro ao gerar link.'); return; }
+  const link = window.location.origin + '/admissao/' + token;
+  try {
+    await navigator.clipboard.writeText(link);
+    toast('Link copiado: ' + link);
+  } catch (_) {
+    prompt('Copie o link abaixo:', link);
+  }
+}
+
+async function admMigrate() {
+  const a = ADM.current;
+  if (!a) return;
+  if (!confirm(`Migrar ${a.name} para o modulo de RH como colaborador ativo?`)) return;
+  const r = await apiFetch('/api/admissoes/' + a.id + '/migrate', { method: 'POST', body: '{}' });
+  if (!r || !r.ok) { toast('Erro ao migrar.'); return; }
+  toast('Colaborador cadastrado no RH com sucesso!');
+  await admLoad();
+  await admOpenDetail(a.id);
+}
+
+async function admDeleteCurrent() {
+  const a = ADM.current;
+  if (!a) return;
+  if (!confirm(`Excluir o processo de ${a.name}?`)) return;
+  const r = await apiFetch('/api/admissoes/' + a.id, { method: 'DELETE' });
+  if (!r || !r.ok) { toast('Erro ao excluir.'); return; }
+  admCloseDetail();
+  await admLoad();
+  toast('Processo excluido.');
+}
+
+function admReadFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = e => resolve(e.target.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 initApp();
