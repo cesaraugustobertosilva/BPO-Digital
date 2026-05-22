@@ -1,0 +1,105 @@
+[
+  {
+    "id": "adm_1779471604371",
+    "companyId": "comp_demo",
+    "departmentId": "dept_rh",
+    "name": "cesar",
+    "cpf": "411251111",
+    "email": "cesar.silva@sbk.com.br",
+    "phone": "11976788624",
+    "cargo": "coordenador",
+    "dataInicio": "2026-05-25",
+    "mat": "",
+    "checklist": [
+      {
+        "id": "ci_0",
+        "name": "RG ou CNH",
+        "required": true,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      },
+      {
+        "id": "ci_1",
+        "name": "CPF",
+        "required": true,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      },
+      {
+        "id": "ci_2",
+        "name": "Comprovante de Residencia",
+        "required": true,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      },
+      {
+        "id": "ci_3",
+        "name": "Foto 3x4",
+        "required": true,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      },
+      {
+        "id": "ci_4",
+        "name": "Certidao de Nascimento ou Casamento",
+        "required": true,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      },
+      {
+        "id": "ci_5",
+        "name": "Carteira de Trabalho (CTPS)",
+        "required": true,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      },
+      {
+        "id": "ci_6",
+        "name": "Titulo de Eleitor",
+        "required": false,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      },
+      {
+        "id": "ci_7",
+        "name": "Certificado de Reservista",
+        "required": false,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      },
+      {
+        "id": "ci_8",
+        "name": "PIS/PASEP",
+        "required": false,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      },
+      {
+        "id": "ci_9",
+        "name": "Certificado Escolar / Diploma",
+        "required": false,
+        "status": "pendente",
+        "file": null,
+        "aiResult": null
+      }
+    ],
+    "contrato": {
+      "modo": "manual",
+      "status": "pendente"
+    },
+    "linkToken": null,
+    "status": "em_andamento",
+    "createdAt": "2026-05-22T17:40:04.371Z",
+    "createdBy": "cesar.silva",
+    "migratedDossieId": null
+  }
+]
