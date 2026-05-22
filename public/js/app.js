@@ -229,12 +229,12 @@ function resetChecklistFromDept() {
 
 /* ── VIEW CONTROL ────────────────────────────────────────────────── */
 function showView(name) {
-  ['mainView','incView','adminView','companyView','multiCompanyView','trabalhistaView','nfView','contratosView','docVariadosView','painelView'].forEach(id => {
+  ['mainView','incView','adminView','companyView','multiCompanyView','trabalhistaView','nfView','contratosView','docVariadosView','painelView','admissionalView'].forEach(id => {
     const e = gel(id);
     if (e) { e.classList.add('hidden'); e.classList.remove('active'); }
   });
   const nav = gel('mainNav');
-  if (['main','inc','trabalhista','nf','contratos','docVariados','painel'].includes(name)) nav?.classList.remove('hidden');
+  if (['main','inc','trabalhista','nf','contratos','docVariados','painel','admissional'].includes(name)) nav?.classList.remove('hidden');
   else nav?.classList.add('hidden');
 
   const idMap = { main:'mainView', inc:'incView', admin:'adminView', multiCompanyView:'multiCompanyView', trabalhista:'trabalhistaView', nf:'nfView', contratos:'contratosView', docVariados:'docVariadosView', painel:'painelView', admissional:'admissionalView' };
