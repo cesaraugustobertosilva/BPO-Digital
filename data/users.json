@@ -72,5 +72,21 @@
       "documentos"
     ],
     "passwordHash": "b38b178b7f14a47158379c914bc9dc21:229ae3dc4cf90b701db176dfd0906f2fc22c8dc8fe0c211dae96957f63fb4850c93ebf57629aef7ea9d0d35a40bf41110fab248397bb03df57f8e6b4c827a70f"
+  },
+  {
+    "id": "user_1779479216128",
+    "username": "alvaro.zucchi",
+    "name": "Alvaro Zucchi",
+    "role": "multicompany",
+    "companyId": null,
+    "departmentId": null,
+    "modules": [
+      "rh",
+      "trabalhista",
+      "nf",
+      "contratos",
+      "documentos"
+    ],
+    "passwordHash": "aae8dc6bc9fbbf17620ce1f37e7921bf:08392f92e79dcc2062d4f7ce849eac8fa3d6ff89130d6282ff2f6b17a35bd8bfbd9d0016c2693f9edd30f49337e336d3a22520ab31d172556f2786b108c1e86b"
   }
 ]
