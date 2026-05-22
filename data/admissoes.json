@@ -141,7 +141,7 @@
     "migratedDossieId": null,
     "linkToken": "demo-token-rafael-002",
     "contrato": {
-      "modo": "d4sign",
+      "modo": "docusign",
       "status": "aguardando_assinatura",
       "d4signDocUuid": "uuid-demo-001",
       "d4signSignatories": "rafael.almeida@email.com",
