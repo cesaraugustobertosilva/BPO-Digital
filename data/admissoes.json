@@ -135,10 +135,10 @@
     "cargo": "Desenvolvedor Backend",
     "dataInicio": "2025-06-09",
     "mat": "",
-    "status": "completo",
+    "status": "migrado",
     "createdAt": "2026-05-17T17:51:29.901Z",
     "createdBy": "admin",
-    "migratedDossieId": null,
+    "migratedDossieId": "dossie_adm_1780422133215",
     "linkToken": "demo-token-rafael-002",
     "contrato": {
       "modo": "manual",
