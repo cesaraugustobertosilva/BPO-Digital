@@ -105,7 +105,10 @@
       "admissional"
     ],
     "passwordHash": "ee959664aca0d663499d00c1807bf159:d80f71529034ecf66ec781a9b71f8e274dfa90d87293ddae87a82678a307f9bb3e32aec32031925b3642edbb0f31c4bee467d483f6f233eb580aa2f6e4883194",
-    "allowedCompanies": []
+    "allowedCompanies": [
+      "comp_demo",
+      "comp_1778862382389"
+    ]
   },
   {
     "id": "user_1780428980530",
