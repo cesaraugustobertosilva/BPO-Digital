@@ -104,7 +104,8 @@
       "documentos",
       "admissional"
     ],
-    "passwordHash": "dbf757c892b9520ad9c77dbac5002589:bee45df46d748369d1ae2c68e02215afdba13f27c13e2b6b6f051885bfde105b40361a2d2d5d9c7d37aa7dca6f55e32601f89f48d3620977832b9693ab4d18cd"
+    "passwordHash": "ee959664aca0d663499d00c1807bf159:d80f71529034ecf66ec781a9b71f8e274dfa90d87293ddae87a82678a307f9bb3e32aec32031925b3642edbb0f31c4bee467d483f6f233eb580aa2f6e4883194",
+    "allowedCompanies": []
   },
   {
     "id": "user_1780428980530",
