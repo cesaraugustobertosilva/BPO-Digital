@@ -105,5 +105,22 @@
       "admissional"
     ],
     "passwordHash": "dbf757c892b9520ad9c77dbac5002589:bee45df46d748369d1ae2c68e02215afdba13f27c13e2b6b6f051885bfde105b40361a2d2d5d9c7d37aa7dca6f55e32601f89f48d3620977832b9693ab4d18cd"
+  },
+  {
+    "id": "user_1780428980530",
+    "username": "lucas.paiva",
+    "name": "Lucas Paiva",
+    "role": "multicompany",
+    "companyId": null,
+    "departmentId": null,
+    "modules": [
+      "rh",
+      "trabalhista",
+      "nf",
+      "contratos",
+      "documentos",
+      "admissional"
+    ],
+    "passwordHash": "8395441c2479478aa9e8dbf7528c6eb9:0e7bd0dd606004dbef931b682d06a7655b8988f14995e0d24db5fc51faaa701d60553d2818c50ce6b87c846cb4748c1a134e10e103a49bd047c357d53b15acba"
   }
 ]
