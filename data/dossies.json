@@ -1,5 +1,74 @@
 [
   {
+    "id": "dossie_adm_1780422133215",
+    "ts": 1780422133215,
+    "companyId": "comp_demo",
+    "departmentId": "dept_rh",
+    "name": "Rafael Souza Almeida",
+    "cpf": "521.876.043-19",
+    "mat": "",
+    "cargo": "Desenvolvedor Backend",
+    "status": "ativo",
+    "docs": [
+      "RG ou CNH",
+      "CPF",
+      "Comprovante de Residencia",
+      "Foto 3x4",
+      "Certidao de Nascimento ou Casamento",
+      "Carteira de Trabalho (CTPS)",
+      "Certificado Escolar / Diploma"
+    ],
+    "missing_req": [],
+    "total": 7,
+    "req": 6,
+    "files": [
+      {
+        "id": "ci_rg",
+        "name": "RG ou CNH",
+        "mime": "image/jpeg",
+        "uploadedAt": "2026-05-19T17:51:29.901Z"
+      },
+      {
+        "id": "ci_cpf",
+        "name": "CPF",
+        "mime": "image/jpeg",
+        "uploadedAt": "2026-05-19T17:51:29.901Z"
+      },
+      {
+        "id": "ci_res",
+        "name": "Comprovante de Residencia",
+        "mime": "application/pdf",
+        "uploadedAt": "2026-05-20T17:51:29.901Z"
+      },
+      {
+        "id": "ci_foto",
+        "name": "Foto 3x4",
+        "mime": "image/jpeg",
+        "uploadedAt": "2026-05-20T17:51:29.901Z"
+      },
+      {
+        "id": "ci_cert",
+        "name": "Certidao de Nascimento ou Casamento",
+        "mime": "application/pdf",
+        "uploadedAt": "2026-05-21T17:51:29.901Z"
+      },
+      {
+        "id": "ci_ctps",
+        "name": "Carteira de Trabalho (CTPS)",
+        "mime": "application/pdf",
+        "uploadedAt": "2026-05-21T17:51:29.901Z"
+      },
+      {
+        "id": "ci_diploma",
+        "name": "Certificado Escolar / Diploma",
+        "mime": "application/pdf",
+        "uploadedAt": "2026-05-22T05:51:29.901Z"
+      }
+    ],
+    "admissaoId": "adm_demo2",
+    "createdAt": "2026-06-02T17:42:13.215Z"
+  },
+  {
     "id": "dl1",
     "ts": 1778673152229,
     "companyId": "comp_demo",
