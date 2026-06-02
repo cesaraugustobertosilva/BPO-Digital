@@ -125,6 +125,10 @@
       "documentos",
       "admissional"
     ],
-    "passwordHash": "8395441c2479478aa9e8dbf7528c6eb9:0e7bd0dd606004dbef931b682d06a7655b8988f14995e0d24db5fc51faaa701d60553d2818c50ce6b87c846cb4748c1a134e10e103a49bd047c357d53b15acba"
+    "passwordHash": "92a1bf5c9dab24102dd498e4ffad2418:c5208d6ab71d55a22994eea9f2849f533e3332875be678854b7427784c894626832a0a172447e08b85cac9fc4368e91562d83627e81b8696ecb4c4d5a5fb2ea9",
+    "allowedCompanies": [
+      "comp_demo",
+      "comp_1778862382389"
+    ]
   }
 ]
