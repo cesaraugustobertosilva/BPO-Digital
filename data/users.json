@@ -130,5 +130,22 @@
       "comp_demo",
       "comp_1778862382389"
     ]
+  },
+  {
+    "id": "user_1785789741619",
+    "username": "joao.zocarato",
+    "name": "João",
+    "role": "multicompany",
+    "companyId": null,
+    "departmentId": null,
+    "modules": [
+      "rh",
+      "trabalhista",
+      "nf",
+      "contratos",
+      "documentos",
+      "admissional"
+    ],
+    "passwordHash": "a603ec848b264b46313f17878d3d8c96:df07cde6fdb18f73d0d1265e3136418af1102c958b7b19ad0412933155e836d1db87bdcc38bdfafa5bcebf9b8a1bb8151d3efc5f89559ce3f41eadbfbf4838d8"
   }
 ]
