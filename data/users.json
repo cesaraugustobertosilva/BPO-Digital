@@ -147,5 +147,21 @@
       "admissional"
     ],
     "passwordHash": "a603ec848b264b46313f17878d3d8c96:df07cde6fdb18f73d0d1265e3136418af1102c958b7b19ad0412933155e836d1db87bdcc38bdfafa5bcebf9b8a1bb8151d3efc5f89559ce3f41eadbfbf4838d8"
+  },
+  {
+    "id": "user_1787238123289",
+    "username": "ana.martire",
+    "name": "Ana Carolina",
+    "role": "multicompany",
+    "companyId": null,
+    "departmentId": null,
+    "modules": [
+      "rh",
+      "nf",
+      "contratos",
+      "documentos",
+      "admissional"
+    ],
+    "passwordHash": "395054afddf7fbc86abc7b6824cac308:aac7cdcaada464d73c45b8acd4c3f7f4e17dd0dc5fbaed468eb975959699f61adbeb366116f3414159250bbaee2f8a82f6b6d01a1c8dfebf7ea6312bf618c60b"
   }
 ]
